@@ -1,0 +1,394 @@
+import React, { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import {
+  Box,
+  Container,
+  Typography,
+  Grid,
+  Card,
+  CardContent,
+  CardActions,
+  TextField,
+  InputAdornment,
+  Chip,
+  Button,
+  Avatar,
+  Skeleton,
+  Stack,
+  Fade,
+  Divider
+} from '@mui/material';
+import { Search, Calendar, Clock, ArrowUpRight, Code } from 'lucide-react';
+import { getBlogs } from '../services/blogService';
+import type { BlogPost } from '../services/blogService';
+
+export const Home: React.FC = () => {
+  const [blogs, setBlogs] = useState<BlogPost[]>([]);
+  const [loading, setLoading] = useState<boolean>(true);
+  const [searchQuery, setSearchQuery] = useState<string>('');
+  const [selectedTag, setSelectedTag] = useState<string | null>(null);
+
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    const fetchBlogs = async () => {
+      try {
+        const data = await getBlogs();
+        setBlogs(data);
+      } catch (err) {
+        console.error("Failed to load blogs:", err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchBlogs();
+  }, []);
+
+  // Extract all unique tags
+  const allTags = Array.from(
+    new Set(blogs.flatMap(blog => blog.tags || []))
+  );
+
+  // Filter blogs based on search query and selected tag
+  const filteredBlogs = blogs.filter(blog => {
+    const matchesSearch = 
+      blog.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      blog.summary.toLowerCase().includes(searchQuery.toLowerCase());
+    
+    const matchesTag = !selectedTag || blog.tags.includes(selectedTag);
+
+    return matchesSearch && matchesTag;
+  });
+
+  const formatDate = (isoString: string) => {
+    const date = new Date(isoString);
+    return date.toLocaleDateString('de-DE', {
+      day: '2-digit',
+      month: 'long',
+      year: 'numeric'
+    });
+  };
+
+  const getAuthorInitials = (name: string) => {
+    return name
+      .split(' ')
+      .map(part => part.charAt(0))
+      .join('')
+      .toUpperCase();
+  };
+
+  return (
+    <Container maxWidth="lg" sx={{ py: 6, flexGrow: 1 }} className="animate-fade-in">
+      {/* HERO SECTION */}
+      <Box 
+        sx={{ 
+          textAlign: 'center', 
+          py: { xs: 6, md: 8 }, 
+          mb: 6, 
+          borderRadius: 6,
+          background: 'linear-gradient(180deg, rgba(139, 92, 246, 0.05) 0%, rgba(7, 10, 19, 0) 100%)',
+          border: '1px solid rgba(255, 255, 255, 0.03)',
+          position: 'relative',
+          overflow: 'hidden'
+        }}
+      >
+        {/* Glow decorative bubble */}
+        <Box 
+          sx={{
+            position: 'absolute',
+            top: '-20%',
+            left: '50%',
+            transform: 'translateX(-50%)',
+            width: '60%',
+            height: '60%',
+            background: 'radial-gradient(circle, rgba(139, 92, 246, 0.15) 0%, rgba(7, 10, 19, 0) 70%)',
+            zIndex: 0,
+            pointerEvents: 'none'
+          }}
+        />
+
+        <Box sx={{ position: 'relative', zIndex: 1, px: 2 }}>
+          <Box 
+            sx={{ 
+              display: 'inline-flex', 
+              alignItems: 'center', 
+              gap: 1, 
+              px: 2, 
+              py: 0.5, 
+              borderRadius: 5, 
+              bgcolor: 'rgba(20, 184, 166, 0.08)',
+              border: '1px solid rgba(20, 184, 166, 0.2)',
+              mb: 3
+            }}
+          >
+            <Code size={14} color="#14b8a6" />
+            <Typography variant="caption" sx={{ color: '#14b8a6', fontWeight: 700, fontFamily: 'Outfit, sans-serif', letterSpacing: '0.05em' }}>
+              DEVS WRITE FOR DEVS
+            </Typography>
+          </Box>
+          <Typography 
+            variant="h2" 
+            component="h1" 
+            sx={{ 
+              fontWeight: 800, 
+              mb: 2, 
+              fontFamily: 'Outfit, sans-serif',
+              fontSize: { xs: '2.5rem', md: '3.75rem' },
+              letterSpacing: '-0.02em',
+              background: 'linear-gradient(135deg, #ffffff 0%, #a78bfa 50%, #8b5cf6 100%)',
+              WebkitBackgroundClip: 'text',
+              WebkitTextFillColor: 'transparent'
+            }}
+          >
+            Entdecke das DevSpace Universum
+          </Typography>
+          <Typography 
+            variant="h6" 
+            color="text.secondary" 
+            sx={{ maxWidth: '650px', mx: 'auto', mb: 4, fontWeight: 400, px: 2 }}
+          >
+            Lies tiefgehende Tutorials, moderne Best Practices und spannende Updates über Frontend, Backend und DevOps – geschrieben von Experten aus der Community.
+          </Typography>
+        </Box>
+      </Box>
+
+      {/* FILTER & SEARCH */}
+      <Stack 
+        direction={{ xs: 'column', md: 'row' }}
+        spacing={2} 
+        sx={{ mb: 5, justifyContent: 'space-between', alignItems: 'center', width: '100%' }}
+      >
+        {/* Search Field */}
+        <TextField
+          placeholder="Artikel suchen..."
+          variant="outlined"
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          sx={{ width: { xs: '100%', md: '350px' } }}
+          slotProps={{
+            input: {
+              startAdornment: (
+                <InputAdornment position="start">
+                  <Search size={18} color="#64748b" />
+                </InputAdornment>
+              ),
+            }
+          }}
+        />
+
+        {/* Tag pills */}
+        <Box 
+          sx={{ 
+            display: 'flex', 
+            gap: 1, 
+            overflowX: 'auto', 
+            width: '100%', 
+            py: 1,
+            '&::-webkit-scrollbar': { display: 'none' },
+            justifyContent: { xs: 'flex-start', md: 'flex-end' }
+          }}
+        >
+          <Chip
+            label="Alle"
+            clickable
+            onClick={() => setSelectedTag(null)}
+            sx={{
+              bgcolor: !selectedTag ? 'primary.main' : 'rgba(255, 255, 255, 0.03)',
+              color: !selectedTag ? '#ffffff' : '#94a3b8',
+              border: !selectedTag ? '1px solid transparent' : '1px solid rgba(255, 255, 255, 0.05)',
+              fontFamily: 'Outfit, sans-serif',
+              fontWeight: 600,
+              '&:hover': {
+                bgcolor: !selectedTag ? 'primary.dark' : 'rgba(255, 255, 255, 0.08)'
+              }
+            }}
+          />
+          {allTags.map(tag => {
+            const isSelected = selectedTag === tag;
+            return (
+              <Chip
+                key={tag}
+                label={tag}
+                clickable
+                onClick={() => setSelectedTag(isSelected ? null : tag)}
+                sx={{
+                  bgcolor: isSelected ? 'primary.main' : 'rgba(255, 255, 255, 0.03)',
+                  color: isSelected ? '#ffffff' : '#94a3b8',
+                  border: isSelected ? '1px solid transparent' : '1px solid rgba(255, 255, 255, 0.05)',
+                  fontFamily: 'Outfit, sans-serif',
+                  fontWeight: 600,
+                  '&:hover': {
+                    bgcolor: isSelected ? 'primary.dark' : 'rgba(255, 255, 255, 0.08)'
+                  }
+                }}
+              />
+            );
+          })}
+        </Box>
+      </Stack>
+
+      {/* BLOG GRID */}
+      {loading ? (
+        <Grid container spacing={4}>
+          {[1, 2, 3].map(i => (
+            <Grid size={{ xs: 12, md: 4 }} key={i}>
+              <Card sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
+                <CardContent sx={{ flexGrow: 1, p: 3 }}>
+                  <Skeleton variant="rectangular" height={16} width="40%" sx={{ mb: 2, borderRadius: 1 }} />
+                  <Skeleton variant="rectangular" height={28} sx={{ mb: 2, borderRadius: 1 }} />
+                  <Skeleton variant="rectangular" height={60} sx={{ mb: 3, borderRadius: 1 }} />
+                  <Skeleton variant="circular" width={40} height={40} />
+                </CardContent>
+              </Card>
+            </Grid>
+          ))}
+        </Grid>
+      ) : filteredBlogs.length > 0 ? (
+        <Grid container spacing={4}>
+          {filteredBlogs.map((blog, index) => (
+            <Grid size={{ xs: 12, md: 4 }} key={blog.id}>
+              <Fade in={true} timeout={300 + index * 100}>
+                <Card 
+                  onClick={() => navigate(`/blog/${blog.id}`)}
+                  sx={{ 
+                    height: '100%', 
+                    display: 'flex', 
+                    flexDirection: 'column',
+                    cursor: 'pointer',
+                    position: 'relative'
+                  }}
+                >
+                  <CardContent sx={{ flexGrow: 1, p: 3, pb: 1 }}>
+                    {/* Tags */}
+                    <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.8, mb: 2 }}>
+                      {blog.tags.map(tag => (
+                        <Box 
+                          key={tag} 
+                          sx={{ 
+                            fontSize: 10, 
+                            fontWeight: 700, 
+                            px: 1.2, 
+                            py: 0.4, 
+                            borderRadius: '6px', 
+                            bgcolor: 'rgba(139, 92, 246, 0.08)',
+                            color: '#a78bfa',
+                            border: '1px solid rgba(139, 92, 246, 0.15)',
+                            fontFamily: 'Outfit, sans-serif'
+                          }}
+                        >
+                          {tag}
+                        </Box>
+                      ))}
+                    </Box>
+
+                    {/* Title */}
+                    <Typography 
+                      variant="h5" 
+                      component="h2" 
+                      gutterBottom 
+                      sx={{ 
+                        fontFamily: 'Outfit, sans-serif', 
+                        fontWeight: 750, 
+                        lineHeight: 1.3,
+                        color: '#f8fafc',
+                        '&:hover': {
+                          color: '#a78bfa'
+                        }
+                      }}
+                    >
+                      {blog.title}
+                    </Typography>
+
+                    {/* Summary */}
+                    <Typography 
+                      variant="body2" 
+                      color="text.secondary" 
+                      sx={{ 
+                        mb: 3, 
+                        lineHeight: 1.6,
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis',
+                        display: '-webkit-box',
+                        WebkitLineClamp: 3,
+                        WebkitBoxOrient: 'vertical',
+                      }}
+                    >
+                      {blog.summary}
+                    </Typography>
+                  </CardContent>
+
+                  {/* Author and stats */}
+                  <CardContent sx={{ p: 3, pt: 0, pb: 2 }}>
+                    <Divider sx={{ mb: 2, borderColor: 'rgba(255, 255, 255, 0.04)' }} />
+                    <Stack direction="row" spacing={1.5} sx={{ alignItems: 'center' }}>
+                      <Avatar 
+                        sx={{ 
+                          width: 32, 
+                          height: 32, 
+                          bgcolor: 'rgba(139, 92, 246, 0.2)',
+                          color: '#c084fc',
+                          fontSize: 12,
+                          fontWeight: 700,
+                          border: '1px solid rgba(139, 92, 246, 0.3)'
+                        }}
+                      >
+                        {getAuthorInitials(blog.authorName)}
+                      </Avatar>
+                      <Box sx={{ flexGrow: 1 }}>
+                        <Typography variant="body2" sx={{ fontWeight: 600, color: '#e2e8f0', fontSize: 13 }}>
+                          {blog.authorName}
+                        </Typography>
+                         <Stack direction="row" spacing={1.5} sx={{ color: 'text.secondary', mt: 0.2 }}>
+                          <Stack direction="row" spacing={0.5} sx={{ alignItems: 'center' }}>
+                            <Calendar size={11} />
+                            <Typography variant="caption" sx={{ fontSize: 10 }}>{formatDate(blog.createdAt)}</Typography>
+                          </Stack>
+                          <Stack direction="row" spacing={0.5} sx={{ alignItems: 'center' }}>
+                            <Clock size={11} />
+                            <Typography variant="caption" sx={{ fontSize: 10 }}>{blog.readTime} min</Typography>
+                          </Stack>
+                        </Stack>
+                      </Box>
+                    </Stack>
+                  </CardContent>
+
+                  <CardActions sx={{ p: 3, pt: 0, justifyContent: 'flex-end' }}>
+                    <Button 
+                      size="small" 
+                      color="primary"
+                      endIcon={<ArrowUpRight size={14} />}
+                      sx={{ 
+                        fontFamily: 'Outfit, sans-serif', 
+                        fontWeight: 600, 
+                        p: 0,
+                        '&:hover': {
+                          background: 'none',
+                          color: 'primary.light',
+                          '& .MuiButton-endIcon': {
+                            transform: 'translate(2px, -2px)'
+                          }
+                        },
+                        transition: 'color 0.2s ease'
+                      }}
+                    >
+                      Artikel lesen
+                    </Button>
+                  </CardActions>
+                </Card>
+              </Fade>
+            </Grid>
+          ))}
+        </Grid>
+      ) : (
+        <Box sx={{ textAlign: 'center', py: 10, bgcolor: 'rgba(255, 255, 255, 0.01)', borderRadius: 4, border: '1px solid rgba(255,255,255,0.03)' }}>
+          <Typography variant="h6" color="text.secondary" sx={{ fontFamily: 'Outfit, sans-serif' }}>
+            Keine Artikel gefunden.
+          </Typography>
+          <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+            Passe deine Suche oder deinen Tag-Filter an.
+          </Typography>
+        </Box>
+      )}
+    </Container>
+  );
+};

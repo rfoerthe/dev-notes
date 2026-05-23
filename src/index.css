@@ -1,0 +1,167 @@
+/* Modern Global Styles & Animations */
+
+:root {
+  color-scheme: dark;
+}
+
+body {
+  margin: 0;
+  padding: 0;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  color: #f8fafc;
+  background-color: #070a13;
+  /* Premium animated radial gradient background mesh */
+  background-image: 
+    radial-gradient(at 0% 0%, rgba(139, 92, 246, 0.08) 0px, transparent 50%),
+    radial-gradient(at 100% 0%, rgba(20, 184, 166, 0.08) 0px, transparent 50%),
+    radial-gradient(at 50% 100%, rgba(99, 102, 241, 0.05) 0px, transparent 50%);
+  background-attachment: fixed;
+  min-height: 100vh;
+  overflow-x: hidden;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+#root {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Glassmorphism helpers */
+.glass-panel {
+  background: rgba(15, 23, 42, 0.6);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.25);
+}
+
+.glass-nav {
+  background: rgba(7, 10, 19, 0.75);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+/* Markdown typography rendering in BlogDetails */
+.markdown-body {
+  font-family: 'Inter', sans-serif;
+  line-height: 1.8;
+  color: #e2e8f0;
+  font-size: 1.125rem;
+}
+
+.markdown-body h1, 
+.markdown-body h2, 
+.markdown-body h3, 
+.markdown-body h4 {
+  font-family: 'Outfit', sans-serif;
+  color: #f8fafc;
+  font-weight: 700;
+  margin-top: 2rem;
+  margin-bottom: 1rem;
+  letter-spacing: -0.01em;
+}
+
+.markdown-body h1 { font-size: 2.25rem; }
+.markdown-body h2 { font-size: 1.75rem; border-bottom: 1px solid rgba(255, 255, 255, 0.08); padding-bottom: 0.5rem; }
+.markdown-body h3 { font-size: 1.35rem; }
+
+.markdown-body p {
+  margin-bottom: 1.5rem;
+}
+
+.markdown-body ul, 
+.markdown-body ol {
+  margin-bottom: 1.5rem;
+  padding-left: 2rem;
+}
+
+.markdown-body li {
+  margin-bottom: 0.5rem;
+}
+
+/* Beautiful inline code and code block styling */
+.markdown-body code {
+  font-family: 'Fira Code', 'Courier New', Courier, monospace;
+  font-size: 0.9em;
+  background-color: rgba(255, 255, 255, 0.08);
+  padding: 0.2rem 0.4rem;
+  border-radius: 6px;
+  color: #f472b6; /* pink accent for code */
+  border: 1px solid rgba(255, 255, 255, 0.04);
+}
+
+.markdown-body pre {
+  background-color: #0b0f19;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 12px;
+  padding: 1.25rem;
+  overflow-x: auto;
+  margin-bottom: 1.5rem;
+  box-shadow: inset 0 2px 8px rgba(0, 0, 0, 0.5);
+}
+
+.markdown-body pre code {
+  background-color: transparent;
+  padding: 0;
+  border-radius: 0;
+  color: #e2e8f0;
+  font-size: 0.95rem;
+  border: none;
+}
+
+.markdown-body blockquote {
+  border-left: 4px solid #8b5cf6;
+  background-color: rgba(139, 92, 246, 0.05);
+  margin: 1.5rem 0;
+  padding: 1rem 1.5rem;
+  border-radius: 0 12px 12px 0;
+  font-style: italic;
+  color: #cbd5e1;
+}
+
+.markdown-body blockquote p {
+  margin-bottom: 0;
+}
+
+/* Glow effects */
+.text-glow-primary {
+  text-shadow: 0 0 20px rgba(139, 92, 246, 0.4);
+}
+
+.text-glow-secondary {
+  text-shadow: 0 0 20px rgba(20, 184, 166, 0.4);
+}
+
+/* Smooth page load animation */
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.animate-fade-in {
+  animation: fadeIn 0.5s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+}
+
+/* Pulse animation for pending accounts */
+@keyframes glowPulse {
+  0% { box-shadow: 0 0 15px 0 rgba(139, 92, 246, 0.25); }
+  50% { box-shadow: 0 0 25px 5px rgba(139, 92, 246, 0.4); }
+  100% { box-shadow: 0 0 15px 0 rgba(139, 92, 246, 0.25); }
+}
+
+.animate-pulse-glow {
+  animation: glowPulse 2s infinite ease-in-out;
+}
+
+/* Autofill autocomplete overrides to prevent browser-native ugly styles in dark mode */
+input:-webkit-autofill,
+input:-webkit-autofill:hover, 
+input:-webkit-autofill:focus, 
+input:-webkit-autofill:active {
+  -webkit-box-shadow: 0 0 0 30px #0b0f19 inset !important;
+  -webkit-text-fill-color: #f8fafc !important;
+  transition: background-color 5000s ease-in-out 0s;
+}

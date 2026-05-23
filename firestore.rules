@@ -1,0 +1,60 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // Helper: Checks if the user is authenticated
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    // Helper: Checks if the requesting user has the admin role in Firestore
+    function isAdmin() {
+      return isAuthenticated() && 
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+    }
+    
+    // Helper: Checks if the requesting user is approved in Firestore
+    function isApproved() {
+      return isAuthenticated() && 
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.status == 'approved';
+    }
+
+    // --- Users Collection Rules ---
+    match /users/{userId} {
+      // Admins can read all profiles. Users can read their own profile.
+      allow read: if isAuthenticated() && (request.auth.uid == userId || isAdmin());
+      
+      // Anyone can create their own profile during registration
+      allow create: if isAuthenticated() && request.auth.uid == userId;
+      
+      // Admins can update any user's profile (e.g. status).
+      // Users can only update their own profile, but CANNOT change their role or status themselves (critical security check!).
+      allow update: if isAuthenticated() && (
+        isAdmin() || (
+          request.auth.uid == userId && 
+          request.resource.data.role == resource.data.role && 
+          request.resource.data.status == resource.data.status
+        )
+      );
+      
+      // Only admins can delete profiles
+      allow delete: if isAdmin();
+    }
+
+    // --- Blogs Collection Rules ---
+    match /blogs/{blogId} {
+      // Blogs are publicly readable by anyone
+      allow read: if true;
+      
+      // Only approved developers or admins can create blog posts.
+      // Must set themselves as the author.
+      allow create: if isApproved() && request.resource.data.authorId == request.auth.uid;
+      
+      // Only the author or an admin can update/delete a blog post.
+      allow update, delete: if isApproved() && (
+        resource.data.authorId == request.auth.uid || isAdmin()
+      );
+    }
+  }
+}
