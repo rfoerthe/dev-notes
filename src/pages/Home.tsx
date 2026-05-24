@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Box,
@@ -27,6 +27,7 @@ export const Home: React.FC = () => {
   const [loading, setLoading] = useState<boolean>(true);
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [selectedTag, setSelectedTag] = useState<string | null>(null);
+  const [isExpanded, setIsExpanded] = useState<boolean>(false);
 
   const navigate = useNavigate();
 
@@ -44,10 +45,25 @@ export const Home: React.FC = () => {
     fetchBlogs();
   }, []);
 
-  // Extract all unique tags
-  const allTags = Array.from(
-    new Set(blogs.flatMap(blog => blog.tags || []))
-  );
+  // Calculate dynamic tag counts sorted by post frequency
+  const tagCounts = useMemo(() => {
+    const counts: Record<string, number> = {};
+    blogs.forEach(blog => {
+      blog.tags?.forEach(tag => {
+        counts[tag] = (counts[tag] || 0) + 1;
+      });
+    });
+    return counts;
+  }, [blogs]);
+
+  // Extract all unique tags sorted by popularity (most posts first)
+  const allTagsSorted = useMemo(() => {
+    return Object.keys(tagCounts).sort((a, b) => tagCounts[b] - tagCounts[a]);
+  }, [tagCounts]);
+
+  const COLLAPSE_LIMIT = 7;
+  const hasMoreTags = allTagsSorted.length > COLLAPSE_LIMIT;
+  const visibleTags = isExpanded ? allTagsSorted : allTagsSorted.slice(0, COLLAPSE_LIMIT);
 
   // Filter blogs based on search query and selected tag
   const filteredBlogs = blogs.filter(blog => {
@@ -156,9 +172,8 @@ export const Home: React.FC = () => {
 
       {/* FILTER & SEARCH */}
       <Stack 
-        direction={{ xs: 'column', md: 'row' }}
-        spacing={2} 
-        sx={{ mb: 5, justifyContent: 'space-between', alignItems: 'center', width: '100%' }}
+        spacing={2.5} 
+        sx={{ mb: 5, width: '100%', alignItems: 'flex-start' }}
       >
         {/* Search Field */}
         <TextField
@@ -166,7 +181,7 @@ export const Home: React.FC = () => {
           variant="outlined"
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
-          sx={{ width: { xs: '100%', md: '350px' } }}
+          sx={{ width: { xs: '100%', md: '400px' } }}
           slotProps={{
             input: {
               startAdornment: (
@@ -182,16 +197,16 @@ export const Home: React.FC = () => {
         <Box 
           sx={{ 
             display: 'flex', 
-            gap: 1, 
-            overflowX: 'auto', 
+            gap: 1.2, 
+            flexWrap: 'wrap', 
             width: '100%', 
-            py: 1,
-            '&::-webkit-scrollbar': { display: 'none' },
-            justifyContent: { xs: 'flex-start', md: 'flex-end' }
+            py: 0.5,
+            justifyContent: 'flex-start',
+            transition: 'all 0.3s ease-in-out'
           }}
         >
           <Chip
-            label="Alle"
+            label={`Alle (${blogs.length})`}
             clickable
             onClick={() => setSelectedTag(null)}
             sx={{
@@ -205,12 +220,13 @@ export const Home: React.FC = () => {
               }
             }}
           />
-          {allTags.map(tag => {
+          {visibleTags.map(tag => {
             const isSelected = selectedTag === tag;
+            const count = tagCounts[tag] || 0;
             return (
               <Chip
                 key={tag}
-                label={tag}
+                label={`${tag} (${count})`}
                 clickable
                 onClick={() => setSelectedTag(isSelected ? null : tag)}
                 sx={{
@@ -226,6 +242,23 @@ export const Home: React.FC = () => {
               />
             );
           })}
+          {hasMoreTags && (
+            <Chip
+              label={isExpanded ? 'Weniger anzeigen' : `+ ${allTagsSorted.length - COLLAPSE_LIMIT} weitere...`}
+              clickable
+              onClick={() => setIsExpanded(!isExpanded)}
+              sx={{
+                bgcolor: 'rgba(139, 92, 246, 0.1)',
+                color: '#8b5cf6',
+                border: '1px solid rgba(139, 92, 246, 0.2)',
+                fontFamily: 'Outfit, sans-serif',
+                fontWeight: 700,
+                '&:hover': {
+                  bgcolor: 'rgba(139, 92, 246, 0.18)'
+                }
+              }}
+            />
+          )}
         </Box>
       </Stack>
 
