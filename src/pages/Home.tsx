@@ -16,9 +16,10 @@ import {
   Skeleton,
   Stack,
   Fade,
-  Divider
+  Divider,
+  Popover
 } from '@mui/material';
-import { Search, Calendar, Clock, ArrowUpRight, Code } from 'lucide-react';
+import { Search, Calendar, Clock, ArrowUpRight, Code, ChevronDown } from 'lucide-react';
 import { getBlogs } from '../services/blogService';
 import type { BlogPost } from '../services/blogService';
 
@@ -27,7 +28,19 @@ export const Home: React.FC = () => {
   const [loading, setLoading] = useState<boolean>(true);
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [selectedTag, setSelectedTag] = useState<string | null>(null);
-  const [isExpanded, setIsExpanded] = useState<boolean>(false);
+  const [anchorEl, setAnchorEl] = useState<HTMLDivElement | null>(null);
+  const [popoverSearchQuery, setPopoverSearchQuery] = useState<string>('');
+
+  const handleOpenPopover = (event: React.MouseEvent<HTMLDivElement>) => {
+    setAnchorEl(event.currentTarget);
+  };
+
+  const handleClosePopover = () => {
+    setAnchorEl(null);
+    setPopoverSearchQuery('');
+  };
+
+  const isPopoverOpen = Boolean(anchorEl);
 
   const navigate = useNavigate();
 
@@ -61,9 +74,23 @@ export const Home: React.FC = () => {
     return Object.keys(tagCounts).sort((a, b) => tagCounts[b] - tagCounts[a]);
   }, [tagCounts]);
 
-  const COLLAPSE_LIMIT = 7;
-  const hasMoreTags = allTagsSorted.length > COLLAPSE_LIMIT;
-  const visibleTags = isExpanded ? allTagsSorted : allTagsSorted.slice(0, COLLAPSE_LIMIT);
+  const POPULAR_LIMIT = 12; // Show top 12 popular tags dynamically (fits clean 2 lines)
+  const hasMoreTags = allTagsSorted.length > POPULAR_LIMIT;
+  
+  const visibleTags = useMemo(() => {
+    const popular = allTagsSorted.slice(0, POPULAR_LIMIT);
+    // If a tag is selected and not in the popular list, dynamically append it to remain visible
+    if (selectedTag && !popular.includes(selectedTag)) {
+      popular.push(selectedTag);
+    }
+    return popular;
+  }, [allTagsSorted, selectedTag]);
+
+  const filteredPopoverTags = useMemo(() => {
+    return allTagsSorted.filter(tag =>
+      tag.toLowerCase().includes(popoverSearchQuery.toLowerCase())
+    );
+  }, [allTagsSorted, popoverSearchQuery]);
 
   // Filter blogs based on search query and selected tag
   const filteredBlogs = blogs.filter(blog => {
@@ -244,9 +271,10 @@ export const Home: React.FC = () => {
           })}
           {hasMoreTags && (
             <Chip
-              label={isExpanded ? 'Weniger anzeigen' : `+ ${allTagsSorted.length - COLLAPSE_LIMIT} weitere...`}
+              label={`+ ${allTagsSorted.length - POPULAR_LIMIT} weitere...`}
+              icon={<ChevronDown size={14} style={{ color: '#8b5cf6' }} />}
               clickable
-              onClick={() => setIsExpanded(!isExpanded)}
+              onClick={handleOpenPopover}
               sx={{
                 bgcolor: 'rgba(139, 92, 246, 0.1)',
                 color: '#8b5cf6',
@@ -255,11 +283,112 @@ export const Home: React.FC = () => {
                 fontWeight: 700,
                 '&:hover': {
                   bgcolor: 'rgba(139, 92, 246, 0.18)'
+                },
+                '& .MuiChip-icon': {
+                  color: '#8b5cf6 !important'
                 }
               }}
             />
           )}
         </Box>
+
+        {/* POPOVER WITH AUTOCOMPLETE SEARCH FOR 100+ TAGS */}
+        <Popover
+          open={isPopoverOpen}
+          anchorEl={anchorEl}
+          onClose={handleClosePopover}
+          anchorOrigin={{
+            vertical: 'bottom',
+            horizontal: 'left',
+          }}
+          transformOrigin={{
+            vertical: 'top',
+            horizontal: 'left',
+          }}
+          slotProps={{
+            paper: {
+              sx: {
+                p: 2,
+                width: '320px',
+                maxHeight: '400px',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: 1.5,
+                borderRadius: 3,
+                mt: 1,
+                bgcolor: (theme) => theme.palette.mode === 'dark' ? 'rgba(15, 23, 42, 0.95)' : 'rgba(255, 255, 255, 0.95)',
+                backdropFilter: 'blur(20px)',
+                border: (theme) => theme.palette.mode === 'dark' ? '1px solid rgba(255, 255, 255, 0.08)' : '1px solid rgba(15, 23, 42, 0.08)',
+                boxShadow: '0 12px 40px rgba(0, 0, 0, 0.15)',
+              }
+            }
+          }}
+        >
+          <TextField
+            placeholder="Thema suchen..."
+            variant="outlined"
+            size="small"
+            fullWidth
+            value={popoverSearchQuery}
+            onChange={(e) => setPopoverSearchQuery(e.target.value)}
+            autoFocus
+            slotProps={{
+              input: {
+                startAdornment: (
+                  <InputAdornment position="start">
+                    <Search size={16} color="#64748b" />
+                  </InputAdornment>
+                ),
+              }
+            }}
+          />
+
+          <Box sx={{ overflowY: 'auto', flexGrow: 1, maxHeight: '280px', pr: 0.5 }}>
+            {filteredPopoverTags.length > 0 ? (
+              filteredPopoverTags.map(tag => {
+                const isSelected = selectedTag === tag;
+                const count = tagCounts[tag] || 0;
+                return (
+                  <Box
+                    key={tag}
+                    onClick={() => {
+                      setSelectedTag(isSelected ? null : tag);
+                      handleClosePopover();
+                    }}
+                    sx={{
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      alignItems: 'center',
+                      px: 1.5,
+                      py: 1,
+                      my: 0.5,
+                      borderRadius: 2,
+                      cursor: 'pointer',
+                      bgcolor: isSelected ? 'rgba(139, 92, 246, 0.08)' : 'transparent',
+                      color: isSelected ? 'primary.main' : 'text.primary',
+                      fontWeight: isSelected ? 600 : 400,
+                      transition: 'all 0.2s',
+                      '&:hover': {
+                        bgcolor: (theme) => theme.palette.mode === 'dark' ? 'rgba(255, 255, 255, 0.03)' : 'rgba(15, 23, 42, 0.03)',
+                      }
+                    }}
+                  >
+                    <Typography variant="body2" sx={{ fontFamily: 'Outfit, sans-serif' }}>
+                      {tag}
+                    </Typography>
+                    <Typography variant="caption" sx={{ color: 'text.secondary', fontWeight: 600 }}>
+                      {count}
+                    </Typography>
+                  </Box>
+                );
+              })
+            ) : (
+              <Typography variant="body2" color="text.secondary" sx={{ textAlign: 'center', py: 2 }}>
+                Keine Themen gefunden.
+              </Typography>
+            )}
+          </Box>
+        </Popover>
       </Stack>
 
       {/* BLOG GRID */}

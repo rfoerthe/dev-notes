@@ -117,10 +117,10 @@ export const Profile: React.FC = () => {
         sx={{ 
           p: { xs: 3, md: 5 }, 
           borderRadius: 5,
-          background: 'rgba(15, 23, 42, 0.45)',
+          background: (theme) => theme.palette.mode === 'dark' ? 'rgba(15, 23, 42, 0.45)' : 'rgba(255, 255, 255, 0.55)',
           backdropFilter: 'blur(16px)',
-          border: '1px solid rgba(255, 255, 255, 0.05)',
-          boxShadow: '0 20px 40px -15px rgba(0,0,0,0.5)',
+          border: (theme) => theme.palette.mode === 'dark' ? '1px solid rgba(255, 255, 255, 0.05)' : '1px solid rgba(15, 23, 42, 0.06)',
+          boxShadow: (theme) => theme.palette.mode === 'dark' ? '0 20px 40px -15px rgba(0,0,0,0.5)' : '0 20px 40px -15px rgba(15,23,42,0.05)',
           position: 'relative',
           overflow: 'hidden'
         }}
@@ -185,7 +185,7 @@ export const Profile: React.FC = () => {
                     input: {
                       startAdornment: (
                         <InputAdornment position="start">
-                          <User size={18} style={{ color: 'rgba(255,255,255,0.4)' }} />
+                          <User size={18} color="#64748b" />
                         </InputAdornment>
                       )
                     }
@@ -203,7 +203,7 @@ export const Profile: React.FC = () => {
                     input: {
                       startAdornment: (
                         <InputAdornment position="start">
-                          <User size={18} style={{ color: 'rgba(255,255,255,0.4)' }} />
+                          <User size={18} color="#64748b" />
                         </InputAdornment>
                       )
                     }
@@ -222,22 +222,19 @@ export const Profile: React.FC = () => {
                     input: {
                       startAdornment: (
                         <InputAdornment position="start">
-                          <Lock size={18} style={{ color: 'rgba(255,255,255,0.2)' }} />
+                          <Lock size={18} color="#64748b" style={{ opacity: 0.6 }} />
                         </InputAdornment>
                       )
                     }
                   }}
                   sx={{
                     '& .MuiInputBase-input.Mui-disabled': {
-                      WebkitTextFillColor: 'rgba(255, 255, 255, 0.3)',
-                    },
-                    '& .MuiInputLabel-root.Mui-disabled': {
-                      color: 'rgba(255, 255, 255, 0.3)',
+                      WebkitTextFillColor: (theme) => theme.palette.mode === 'dark' ? 'rgba(255, 255, 255, 0.3)' : 'rgba(0, 0, 0, 0.38)',
                     },
                     '& .MuiOutlinedInput-root.Mui-disabled .MuiOutlinedInput-notchedOutline': {
-                      borderColor: 'rgba(255, 255, 255, 0.05)',
+                      borderColor: (theme) => theme.palette.mode === 'dark' ? 'rgba(255, 255, 255, 0.05)' : 'rgba(0, 0, 0, 0.06)',
                     },
-                    bgcolor: 'rgba(255, 255, 255, 0.01)',
+                    bgcolor: (theme) => theme.palette.mode === 'dark' ? 'rgba(255, 255, 255, 0.01)' : 'rgba(0, 0, 0, 0.02)',
                     borderRadius: 3.5
                   }}
                 />
@@ -254,29 +251,26 @@ export const Profile: React.FC = () => {
                     input: {
                       startAdornment: (
                         <InputAdornment position="start">
-                          <Mail size={18} style={{ color: 'rgba(255,255,255,0.2)' }} />
+                          <Mail size={18} color="#64748b" style={{ opacity: 0.6 }} />
                         </InputAdornment>
                       )
                     }
                   }}
                   sx={{
                     '& .MuiInputBase-input.Mui-disabled': {
-                      WebkitTextFillColor: 'rgba(255, 255, 255, 0.3)',
-                    },
-                    '& .MuiInputLabel-root.Mui-disabled': {
-                      color: 'rgba(255, 255, 255, 0.3)',
+                      WebkitTextFillColor: (theme) => theme.palette.mode === 'dark' ? 'rgba(255, 255, 255, 0.3)' : 'rgba(0, 0, 0, 0.38)',
                     },
                     '& .MuiOutlinedInput-root.Mui-disabled .MuiOutlinedInput-notchedOutline': {
-                      borderColor: 'rgba(255, 255, 255, 0.05)',
+                      borderColor: (theme) => theme.palette.mode === 'dark' ? 'rgba(255, 255, 255, 0.05)' : 'rgba(0, 0, 0, 0.06)',
                     },
-                    bgcolor: 'rgba(255, 255, 255, 0.01)',
+                    bgcolor: (theme) => theme.palette.mode === 'dark' ? 'rgba(255, 255, 255, 0.01)' : 'rgba(0, 0, 0, 0.02)',
                     borderRadius: 3.5
                   }}
                 />
               </Tooltip>
 
               {/* Operating System and Theme Selectors */}
-              <Box sx={{ borderTop: '1px solid rgba(255, 255, 255, 0.06)', pt: 3, mt: 1 }}>
+              <Box sx={{ borderTop: (theme) => theme.palette.mode === 'dark' ? '1px solid rgba(255, 255, 255, 0.06)' : '1px solid rgba(15, 23, 42, 0.06)', pt: 3, mt: 1 }}>
                 <Typography variant="subtitle2" sx={{ mb: 2, color: 'text.secondary', fontWeight: 600, display: 'flex', alignItems: 'center' }}>
                   <Palette size={15} style={{ marginRight: 6, color: '#14b8a6' }} /> Design & Einstellungen
                 </Typography>
@@ -292,7 +286,7 @@ export const Profile: React.FC = () => {
                       input: {
                         startAdornment: (
                           <InputAdornment position="start" sx={{ mr: 1 }}>
-                            <Palette size={18} style={{ color: 'rgba(255,255,255,0.4)' }} />
+                            <Palette size={18} color="#64748b" />
                           </InputAdornment>
                         )
                       }
@@ -314,7 +308,7 @@ export const Profile: React.FC = () => {
                       input: {
                         startAdornment: (
                           <InputAdornment position="start" sx={{ mr: 1 }}>
-                            <Laptop size={18} style={{ color: 'rgba(255,255,255,0.4)' }} />
+                            <Laptop size={18} color="#64748b" />
                           </InputAdornment>
                         )
                       }
@@ -329,7 +323,7 @@ export const Profile: React.FC = () => {
               </Box>
 
               {/* Password change section */}
-              <Box sx={{ borderTop: '1px solid rgba(255, 255, 255, 0.06)', pt: 3, mt: 1 }}>
+              <Box sx={{ borderTop: (theme) => theme.palette.mode === 'dark' ? '1px solid rgba(255, 255, 255, 0.06)' : '1px solid rgba(15, 23, 42, 0.06)', pt: 3, mt: 1 }}>
                 <Typography variant="subtitle2" sx={{ mb: 2, color: 'text.secondary', fontWeight: 600, display: 'flex', alignItems: 'center' }}>
                   <AlertCircle size={15} style={{ marginRight: 6, color: '#fbbf24' }} /> Passwort ändern (Optional)
                 </Typography>
@@ -348,7 +342,7 @@ export const Profile: React.FC = () => {
                       input: {
                         startAdornment: (
                           <InputAdornment position="start">
-                            <Lock size={18} style={{ color: 'rgba(255,255,255,0.4)' }} />
+                            <Lock size={18} color="#64748b" />
                           </InputAdornment>
                         ),
                         endAdornment: (
@@ -375,7 +369,7 @@ export const Profile: React.FC = () => {
                       input: {
                         startAdornment: (
                           <InputAdornment position="start">
-                            <Lock size={18} style={{ color: 'rgba(255,255,255,0.4)' }} />
+                            <Lock size={18} color="#64748b" />
                           </InputAdornment>
                         ),
                         endAdornment: (

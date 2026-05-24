@@ -57,8 +57,8 @@ const App: React.FC = () => {
                 py: 3.5, 
                 px: 2, 
                 mt: 'auto', 
-                bgcolor: 'rgba(7, 10, 19, 0.9)', 
-                borderTop: '1px solid rgba(255, 255, 255, 0.05)',
+                bgcolor: (theme) => theme.palette.mode === 'dark' ? 'rgba(7, 10, 19, 0.9)' : 'rgba(248, 250, 252, 0.9)', 
+                borderTop: (theme) => theme.palette.mode === 'dark' ? '1px solid rgba(255, 255, 255, 0.05)' : '1px solid rgba(15, 23, 42, 0.05)',
                 backdropFilter: 'blur(10px)',
                 textAlign: 'center'
               }}

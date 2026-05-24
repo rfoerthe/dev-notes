@@ -40,11 +40,23 @@ export const CreateBlog: React.FC = () => {
   };
 
   const handleAddTag = () => {
-    const cleanTag = tagInput.trim();
-    if (cleanTag && !tags.includes(cleanTag)) {
-      setTags([...tags, cleanTag]);
-      setTagInput('');
-    }
+    if (!tagInput.trim()) return;
+
+    // Split input by comma or semicolon to support multi-tag entries
+    const newTagsList = tagInput
+      .split(/[,;]+/)
+      .map(t => t.trim())
+      .filter(t => t.length > 0);
+
+    const updatedTags = [...tags];
+    newTagsList.forEach(newTag => {
+      if (!updatedTags.includes(newTag)) {
+        updatedTags.push(newTag);
+      }
+    });
+
+    setTags(updatedTags);
+    setTagInput('');
   };
 
   const handleKeyPress = (e: React.KeyboardEvent) => {
@@ -132,37 +144,29 @@ export const CreateBlog: React.FC = () => {
       <form onSubmit={handleSubmit}>
         <Stack spacing={4}>
           {/* Main info card */}
-          <Paper sx={{ p: 4, bgcolor: (theme) => theme.palette.mode === 'dark' ? 'rgba(15, 23, 42, 0.4)' : 'rgba(255, 255, 255, 0.45)', borderRadius: 4 }}>
+          <Paper sx={{ p: 4, bgcolor: (theme) => theme.palette.mode === 'dark' ? 'rgba(15, 23, 42, 0.45)' : 'rgba(255, 255, 255, 0.45)', borderRadius: 4 }}>
             <Stack spacing={3}>
-              <Box>
-                <Typography variant="body2" sx={{ mb: 1, fontWeight: 600, color: 'text.secondary' }}>
-                  Titel des Beitrags
-                </Typography>
-                <TextField
-                  variant="outlined"
-                  fullWidth
-                  value={title}
-                  onChange={(e) => setTitle(e.target.value)}
-                  disabled={loading}
-                  placeholder="z.B. Einführung in React 19 Server Actions"
-                />
-              </Box>
+              <TextField
+                label="Titel des Beitrags"
+                variant="outlined"
+                fullWidth
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+                disabled={loading}
+                placeholder="z.B. Einführung in React 19 Server Actions"
+              />
 
-              <Box>
-                <Typography variant="body2" sx={{ mb: 1, fontWeight: 600, color: 'text.secondary' }}>
-                  Kurze Zusammenfassung
-                </Typography>
-                <TextField
-                  variant="outlined"
-                  fullWidth
-                  multiline
-                  rows={2}
-                  value={summary}
-                  onChange={(e) => setSummary(e.target.value)}
-                  disabled={loading}
-                  placeholder="Schreibe einen kurzen Teaser, der das Interesse der Leser weckt (wird in den Kacheln angezeigt)."
-                />
-              </Box>
+              <TextField
+                label="Kurze Zusammenfassung"
+                variant="outlined"
+                fullWidth
+                multiline
+                rows={2}
+                value={summary}
+                onChange={(e) => setSummary(e.target.value)}
+                disabled={loading}
+                placeholder="Schreibe einen kurzen Teaser, der das Interesse der Leser weckt (wird in den Kacheln angezeigt)."
+              />
 
               {/* Tags section */}
               <Box>
