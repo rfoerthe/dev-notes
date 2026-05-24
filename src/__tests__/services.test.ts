@@ -373,13 +373,13 @@ describe('Developer\'s Blog Service Layer (Mock Mode)', () => {
 
       // Fetch the mock user profile directly
       const rawUsers = localStorage.getItem('devblog_mock_users');
-      const users = JSON.parse(rawUsers!);
-      const updatedUser = users.find((u: any) => u.uid === profile.uid);
+      const users = JSON.parse(rawUsers!) as Array<{ uid: string; firstName: string; lastName: string; username: string; email: string }>;
+      const updatedUser = users.find((u) => u.uid === profile.uid);
 
-      expect(updatedUser.firstName).toBe('NewFirst');
-      expect(updatedUser.lastName).toBe('NewLast');
-      expect(updatedUser.username).toBe('updatable'); // Should remain unchanged
-      expect(updatedUser.email).toBe('update@profile.com'); // Should remain unchanged
+      expect(updatedUser?.firstName).toBe('NewFirst');
+      expect(updatedUser?.lastName).toBe('NewLast');
+      expect(updatedUser?.username).toBe('updatable'); // Should remain unchanged
+      expect(updatedUser?.email).toBe('update@profile.com'); // Should remain unchanged
 
       // Validate the hashed password
       const rawPasswords = localStorage.getItem('devblog_mock_passwords');

@@ -1,9 +1,11 @@
+/* eslint-disable react-refresh/only-export-components */
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import { onAuthStateChanged } from 'firebase/auth';
+import { onAuthStateChanged, type User } from 'firebase/auth';
 import {
   auth,
   isMockEnabled,
-  mockAuthInstance
+  mockAuthInstance,
+  type MockUser
 } from '../services/firebase';
 import {
   getUserProfile,
@@ -14,7 +16,7 @@ import {
 import type { RegisterParams, UserProfile } from '../services/authService';
 
 interface AuthContextType {
-  currentUser: any;
+  currentUser: User | MockUser | null;
   userProfile: UserProfile | null;
   loading: boolean;
   isMock: boolean;
@@ -27,13 +29,13 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [currentUser, setCurrentUser] = useState<any>(null);
+  const [currentUser, setCurrentUser] = useState<User | MockUser | null>(null);
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
 
   // Listen for auth state changes
   useEffect(() => {
-    const handleAuthChange = async (user: any) => {
+    const handleAuthChange = async (user: User | MockUser | null) => {
       setCurrentUser(user);
       if (user) {
         try {

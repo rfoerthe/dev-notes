@@ -53,8 +53,6 @@ export const NavBar: React.FC = () => {
       // Poll every 10 seconds for real-time responsiveness
       const interval = setInterval(checkPending, 10000);
       return () => clearInterval(interval);
-    } else {
-      setPendingCount(0);
     }
   }, [userProfile]);
 

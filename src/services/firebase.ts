@@ -1,6 +1,6 @@
 import { initializeApp, getApps, getApp, type FirebaseApp } from 'firebase/app';
-import { getAuth } from 'firebase/auth';
-import { getFirestore, initializeFirestore } from 'firebase/firestore';
+import { getAuth, type Auth } from 'firebase/auth';
+import { getFirestore, initializeFirestore, type Firestore } from 'firebase/firestore';
 import { initializeAnalytics, isSupported, type Analytics } from 'firebase/analytics';
 
 // Environment variables check
@@ -24,8 +24,8 @@ const hasRequiredFirebaseConfig = [
 const isFirebaseConfigured = hasRequiredFirebaseConfig && !forceMockMode;
 
 let app: FirebaseApp | undefined;
-let auth: any;
-let db: any;
+let auth: Auth;
+let db: Firestore;
 let analyticsPromise: Promise<Analytics | null> | null = null;
 let isMockEnabled = false;
 let isAnalyticsConfigured = false;
@@ -69,16 +69,16 @@ const MOCK_BLOGS_KEY = 'devblog_mock_blogs';
 const MOCK_CURRENT_USER_KEY = 'devblog_mock_current_user';
 
 // Mock storage initializers
-const getMockData = (key: string, defaultData: any) => {
+const getMockData = <T,>(key: string, defaultData: T): T => {
   const data = localStorage.getItem(key);
   if (!data) {
     localStorage.setItem(key, JSON.stringify(defaultData));
     return defaultData;
   }
-  return JSON.parse(data);
+  return JSON.parse(data) as T;
 };
 
-const setMockData = (key: string, data: any) => {
+const setMockData = <T,>(key: string, data: T) => {
   localStorage.setItem(key, JSON.stringify(data));
 };
 
@@ -89,9 +89,15 @@ if (isMockEnabled) {
 }
 
 // Mock auth interface
+export interface MockUser {
+  uid: string;
+  email: string | null;
+  displayName?: string | null;
+}
+
 class MockAuth {
-  private listeners: Array<(user: any) => void> = [];
-  currentUser: any = null;
+  private listeners: Array<(user: MockUser | null) => void> = [];
+  currentUser: MockUser | null = null;
 
   constructor() {
     const saved = localStorage.getItem(MOCK_CURRENT_USER_KEY);
@@ -100,7 +106,7 @@ class MockAuth {
     }
   }
 
-  onAuthStateChanged(callback: (user: any) => void) {
+  onAuthStateChanged(callback: (user: MockUser | null) => void) {
     this.listeners.push(callback);
     // Initial trigger
     setTimeout(() => callback(this.currentUser), 0);
@@ -113,7 +119,7 @@ class MockAuth {
     this.listeners.forEach(l => l(this.currentUser));
   }
 
-  async mockSignIn(user: any) {
+  async mockSignIn(user: MockUser) {
     this.currentUser = user;
     localStorage.setItem(MOCK_CURRENT_USER_KEY, JSON.stringify(user));
     this.notify();

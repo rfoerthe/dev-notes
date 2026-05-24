@@ -93,8 +93,8 @@ export const Register: React.FC = () => {
 
       // Show success step
       setSuccess(true);
-    } catch (err: any) {
-      setError(err.message || 'Registrierung fehlgeschlagen.');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Registrierung fehlgeschlagen.');
     } finally {
       setLoading(false);
     }

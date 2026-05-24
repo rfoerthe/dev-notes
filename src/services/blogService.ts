@@ -138,7 +138,7 @@ Typsicherheit schützt uns vor Fehlern zur Laufzeit. Nutze diese neuen Features,
 // Seed initial blogs locally if empty
 export function seedMockBlogs(): void {
   if (isMockEnabled) {
-    const blogs = getMockData(MOCK_BLOGS_KEY, []);
+    const blogs = getMockData<BlogPost[]>(MOCK_BLOGS_KEY, []);
     if (blogs.length === 0) {
       setMockData(MOCK_BLOGS_KEY, MOCK_SEED_BLOGS);
       console.log('Seeded mock blogs locally.');
@@ -150,7 +150,7 @@ export function seedMockBlogs(): void {
 export async function getBlogs(): Promise<BlogPost[]> {
   if (isMockEnabled) {
     seedMockBlogs(); // ensure mock blogs exist
-    const blogs: BlogPost[] = getMockData(MOCK_BLOGS_KEY, []);
+    const blogs = getMockData<BlogPost[]>(MOCK_BLOGS_KEY, []);
     // Sort by createdAt descending
     return [...blogs].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
   } else {
@@ -174,7 +174,7 @@ export async function getBlogs(): Promise<BlogPost[]> {
 export async function getBlogById(id: string): Promise<BlogPost | null> {
   if (isMockEnabled) {
     seedMockBlogs();
-    const blogs: BlogPost[] = getMockData(MOCK_BLOGS_KEY, []);
+    const blogs = getMockData<BlogPost[]>(MOCK_BLOGS_KEY, []);
     return blogs.find(b => b.id === id) || null;
   } else {
     try {
@@ -219,7 +219,7 @@ export async function createBlog(params: CreateBlogParams): Promise<BlogPost> {
       readTime
     };
 
-    const blogs = getMockData(MOCK_BLOGS_KEY, []);
+    const blogs = getMockData<BlogPost[]>(MOCK_BLOGS_KEY, []);
     blogs.push(newBlog);
     setMockData(MOCK_BLOGS_KEY, blogs);
     return newBlog;
@@ -257,7 +257,7 @@ export async function updateBlog(params: UpdateBlogParams): Promise<BlogPost> {
   const readTime = calculateReadTime(params.content);
 
   if (isMockEnabled) {
-    const blogs: BlogPost[] = getMockData(MOCK_BLOGS_KEY, []);
+    const blogs = getMockData<BlogPost[]>(MOCK_BLOGS_KEY, []);
     const blogIndex = blogs.findIndex(b => b.id === params.id);
     if (blogIndex === -1) {
       throw new Error('Beitrag nicht gefunden.');
@@ -297,7 +297,7 @@ export async function updateBlog(params: UpdateBlogParams): Promise<BlogPost> {
 
 export async function deleteBlog(id: string): Promise<void> {
   if (isMockEnabled) {
-    const blogs: BlogPost[] = getMockData(MOCK_BLOGS_KEY, []);
+    const blogs = getMockData<BlogPost[]>(MOCK_BLOGS_KEY, []);
     const updatedBlogs = blogs.filter(blog => blog.id !== id);
 
     if (updatedBlogs.length === blogs.length) {
@@ -316,7 +316,7 @@ export async function updateAuthorNameForBlogs(authorId: string, authorName: str
   const trimmedAuthorName = authorName.trim();
 
   if (isMockEnabled) {
-    const blogs: BlogPost[] = getMockData(MOCK_BLOGS_KEY, []);
+    const blogs = getMockData<BlogPost[]>(MOCK_BLOGS_KEY, []);
     const updatedBlogs = blogs.map(blog => (
       blog.authorId === authorId
         ? { ...blog, authorName: trimmedAuthorName }

@@ -148,8 +148,8 @@ export const EditBlog: React.FC = () => {
       });
 
       navigate(`/blog/${id}`);
-    } catch (err: any) {
-      setError(err.message || 'Speichern fehlgeschlagen.');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Speichern fehlgeschlagen.');
     } finally {
       setLoading(false);
     }
@@ -163,8 +163,8 @@ export const EditBlog: React.FC = () => {
     try {
       await deleteBlog(id);
       navigate('/');
-    } catch (err: any) {
-      setError(err.message || 'Löschen fehlgeschlagen.');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Löschen fehlgeschlagen.');
     } finally {
       setLoading(false);
       setDeleteDialogOpen(false);

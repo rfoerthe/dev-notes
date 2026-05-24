@@ -117,7 +117,7 @@ export const highlightCode = (code: string, lang: string): React.ReactNode => {
 
   const remainingText = code.slice(lastIndex);
   if (remainingText) {
-    tokens.push(<span key={`plain-${keyCounter++}`}>{remainingText}</span>);
+    tokens.push(<span key={`plain-${keyCounter}`}>{remainingText}</span>);
   }
 
   return <>{tokens}</>;
@@ -332,7 +332,7 @@ export const renderMarkdown = (markdown: string): React.ReactNode[] => {
 
     // Unordered list
     if (cleanBlock.startsWith('* ') || cleanBlock.startsWith('- ')) {
-      const listItems = cleanBlock.split('\n').map(line => line.replace(/^[\*\-]\s*/, ''));
+      const listItems = cleanBlock.split('\n').map(line => line.replace(/^[*-]\s*/, ''));
       return (
         <Box component="ul" key={idx} sx={{ pl: 4, mb: 3 }}>
           {listItems.map((item, lIdx) => (

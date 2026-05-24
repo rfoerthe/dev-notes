@@ -1,19 +1,19 @@
 import {
   createUserWithEmailAndPassword,
+  deleteUser,
   signInWithEmailAndPassword,
   signOut,
   updatePassword
 } from 'firebase/auth';
 import {
   doc,
-  setDoc,
   getDoc,
   collection,
   query,
   where,
   getDocs,
   updateDoc,
-  deleteDoc
+  runTransaction
 } from 'firebase/firestore';
 import {
   auth,
@@ -38,6 +38,8 @@ export interface UserProfile {
   operatingSystem?: string;
 }
 
+type StringMap = Record<string, string>;
+
 // Secure SHA-256 password hashing helper via browser Web Crypto API (fully supported in Node and modern browsers)
 export async function hashPassword(password: string): Promise<string> {
   const encoder = new TextEncoder();
@@ -47,11 +49,21 @@ export async function hashPassword(password: string): Promise<string> {
   return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
 }
 
+function getErrorCode(error: unknown): string | undefined {
+  return typeof error === 'object' && error !== null && 'code' in error
+    ? String((error as { code?: unknown }).code)
+    : undefined;
+}
+
+function getErrorMessage(error: unknown): string | undefined {
+  return error instanceof Error ? error.message : undefined;
+}
+
 // Check Username Availability
 export async function isUsernameAvailable(username: string): Promise<boolean> {
   const normUsername = username.trim().toLowerCase();
   if (isMockEnabled) {
-    const mockUsernames = getMockData('devblog_mock_usernames', {});
+    const mockUsernames = getMockData<StringMap>('devblog_mock_usernames', {});
     return !mockUsernames[normUsername];
   } else {
     try {
@@ -60,7 +72,7 @@ export async function isUsernameAvailable(username: string): Promise<boolean> {
       return !docSnap.exists();
     } catch (err) {
       console.error('Failed to check username availability from Firestore:', err);
-      throw new Error('Fehler bei der Überprüfung des Benutzernamens.');
+      throw new Error('Fehler bei der Überprüfung des Benutzernamens.', { cause: err });
     }
   }
 }
@@ -69,7 +81,7 @@ export async function isUsernameAvailable(username: string): Promise<boolean> {
 export async function isEmailAvailable(email: string): Promise<boolean> {
   const normEmail = email.trim().toLowerCase();
   if (isMockEnabled) {
-    const users: UserProfile[] = getMockData(MOCK_USERS_KEY, []);
+    const users = getMockData<UserProfile[]>(MOCK_USERS_KEY, []);
     return !users.some(u => u.email.toLowerCase() === normEmail);
   } else {
     // Email uniqueness is enforced by Firebase Authentication. Querying the
@@ -101,7 +113,7 @@ export function canBootstrapMockAdmin(): boolean {
     return false;
   }
 
-  const users: UserProfile[] = getMockData(MOCK_USERS_KEY, []);
+  const users = getMockData<UserProfile[]>(MOCK_USERS_KEY, []);
   return !users.some(user => user.role === 'admin');
 }
 
@@ -140,14 +152,14 @@ export async function bootstrapMockAdmin(params: BootstrapMockAdminParams): Prom
     createdAt: new Date().toISOString()
   };
 
-  const users: UserProfile[] = getMockData(MOCK_USERS_KEY, []);
+  const users = getMockData<UserProfile[]>(MOCK_USERS_KEY, []);
   setMockData(MOCK_USERS_KEY, [...users, adminProfile]);
 
-  const mockUsernames = getMockData('devblog_mock_usernames', {});
+  const mockUsernames = getMockData<StringMap>('devblog_mock_usernames', {});
   mockUsernames[username] = adminProfile.uid;
   setMockData('devblog_mock_usernames', mockUsernames);
 
-  const passwords = getMockData('devblog_mock_passwords', {});
+  const passwords = getMockData<StringMap>('devblog_mock_passwords', {});
   passwords[email] = await hashPassword(params.password);
   setMockData('devblog_mock_passwords', passwords);
 
@@ -190,18 +202,18 @@ export async function registerUser(params: RegisterParams): Promise<UserProfile>
     };
 
     // Save user profile
-    const users = getMockData(MOCK_USERS_KEY, []);
+    const users = getMockData<UserProfile[]>(MOCK_USERS_KEY, []);
     users.push(newProfile);
     setMockData(MOCK_USERS_KEY, users);
 
     // Reserve username locally
-    const mockUsernames = getMockData('devblog_mock_usernames', {});
+    const mockUsernames = getMockData<StringMap>('devblog_mock_usernames', {});
     mockUsernames[username] = uid;
     setMockData('devblog_mock_usernames', mockUsernames);
 
     // Hash and save password locally
     const hashedPassword = await hashPassword(params.password);
-    const passwords = getMockData('devblog_mock_passwords', {});
+    const passwords = getMockData<StringMap>('devblog_mock_passwords', {});
     passwords[email] = hashedPassword;
     setMockData('devblog_mock_passwords', passwords);
 
@@ -210,11 +222,11 @@ export async function registerUser(params: RegisterParams): Promise<UserProfile>
     let userCredential;
     try {
       userCredential = await createUserWithEmailAndPassword(auth, email, params.password);
-    } catch (authError: any) {
-      if (authError.code === 'auth/email-already-in-use') {
-        throw new Error('Diese E-Mail-Adresse wird bereits verwendet.');
+    } catch (authError) {
+      if (getErrorCode(authError) === 'auth/email-already-in-use') {
+        throw new Error('Diese E-Mail-Adresse wird bereits verwendet.', { cause: authError });
       }
-      throw new Error(authError.message || 'Registrierung fehlgeschlagen.');
+      throw new Error(getErrorMessage(authError) || 'Registrierung fehlgeschlagen.', { cause: authError });
     }
     const uid = userCredential.user.uid;
 
@@ -230,12 +242,33 @@ export async function registerUser(params: RegisterParams): Promise<UserProfile>
     };
 
     try {
-      // Save profile and reserve username in transaction-like fashion
-      await setDoc(doc(db, 'users', uid), newProfile);
-      await setDoc(doc(db, 'usernames', username), { uid });
+      const userRef = doc(db, 'users', uid);
+      const usernameRef = doc(db, 'usernames', username);
+
+      await runTransaction(db, async (transaction) => {
+        const usernameSnap = await transaction.get(usernameRef);
+        if (usernameSnap.exists()) {
+          throw new Error('Dieser Benutzername ist bereits vergeben.');
+        }
+
+        transaction.set(userRef, newProfile);
+        transaction.set(usernameRef, { uid });
+      });
     } catch (dbErr) {
       console.error('Failed to create user Firestore documents during registration:', dbErr);
-      throw new Error('Registrierung fehlgeschlagen. Datenbankfehler.');
+      try {
+        await deleteUser(userCredential.user);
+      } catch (rollbackErr) {
+        console.error('Failed to roll back Firebase Auth user after registration error:', rollbackErr);
+      } finally {
+        await signOut(auth).catch(() => undefined);
+      }
+
+      if (dbErr instanceof Error && dbErr.message === 'Dieser Benutzername ist bereits vergeben.') {
+        throw dbErr;
+      }
+
+      throw new Error('Registrierung fehlgeschlagen. Datenbankfehler.', { cause: dbErr });
     }
 
     // Sign out immediately because they are pending approval
@@ -253,7 +286,7 @@ export async function loginUser(loginInput: string, passwordInput: string): Prom
   let userProfile: UserProfile | undefined;
 
   if (isMockEnabled) {
-    const users: UserProfile[] = getMockData(MOCK_USERS_KEY, []);
+    const users = getMockData<UserProfile[]>(MOCK_USERS_KEY, []);
     userProfile = users.find(
       u => u.username.toLowerCase() === normalizedLogin || u.email.toLowerCase() === normalizedLogin
     );
@@ -282,15 +315,16 @@ export async function loginUser(loginInput: string, passwordInput: string): Prom
       }
 
       return profile;
-    } catch (authError: any) {
+    } catch (authError) {
+      const authErrorCode = getErrorCode(authError);
       if (
-        authError.code === 'auth/wrong-password' ||
-        authError.code === 'auth/user-not-found' ||
-        authError.code === 'auth/invalid-credential'
+        authErrorCode === 'auth/wrong-password' ||
+        authErrorCode === 'auth/user-not-found' ||
+        authErrorCode === 'auth/invalid-credential'
       ) {
-        throw new Error('Ungültige E-Mail-Adresse oder Passwort.');
+        throw new Error('Ungültige E-Mail-Adresse oder Passwort.', { cause: authError });
       }
-      throw new Error(authError.message || 'Anmeldung fehlgeschlagen.');
+      throw new Error(getErrorMessage(authError) || 'Anmeldung fehlgeschlagen.', { cause: authError });
     }
   }
 
@@ -299,7 +333,7 @@ export async function loginUser(loginInput: string, passwordInput: string): Prom
   }
 
   if (isMockEnabled) {
-    const passwords = getMockData('devblog_mock_passwords', {});
+    const passwords = getMockData<StringMap>('devblog_mock_passwords', {});
     const correctPasswordHash = passwords[userProfile.email];
 
     const enteredPasswordHash = await hashPassword(passwordInput);
@@ -340,7 +374,7 @@ export async function logoutUser(): Promise<void> {
 // Fetch Profile by UID
 export async function getUserProfile(uid: string): Promise<UserProfile | null> {
   if (isMockEnabled) {
-    const users: UserProfile[] = getMockData(MOCK_USERS_KEY, []);
+    const users = getMockData<UserProfile[]>(MOCK_USERS_KEY, []);
     return users.find(u => u.uid === uid) || null;
   } else {
     const docRef = doc(db, 'users', uid);
@@ -358,7 +392,7 @@ export async function getUserProfile(uid: string): Promise<UserProfile | null> {
 
 export async function fetchUsersByStatus(status: 'pending' | 'approved' | 'rejected'): Promise<UserProfile[]> {
   if (isMockEnabled) {
-    const users: UserProfile[] = getMockData(MOCK_USERS_KEY, []);
+    const users = getMockData<UserProfile[]>(MOCK_USERS_KEY, []);
     return users.filter(u => u.status === status && u.role !== 'admin');
   } else {
     const usersRef = collection(db, 'users');
@@ -380,7 +414,7 @@ export async function fetchUsersByStatus(status: 'pending' | 'approved' | 'rejec
 
 export async function updateUserStatus(uid: string, status: 'approved' | 'rejected'): Promise<void> {
   if (isMockEnabled) {
-    const users: UserProfile[] = getMockData(MOCK_USERS_KEY, []);
+    const users = getMockData<UserProfile[]>(MOCK_USERS_KEY, []);
     const userIndex = users.findIndex(u => u.uid === uid);
     if (userIndex !== -1) {
       users[userIndex].status = status;
@@ -394,7 +428,7 @@ export async function updateUserStatus(uid: string, status: 'approved' | 'reject
 
 export async function deleteUserRegistration(uid: string, username: string): Promise<void> {
   if (isMockEnabled) {
-    const users: UserProfile[] = getMockData(MOCK_USERS_KEY, []);
+    const users = getMockData<UserProfile[]>(MOCK_USERS_KEY, []);
     const user = users.find(u => u.uid === uid);
     
     // 1. Delete user profile from mock list
@@ -402,26 +436,22 @@ export async function deleteUserRegistration(uid: string, username: string): Pro
     setMockData(MOCK_USERS_KEY, updatedUsers);
     
     // 2. Delete username reservation
-    const mockUsernames = getMockData('devblog_mock_usernames', {});
+    const mockUsernames = getMockData<StringMap>('devblog_mock_usernames', {});
     const normUsername = username.trim().toLowerCase();
     delete mockUsernames[normUsername];
     setMockData('devblog_mock_usernames', mockUsernames);
     
     // 3. Delete password entry
     if (user) {
-      const passwords = getMockData('devblog_mock_passwords', {});
+      const passwords = getMockData<StringMap>('devblog_mock_passwords', {});
       const normEmail = user.email.trim().toLowerCase();
       delete passwords[normEmail];
       setMockData('devblog_mock_passwords', passwords);
     }
-  } else {
-    // Delete user profile document
-    await deleteDoc(doc(db, 'users', uid));
-    
-    // Delete username document
-    const normUsername = username.trim().toLowerCase();
-    await deleteDoc(doc(db, 'usernames', normUsername));
+    return;
   }
+
+  throw new Error('Firebase-Benutzer müssen mit npm run user:delete gelöscht werden.');
 }
 
 export interface UpdateUserProfileParams {
@@ -439,7 +469,7 @@ export async function updateUserProfile(params: UpdateUserProfileParams): Promis
 
   if (isMockEnabled) {
     // 1. Update first name and last name and OS
-    const users: UserProfile[] = getMockData(MOCK_USERS_KEY, []);
+    const users = getMockData<UserProfile[]>(MOCK_USERS_KEY, []);
     const userIndex = users.findIndex(u => u.uid === params.uid);
     if (userIndex === -1) {
       throw new Error('Benutzerprofil nicht gefunden.');
@@ -457,7 +487,7 @@ export async function updateUserProfile(params: UpdateUserProfileParams): Promis
     // 2. Update password if provided
     if (params.newPassword && params.newPassword.trim() !== '') {
       const hashedPassword = await hashPassword(params.newPassword);
-      const passwords = getMockData('devblog_mock_passwords', {});
+      const passwords = getMockData<StringMap>('devblog_mock_passwords', {});
       passwords[user.email] = hashedPassword;
       setMockData('devblog_mock_passwords', passwords);
     }

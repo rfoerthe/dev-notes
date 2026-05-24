@@ -101,8 +101,8 @@ export const CreateBlog: React.FC = () => {
       });
 
       navigate('/');
-    } catch (err: any) {
-      setError(err.message || 'Veröffentlichung fehlgeschlagen.');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Veröffentlichung fehlgeschlagen.');
     } finally {
       setLoading(false);
     }

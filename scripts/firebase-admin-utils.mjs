@@ -24,12 +24,28 @@ export const loadEnvFile = () => {
 
 export const getProjectId = () => process.env.FIREBASE_PROJECT_ID || process.env.VITE_FIREBASE_PROJECT_ID;
 
+const markCredentialSetupError = (error) => {
+  if (error && typeof error === 'object') {
+    error.devNotesCredentialSetupError = true;
+    return error;
+  }
+
+  const setupError = new Error(String(error));
+  setupError.devNotesCredentialSetupError = true;
+  return setupError;
+};
+
 export const initializeAdminApp = () => {
   loadEnvFile();
 
-  const credential = process.env.FIREBASE_SERVICE_ACCOUNT_JSON
-    ? cert(JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT_JSON))
-    : applicationDefault();
+  let credential;
+  try {
+    credential = process.env.FIREBASE_SERVICE_ACCOUNT_JSON
+      ? cert(JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT_JSON))
+      : applicationDefault();
+  } catch (error) {
+    throw markCredentialSetupError(error);
+  }
 
   if (getApps().length === 0) {
     initializeApp({
@@ -49,6 +65,31 @@ export const explainAuthConfigurationError = () => {
   console.error('3. Settings > Authorized domains > ensure localhost and your production domain are listed');
   console.error('');
   console.error('Then run this script again.');
+};
+
+export const explainAdminCredentialsError = () => {
+  console.error('');
+  console.error('Firebase Admin credentials are not available.');
+  console.error('');
+  console.error('This script uses the Firebase Admin SDK and needs server-side credentials.');
+  console.error('');
+  console.error('Recommended local setup:');
+  console.error('1. Open Firebase Console > Project settings > Service accounts');
+  console.error('2. Generate a new private key and save the JSON file outside version control');
+  console.error('3. Run the script with GOOGLE_APPLICATION_CREDENTIALS pointing to that file');
+  console.error('');
+  console.error('Example:');
+  console.error('GOOGLE_APPLICATION_CREDENTIALS=/absolute/path/firebase-service-account.json \\');
+  console.error('ADMIN_EMAIL=admin@example.com \\');
+  console.error('npm run bootstrap:admin');
+  console.error('');
+  console.error('You can also put GOOGLE_APPLICATION_CREDENTIALS in your local .env file.');
+  console.error('Alternative: set FIREBASE_SERVICE_ACCOUNT_JSON to the full service account JSON.');
+  console.error('');
+  console.error('If you intentionally use Google Application Default Credentials, run:');
+  console.error('gcloud auth application-default login');
+  console.error('');
+  console.error('Keep service account files and secrets out of git.');
 };
 
 export const explainFirestoreNotFoundError = () => {
@@ -71,7 +112,25 @@ export const isFirestoreNotFoundError = (error) => {
   return error?.code === 5 || error?.code === 'not-found' || error?.message?.includes('5 NOT_FOUND');
 };
 
+export const isAdminCredentialsError = (error) => {
+  const message = error?.message || '';
+
+  return Boolean(
+    error?.devNotesCredentialSetupError ||
+    message.includes('Could not load the default credentials') ||
+    message.includes('failed to fetch a valid Google OAuth2 access token') ||
+    message.includes('Your default credentials were not found') ||
+    message.includes('The incoming JSON object does not contain a client_email field') ||
+    message.includes('The incoming JSON object does not contain a private_key field')
+  );
+};
+
 export const exitWithKnownSetupError = (error) => {
+  if (isAdminCredentialsError(error)) {
+    explainAdminCredentialsError();
+    process.exit(1);
+  }
+
   if (error?.code === 'auth/configuration-not-found') {
     explainAuthConfigurationError();
     process.exit(1);

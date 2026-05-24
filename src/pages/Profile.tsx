@@ -19,6 +19,8 @@ import { useAuth } from '../context/AuthContext';
 import { updateUserProfile } from '../services/authService';
 import { useCustomTheme } from '../context/CustomThemeContext';
 
+type ThemeMode = 'light' | 'dark' | 'system';
+
 export const Profile: React.FC = () => {
   const { userProfile, refreshProfile } = useAuth();
   const { themeMode, setThemeMode } = useCustomTheme();
@@ -39,6 +41,7 @@ export const Profile: React.FC = () => {
   // Pre-populate fields when profile loads
   useEffect(() => {
     if (userProfile) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setFirstName(userProfile.firstName || '');
       setLastName(userProfile.lastName || '');
       setOperatingSystem(userProfile.operatingSystem || 'mac');
@@ -86,14 +89,16 @@ export const Profile: React.FC = () => {
 
       // Clear password inputs
       setPassword('');
-      confirmPassword && setConfirmPassword('');
+      if (confirmPassword) {
+        setConfirmPassword('');
+      }
       
       // Refresh AuthContext profile cache
       await refreshProfile();
 
       setSuccess('Deine Profildaten wurden erfolgreich aktualisiert!');
-    } catch (err: any) {
-      setError(err.message || 'Aktualisierung fehlgeschlagen.');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Aktualisierung fehlgeschlagen.');
     } finally {
       setLoading(false);
     }
@@ -280,7 +285,7 @@ export const Profile: React.FC = () => {
                     select
                     label="Design-Farbschema"
                     value={themeMode}
-                    onChange={(e) => setThemeMode(e.target.value as any)}
+                    onChange={(e) => setThemeMode(e.target.value as ThemeMode)}
                     fullWidth
                     slotProps={{
                       input: {

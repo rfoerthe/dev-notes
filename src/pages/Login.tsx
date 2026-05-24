@@ -49,8 +49,8 @@ export const Login: React.FC = () => {
       } else {
         navigate('/');
       }
-    } catch (err: any) {
-      setError(err.message || 'Anmeldung fehlgeschlagen.');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Anmeldung fehlgeschlagen.');
     } finally {
       setLoading(false);
     }

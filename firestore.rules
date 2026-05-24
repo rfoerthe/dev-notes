@@ -112,7 +112,8 @@ service cloud.firestore {
         request.auth.uid == userId &&
         request.resource.data.uid == request.auth.uid &&
         request.resource.data.role == 'user' &&
-        request.resource.data.status == 'pending';
+        request.resource.data.status == 'pending' &&
+        !request.resource.data.keys().hasAny(['bootstrappedAt']);
       
       // Admins can update any user's profile.
       // Users can only update their own profile, but CANNOT change their role or status themselves.
@@ -128,7 +129,9 @@ service cloud.firestore {
           )
       );
       
-      allow delete: if isAdmin();
+      // User deletion must go through the Admin SDK cleanup script so the
+      // Firebase Auth account and Firestore profile cannot get out of sync.
+      allow delete: if false;
     }
 
     // --- Public Usernames Collection Rules (PII Protection) ---
@@ -144,8 +147,9 @@ service cloud.firestore {
         !exists(/databases/$(database)/documents/usernames/$(username)) &&
         request.resource.data.uid == request.auth.uid;
         
-      // Only admins can delete username reservations
-      allow delete: if isAdmin();
+      // Username deletion must go through the Admin SDK cleanup script together
+      // with the matching Auth account and user profile.
+      allow delete: if false;
     }
 
     // --- Blogs Collection Rules ---

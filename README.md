@@ -101,6 +101,7 @@ The script creates or updates the admin profile in Firebase Auth and Firestore w
 Prerequisites:
 
 - A Firebase service account JSON file, kept outside version control.
+- `GOOGLE_APPLICATION_CREDENTIALS` pointing to that service account file, or `FIREBASE_SERVICE_ACCOUNT_JSON` containing the full service account JSON.
 - `ADMIN_EMAIL` set to the admin's email address.
 - Optional `ADMIN_USERNAME`, `ADMIN_FIRST_NAME`, `ADMIN_LAST_NAME`, `FIREBASE_PROJECT_ID`, and `APP_URL`.
 
@@ -115,6 +116,8 @@ npm run bootstrap:admin
 ```
 
 The generated reset link is sensitive. Use it once, then discard it.
+
+If admin credentials are missing, the script prints a setup checklist instead of a stack trace. For local development, the recommended setup is a service account file referenced through `GOOGLE_APPLICATION_CREDENTIALS`.
 
 ### Local Mock Admin
 
@@ -159,7 +162,7 @@ In Firebase mode, users sign in with their email address and password. Username 
 
 ## Deleting Regular Users
 
-Admins can remove regular user profiles from the admin dashboard. In Firebase mode, deleting a user only from Firestore is not enough: the Firebase Auth account must also be removed, otherwise the email address remains reserved and the same person cannot register again with that email.
+In local mock mode, admins can remove rejected user registrations from the admin dashboard. In Firebase mode, regular users must be deleted with the Admin SDK cleanup script. Deleting only Firestore data is intentionally blocked because the Firebase Auth account must also be removed; otherwise the email address remains reserved and the same person cannot register again with that email.
 
 Use the Admin SDK cleanup script to delete a regular user completely from:
 
@@ -170,7 +173,7 @@ Use the Admin SDK cleanup script to delete a regular user completely from:
 Prerequisites:
 
 - A Firebase service account JSON file, kept outside version control.
-- `GOOGLE_APPLICATION_CREDENTIALS` pointing to that service account file.
+- `GOOGLE_APPLICATION_CREDENTIALS` pointing to that service account file, or `FIREBASE_SERVICE_ACCOUNT_JSON` containing the full service account JSON.
 - Either the user's email address or Firebase Auth UID.
 
 Delete by email:
