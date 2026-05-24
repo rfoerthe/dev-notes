@@ -1,7 +1,8 @@
 import {
   createUserWithEmailAndPassword,
   signInWithEmailAndPassword,
-  signOut
+  signOut,
+  updatePassword
 } from 'firebase/auth';
 import {
   doc,
@@ -32,6 +33,7 @@ export interface UserProfile {
   role: 'admin' | 'user';
   status: 'pending' | 'approved' | 'rejected';
   createdAt: string;
+  operatingSystem?: string;
 }
 
 // Predefined Admin Credentials
@@ -42,6 +44,15 @@ export const ADMIN_CREDENTIALS = {
   firstName: 'Blog',
   lastName: 'Admin'
 };
+
+// Secure SHA-256 password hashing helper via browser Web Crypto API (fully supported in Node and modern browsers)
+export async function hashPassword(password: string): Promise<string> {
+  const encoder = new TextEncoder();
+  const data = encoder.encode(password);
+  const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+  const hashArray = Array.from(new Uint8Array(hashBuffer));
+  return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+}
 
 // Seed Predefined Admin
 export async function seedAdminUser(): Promise<void> {
@@ -59,14 +70,21 @@ export async function seedAdminUser(): Promise<void> {
         status: 'approved',
         createdAt: new Date().toISOString()
       };
-      // Store the admin user's password in a separate mockup block for local login validation
+      
+      // Hash and store the admin user's password in a separate mockup block for local login validation
+      const hashedPassword = await hashPassword(ADMIN_CREDENTIALS.password);
       const mockPasswords = getMockData('devblog_mock_passwords', {});
-      mockPasswords[ADMIN_CREDENTIALS.email] = ADMIN_CREDENTIALS.password;
+      mockPasswords[ADMIN_CREDENTIALS.email] = hashedPassword;
       setMockData('devblog_mock_passwords', mockPasswords);
+
+      // Reserve username
+      const mockUsernames = getMockData('devblog_mock_usernames', {});
+      mockUsernames[ADMIN_CREDENTIALS.username] = 'admin-uid';
+      setMockData('devblog_mock_usernames', mockUsernames);
 
       users.push(adminProfile);
       setMockData(MOCK_USERS_KEY, users);
-      console.log('Seeded predefined admin locally.');
+      console.log('Seeded predefined admin locally with hashed credentials.');
     }
   } else {
     try {
@@ -77,8 +95,6 @@ export async function seedAdminUser(): Promise<void> {
 
       if (snapshot.empty) {
         // We will seed the admin in Firebase Auth as well!
-        // Note: In real production, seeding might fail if the user already exists in Auth but not Firestore.
-        // We try to create, or if it already exists, we just create the Firestore document.
         let uid = '';
         try {
           const userCredential = await createUserWithEmailAndPassword(
@@ -90,9 +106,6 @@ export async function seedAdminUser(): Promise<void> {
           await signOut(auth); // Sign out the newly registered admin immediately
         } catch (authError: any) {
           if (authError.code === 'auth/email-already-in-use') {
-            // Admin already exists in Auth, we can't get their UID easily unless we log in,
-            // but we can look up if we can. For simple seeding, we'll try to sign in
-            // to retrieve the UID, then sign out.
             try {
               const loginCred = await signInWithEmailAndPassword(
                 auth,
@@ -121,7 +134,8 @@ export async function seedAdminUser(): Promise<void> {
             createdAt: new Date().toISOString()
           };
           await setDoc(doc(db, 'users', uid), adminProfile);
-          console.log('Seeded predefined admin in Firestore.');
+          await setDoc(doc(db, 'usernames', ADMIN_CREDENTIALS.username), { uid });
+          console.log('Seeded predefined admin in Firestore and usernames reservation.');
         }
       }
     } catch (err) {
@@ -134,13 +148,17 @@ export async function seedAdminUser(): Promise<void> {
 export async function isUsernameAvailable(username: string): Promise<boolean> {
   const normUsername = username.trim().toLowerCase();
   if (isMockEnabled) {
-    const users: UserProfile[] = getMockData(MOCK_USERS_KEY, []);
-    return !users.some(u => u.username.toLowerCase() === normUsername);
+    const mockUsernames = getMockData('devblog_mock_usernames', {});
+    return !mockUsernames[normUsername];
   } else {
-    const usersRef = collection(db, 'users');
-    const q = query(usersRef, where('username', '==', normUsername));
-    const snapshot = await getDocs(q);
-    return snapshot.empty;
+    try {
+      const docRef = doc(db, 'usernames', normUsername);
+      const docSnap = await getDoc(docRef);
+      return !docSnap.exists();
+    } catch (err) {
+      console.error('Failed to check username availability from Firestore:', err);
+      throw new Error('Fehler bei der Überprüfung des Benutzernamens.');
+    }
   }
 }
 
@@ -199,9 +217,15 @@ export async function registerUser(params: RegisterParams): Promise<UserProfile>
     users.push(newProfile);
     setMockData(MOCK_USERS_KEY, users);
 
-    // Save password
+    // Reserve username locally
+    const mockUsernames = getMockData('devblog_mock_usernames', {});
+    mockUsernames[username] = uid;
+    setMockData('devblog_mock_usernames', mockUsernames);
+
+    // Hash and save password locally
+    const hashedPassword = await hashPassword(params.password);
     const passwords = getMockData('devblog_mock_passwords', {});
-    passwords[email] = params.password;
+    passwords[email] = hashedPassword;
     setMockData('devblog_mock_passwords', passwords);
 
     return newProfile;
@@ -221,8 +245,14 @@ export async function registerUser(params: RegisterParams): Promise<UserProfile>
       createdAt: new Date().toISOString()
     };
 
-    // Save profile to Firestore
-    await setDoc(doc(db, 'users', uid), newProfile);
+    try {
+      // Save profile and reserve username in transaction-like fashion
+      await setDoc(doc(db, 'users', uid), newProfile);
+      await setDoc(doc(db, 'usernames', username), { uid });
+    } catch (dbErr) {
+      console.error('Failed to create user Firestore documents during registration:', dbErr);
+      throw new Error('Registrierung fehlgeschlagen. Datenbankfehler.');
+    }
 
     // Sign out immediately because they are pending approval
     await signOut(auth);
@@ -242,11 +272,18 @@ export async function loginUser(usernameInput: string, passwordInput: string): P
     const users: UserProfile[] = getMockData(MOCK_USERS_KEY, []);
     userProfile = users.find(u => u.username.toLowerCase() === username);
   } else {
-    const usersRef = collection(db, 'users');
-    const q = query(usersRef, where('username', '==', username));
-    const snapshot = await getDocs(q);
-    if (!snapshot.empty) {
-      userProfile = snapshot.docs[0].data() as UserProfile;
+    // In production, we find the UID from /usernames/{username} document securely
+    try {
+      const uSnap = await getDoc(doc(db, 'usernames', username));
+      if (uSnap.exists()) {
+        const uid = uSnap.data().uid;
+        const profileSnap = await getDoc(doc(db, 'users', uid));
+        if (profileSnap.exists()) {
+          userProfile = profileSnap.data() as UserProfile;
+        }
+      }
+    } catch (err) {
+      console.error('Failed secure profile lookup in Firestore login:', err);
     }
   }
 
@@ -257,9 +294,10 @@ export async function loginUser(usernameInput: string, passwordInput: string): P
   // 2. Perform authentication
   if (isMockEnabled) {
     const passwords = getMockData('devblog_mock_passwords', {});
-    const correctPassword = passwords[userProfile.email];
+    const correctPasswordHash = passwords[userProfile.email];
 
-    if (correctPassword !== passwordInput) {
+    const enteredPasswordHash = await hashPassword(passwordInput);
+    if (correctPasswordHash !== enteredPasswordHash) {
       throw new Error('Ungültiger Benutzername oder Passwort.');
     }
 
@@ -305,7 +343,6 @@ export async function loginUser(usernameInput: string, passwordInput: string): P
 
       return profile;
     } catch (authError: any) {
-      // Format standard Firebase errors
       if (
         authError.code === 'auth/wrong-password' ||
         authError.code === 'auth/user-not-found' ||
@@ -377,5 +414,66 @@ export async function updateUserStatus(uid: string, status: 'approved' | 'reject
   } else {
     const docRef = doc(db, 'users', uid);
     await updateDoc(docRef, { status });
+  }
+}
+
+export interface UpdateUserProfileParams {
+  uid: string;
+  firstName: string;
+  lastName: string;
+  newPassword?: string;
+  operatingSystem?: string;
+}
+
+export async function updateUserProfile(params: UpdateUserProfileParams): Promise<void> {
+  if (isMockEnabled) {
+    // 1. Update first name and last name and OS
+    const users: UserProfile[] = getMockData(MOCK_USERS_KEY, []);
+    const userIndex = users.findIndex(u => u.uid === params.uid);
+    if (userIndex === -1) {
+      throw new Error('Benutzerprofil nicht gefunden.');
+    }
+    
+    const user = users[userIndex];
+    user.firstName = params.firstName.trim();
+    user.lastName = params.lastName.trim();
+    user.operatingSystem = params.operatingSystem;
+    
+    users[userIndex] = user;
+    setMockData(MOCK_USERS_KEY, users);
+    
+    // 2. Update password if provided
+    if (params.newPassword && params.newPassword.trim() !== '') {
+      const hashedPassword = await hashPassword(params.newPassword);
+      const passwords = getMockData('devblog_mock_passwords', {});
+      passwords[user.email] = hashedPassword;
+      setMockData('devblog_mock_passwords', passwords);
+    }
+
+    // 3. Update current logged-in mock session cache if applicable
+    const rawSession = localStorage.getItem('devblog_mock_current_user');
+    if (rawSession) {
+      const sessionUser = JSON.parse(rawSession);
+      if (sessionUser.uid === params.uid) {
+        sessionUser.displayName = `${user.firstName} ${user.lastName}`;
+        localStorage.setItem('devblog_mock_current_user', JSON.stringify(sessionUser));
+      }
+    }
+  } else {
+    // 1. Update Firestore document (firstName, lastName, and operatingSystem; role/status are locked)
+    const docRef = doc(db, 'users', params.uid);
+    await updateDoc(docRef, {
+      firstName: params.firstName.trim(),
+      lastName: params.lastName.trim(),
+      operatingSystem: params.operatingSystem || null
+    });
+    
+    // 2. Update password in Firebase Auth if provided
+    if (params.newPassword && params.newPassword.trim() !== '') {
+      if (!auth.currentUser) {
+        throw new Error('Kein angemeldeter Benutzer für Passwortänderung gefunden.');
+      }
+      await updatePassword(auth.currentUser, params.newPassword);
+    }
   }
 }

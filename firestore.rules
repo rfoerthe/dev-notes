@@ -11,12 +11,14 @@ service cloud.firestore {
     // Helper: Checks if the requesting user has the admin role in Firestore
     function isAdmin() {
       return isAuthenticated() && 
+        exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
     }
     
     // Helper: Checks if the requesting user is approved in Firestore
     function isApproved() {
       return isAuthenticated() && 
+        exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.status == 'approved';
     }
 
@@ -25,36 +27,78 @@ service cloud.firestore {
       // Admins can read all profiles. Users can read their own profile.
       allow read: if isAuthenticated() && (request.auth.uid == userId || isAdmin());
       
-      // Anyone can create their own profile during registration
-      allow create: if isAuthenticated() && request.auth.uid == userId;
+      // Anyone can create their own profile during registration,
+      // BUT they must default to 'user' role and 'pending' status!
+      allow create: if isAuthenticated() && 
+        request.auth.uid == userId &&
+        request.resource.data.role == 'user' &&
+        request.resource.data.status == 'pending' &&
+        request.resource.data.firstName is string && request.resource.data.firstName.size() <= 50 &&
+        request.resource.data.lastName is string && request.resource.data.lastName.size() <= 50 &&
+        request.resource.data.username is string && request.resource.data.username.size() <= 30 &&
+        request.resource.data.email is string && request.resource.data.email.size() <= 100;
       
-      // Admins can update any user's profile (e.g. status).
-      // Users can only update their own profile, but CANNOT change their role or status themselves (critical security check!).
+      // Admins can update any user's profile.
+      // Users can only update their own profile, but CANNOT change their role or status themselves.
       allow update: if isAuthenticated() && (
         isAdmin() || (
           request.auth.uid == userId && 
           request.resource.data.role == resource.data.role && 
-          request.resource.data.status == resource.data.status
+          request.resource.data.status == resource.data.status &&
+          request.resource.data.firstName is string && request.resource.data.firstName.size() <= 50 &&
+          request.resource.data.lastName is string && request.resource.data.lastName.size() <= 50 &&
+          request.resource.data.username == resource.data.username && // Username is immutable
+          request.resource.data.email == resource.data.email // Email is immutable
         )
       );
       
-      // Only admins can delete profiles
+      allow delete: if isAdmin();
+    }
+
+    // --- Public Usernames Collection Rules (PII Protection) ---
+    match /usernames/{username} {
+      // Anyone can check if a single username document exists (get),
+      // but listing/querying the whole collection (list) is forbidden!
+      allow get: if true;
+      allow list: if false;
+      
+      // Users can reserve their own username only if it doesn't exist yet
+      allow create: if isAuthenticated() && 
+        !exists(/databases/$(database)/documents/usernames/$(username)) &&
+        request.resource.data.uid == request.auth.uid;
+        
+      // Only admins can delete username reservations
       allow delete: if isAdmin();
     }
 
     // --- Blogs Collection Rules ---
     match /blogs/{blogId} {
-      // Blogs are publicly readable by anyone
       allow read: if true;
       
-      // Only approved developers or admins can create blog posts.
-      // Must set themselves as the author.
-      allow create: if isApproved() && request.resource.data.authorId == request.auth.uid;
+      // Enforce strict field-level type safety and size constraints on creation
+      allow create: if isApproved() && 
+        request.resource.data.authorId == request.auth.uid &&
+        request.resource.data.title is string && request.resource.data.title.size() <= 150 &&
+        request.resource.data.summary is string && request.resource.data.summary.size() <= 300 &&
+        request.resource.data.content is string && request.resource.data.content.size() <= 50000 &&
+        request.resource.data.tags is list &&
+        request.resource.data.readTime is int &&
+        request.resource.data.authorName is string && request.resource.data.authorName.size() <= 100;
       
-      // Only the author or an admin can update/delete a blog post.
-      allow update, delete: if isApproved() && (
-        resource.data.authorId == request.auth.uid || isAdmin()
+      // Enforce immutable fields during update
+      allow update: if isApproved() && (
+        (resource.data.authorId == request.auth.uid && 
+         request.resource.data.authorId == resource.data.authorId &&
+         request.resource.data.createdAt == resource.data.createdAt &&
+         request.resource.data.title is string && request.resource.data.title.size() <= 150 &&
+         request.resource.data.summary is string && request.resource.data.summary.size() <= 300 &&
+         request.resource.data.content is string && request.resource.data.content.size() <= 50000 &&
+         request.resource.data.tags is list &&
+         request.resource.data.readTime is int) || 
+        isAdmin()
       );
+      
+      allow delete: if isApproved() && (resource.data.authorId == request.auth.uid || isAdmin());
     }
   }
 }

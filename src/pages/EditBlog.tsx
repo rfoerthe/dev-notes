@@ -187,35 +187,37 @@ export const EditBlog: React.FC = () => {
         <form onSubmit={handleSubmit}>
           <Stack spacing={4}>
             {/* Main info card */}
-            <Paper sx={{ p: 4, bgcolor: 'rgba(15, 23, 42, 0.4)', borderRadius: 4 }}>
+            <Paper sx={{ p: 4, bgcolor: (theme) => theme.palette.mode === 'dark' ? 'rgba(15, 23, 42, 0.4)' : 'rgba(255, 255, 255, 0.45)', borderRadius: 4 }}>
               <Stack spacing={3}>
-                <TextField
-                  label="Titel des Beitrags"
-                  variant="outlined"
-                  fullWidth
-                  value={title}
-                  onChange={(e) => setTitle(e.target.value)}
-                  disabled={loading}
-                  placeholder="z.B. Einführung in React 19 Server Actions"
-                  slotProps={{
-                    inputLabel: { shrink: true }
-                  }}
-                />
+                <Box>
+                  <Typography variant="body2" sx={{ mb: 1, fontWeight: 600, color: 'text.secondary' }}>
+                    Titel des Beitrags
+                  </Typography>
+                  <TextField
+                    variant="outlined"
+                    fullWidth
+                    value={title}
+                    onChange={(e) => setTitle(e.target.value)}
+                    disabled={loading}
+                    placeholder="z.B. Einführung in React 19 Server Actions"
+                  />
+                </Box>
 
-                <TextField
-                  label="Kurze Zusammenfassung"
-                  variant="outlined"
-                  fullWidth
-                  multiline
-                  rows={2}
-                  value={summary}
-                  onChange={(e) => setSummary(e.target.value)}
-                  disabled={loading}
-                  placeholder="Schreibe einen kurzen Teaser, der das Interesse der Leser weckt."
-                  slotProps={{
-                    inputLabel: { shrink: true }
-                  }}
-                />
+                <Box>
+                  <Typography variant="body2" sx={{ mb: 1, fontWeight: 600, color: 'text.secondary' }}>
+                    Kurze Zusammenfassung
+                  </Typography>
+                  <TextField
+                    variant="outlined"
+                    fullWidth
+                    multiline
+                    rows={2}
+                    value={summary}
+                    onChange={(e) => setSummary(e.target.value)}
+                    disabled={loading}
+                    placeholder="Schreibe einen kurzen Teaser, der das Interesse der Leser weckt."
+                  />
+                </Box>
 
                 {/* Tags section */}
                 <Box>
@@ -282,7 +284,7 @@ export const EditBlog: React.FC = () => {
 
             {/* EDITOR PANEL */}
             {activeTab === 0 && (
-              <Paper sx={{ p: 4, bgcolor: 'rgba(15, 23, 42, 0.4)', borderRadius: 4 }}>
+              <Paper sx={{ p: 4, bgcolor: (theme) => theme.palette.mode === 'dark' ? 'rgba(15, 23, 42, 0.4)' : 'rgba(255, 255, 255, 0.45)', borderRadius: 4 }}>
                 <Stack spacing={2}>
                   <Stack direction="row" sx={{ justifyContent: 'space-between', alignItems: 'center' }}>
                     <Typography variant="body2" sx={{ fontWeight: 600, color: 'text.secondary' }}>
@@ -315,7 +317,7 @@ export const EditBlog: React.FC = () => {
 
             {/* PREVIEW PANEL */}
             {activeTab === 1 && (
-              <Paper sx={{ p: 4, bgcolor: 'rgba(15, 23, 42, 0.5)', borderRadius: 4, minHeight: '300px' }}>
+              <Paper sx={{ p: 4, bgcolor: (theme) => theme.palette.mode === 'dark' ? 'rgba(15, 23, 42, 0.5)' : 'rgba(255, 255, 255, 0.55)', borderRadius: 4, minHeight: '300px' }}>
                 {content.trim() ? (
                   <Box className="markdown-body">
                     <Typography variant="h3" gutterBottom sx={{ fontFamily: 'Outfit, sans-serif', fontWeight: 800, mb: 1 }}>

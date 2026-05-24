@@ -133,7 +133,7 @@ const parseItalics = (text: string, keyPrefix: string): React.ReactNode => {
       {italicParts.map((italicPart, iIdx) => {
         if (italicPart.startsWith('*') && italicPart.endsWith('*')) {
           return (
-            <em key={`${keyPrefix}-em-${iIdx}`} style={{ fontStyle: 'italic', color: '#e2e8f0' }}>
+            <em key={`${keyPrefix}-em-${iIdx}`} style={{ fontStyle: 'italic' }}>
               {italicPart.slice(1, -1)}
             </em>
           );
@@ -160,14 +160,14 @@ export const parseInlineStyles = (text: string): React.ReactNode => {
               component="code" 
               key={`code-${cIdx}`} 
               sx={{ 
-                color: '#f472b6', 
-                bgcolor: 'rgba(255, 255, 255, 0.08)',
+                color: (theme) => theme.palette.mode === 'dark' ? '#f472b6' : '#db2777', 
+                bgcolor: (theme) => theme.palette.mode === 'dark' ? 'rgba(255, 255, 255, 0.08)' : 'rgba(15, 23, 42, 0.04)',
                 px: 0.8, 
                 py: 0.2, 
                 borderRadius: 1.5,
                 fontSize: '0.9em',
                 fontFamily: 'Fira Code, monospace',
-                border: '1px solid rgba(255, 255, 255, 0.04)',
+                border: (theme) => theme.palette.mode === 'dark' ? '1px solid rgba(255, 255, 255, 0.04)' : '1px solid rgba(15, 23, 42, 0.04)',
                 display: 'inline-block'
               }}
             >
@@ -185,7 +185,7 @@ export const parseInlineStyles = (text: string): React.ReactNode => {
               if (boldPart.startsWith('**') && boldPart.endsWith('**')) {
                 const innerBoldText = boldPart.slice(2, -2);
                 return (
-                  <strong key={`bold-${bIdx}`} style={{ fontWeight: 800, color: '#ffffff' }}>
+                  <strong key={`bold-${bIdx}`} style={{ fontWeight: 800 }}>
                     {parseItalics(innerBoldText, `bold-italic-${bIdx}`)}
                   </strong>
                 );
@@ -228,7 +228,7 @@ export const renderMarkdown = (markdown: string): React.ReactNode[] => {
     // H2 Header
     if (cleanBlock.startsWith('## ')) {
       return (
-        <Typography variant="h4" component="h3" key={idx} sx={{ mt: 4, mb: 2, fontWeight: 700, fontFamily: 'Outfit, sans-serif', borderBottom: '1px solid rgba(255, 255, 255, 0.08)', pb: 1 }}>
+        <Typography variant="h4" component="h3" key={idx} sx={{ mt: 4, mb: 2, fontWeight: 700, fontFamily: 'Outfit, sans-serif', borderBottom: (theme) => theme.palette.mode === 'dark' ? '1px solid rgba(255, 255, 255, 0.08)' : '1px solid rgba(15, 23, 42, 0.08)', pb: 1 }}>
           {parseInlineStyles(cleanBlock.replace('## ', ''))}
         </Typography>
       );
@@ -252,13 +252,13 @@ export const renderMarkdown = (markdown: string): React.ReactNode[] => {
           key={idx} 
           sx={{ 
             borderLeft: '4px solid #8b5cf6', 
-            bgcolor: 'rgba(139, 92, 246, 0.05)', 
+            bgcolor: (theme) => theme.palette.mode === 'dark' ? 'rgba(139, 92, 246, 0.05)' : 'rgba(124, 58, 237, 0.04)', 
             borderRadius: '0 12px 12px 0',
             px: 3, 
             py: 2, 
             my: 3,
             fontStyle: 'italic',
-            color: '#cbd5e1'
+            color: 'text.secondary'
           }}
         >
           <Typography variant="body1" sx={{ fontSize: 17, lineHeight: 1.7 }}>
@@ -282,13 +282,13 @@ export const renderMarkdown = (markdown: string): React.ReactNode[] => {
           component="pre" 
           key={idx} 
           sx={{ 
-            bgcolor: '#060913', 
-            border: '1px solid rgba(255,255,255,0.06)',
+            bgcolor: (theme) => theme.palette.mode === 'dark' ? '#060913' : '#f1f5f9', 
+            border: (theme) => theme.palette.mode === 'dark' ? '1px solid rgba(255,255,255,0.06)' : '1px solid rgba(15,23,42,0.06)',
             borderRadius: 3, 
             p: 2.5, 
             overflowX: 'auto', 
             my: 3,
-            boxShadow: 'inset 0 4px 15px rgba(0,0,0,0.5)',
+            boxShadow: (theme) => theme.palette.mode === 'dark' ? 'inset 0 4px 15px rgba(0,0,0,0.5)' : 'inset 0 2px 8px rgba(0,0,0,0.03)',
             position: 'relative'
           }}
         >
@@ -303,11 +303,11 @@ export const renderMarkdown = (markdown: string): React.ReactNode[] => {
                 color: 'text.secondary', 
                 textTransform: 'uppercase',
                 letterSpacing: '0.05em',
-                bgcolor: 'rgba(255, 255, 255, 0.03)',
+                bgcolor: (theme) => theme.palette.mode === 'dark' ? 'rgba(255, 255, 255, 0.03)' : 'rgba(15, 23, 42, 0.03)',
                 px: 1,
                 py: 0.2,
                 borderRadius: 1,
-                border: '1px solid rgba(255,255,255,0.05)'
+                border: (theme) => theme.palette.mode === 'dark' ? '1px solid rgba(255,255,255,0.05)' : '1px solid rgba(15,23,42,0.05)'
               }}
             >
               {lang}
@@ -316,7 +316,7 @@ export const renderMarkdown = (markdown: string): React.ReactNode[] => {
           <Box 
             component="code" 
             sx={{ 
-              color: '#e2e8f0', 
+              color: 'text.primary', 
               fontSize: 14, 
               fontFamily: 'Fira Code, monospace',
               lineHeight: 1.6,
@@ -336,7 +336,7 @@ export const renderMarkdown = (markdown: string): React.ReactNode[] => {
       return (
         <Box component="ul" key={idx} sx={{ pl: 4, mb: 3 }}>
           {listItems.map((item, lIdx) => (
-            <Box component="li" key={lIdx} sx={{ mb: 1, fontSize: 17, lineHeight: 1.8, color: '#e2e8f0' }}>
+            <Box component="li" key={lIdx} sx={{ mb: 1, fontSize: 17, lineHeight: 1.8, color: 'text.primary' }}>
               {parseInlineStyles(item)}
             </Box>
           ))}
@@ -354,7 +354,7 @@ export const renderMarkdown = (markdown: string): React.ReactNode[] => {
           mb: 3, 
           fontSize: 17.5, 
           lineHeight: 1.85, 
-          color: '#e2e8f0',
+          color: 'text.primary',
           fontWeight: 400
         }}
       >

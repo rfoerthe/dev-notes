@@ -63,10 +63,10 @@ export const Login: React.FC = () => {
         sx={{ 
           p: 4, 
           borderRadius: 5,
-          background: 'rgba(15, 23, 42, 0.45)',
+          background: (theme) => theme.palette.mode === 'dark' ? 'rgba(15, 23, 42, 0.45)' : 'rgba(255, 255, 255, 0.65)',
           backdropFilter: 'blur(16px)',
-          border: '1px solid rgba(255, 255, 255, 0.05)',
-          boxShadow: '0 20px 40px -15px rgba(0,0,0,0.5)',
+          border: (theme) => theme.palette.mode === 'dark' ? '1px solid rgba(255, 255, 255, 0.05)' : '1px solid rgba(0, 0, 0, 0.05)',
+          boxShadow: (theme) => theme.palette.mode === 'dark' ? '0 20px 40px -15px rgba(0,0,0,0.5)' : '0 20px 40px -15px rgba(15, 23, 42, 0.05)',
           position: 'relative',
           overflow: 'hidden'
         }}

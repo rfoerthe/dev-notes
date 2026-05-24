@@ -131,8 +131,8 @@ export const BlogDetails: React.FC = () => {
             mb: 4, 
             color: 'text.secondary',
             '&:hover': {
-              color: '#ffffff',
-              background: 'rgba(255,255,255,0.02)'
+              color: (theme) => theme.palette.mode === 'dark' ? '#ffffff' : '#000000',
+              background: (theme) => theme.palette.mode === 'dark' ? 'rgba(255,255,255,0.02)' : 'rgba(0,0,0,0.02)'
             }
           }}
         >
@@ -173,7 +173,7 @@ export const BlogDetails: React.FC = () => {
               lineHeight: 1.25,
               mb: 3,
               letterSpacing: '-0.02em',
-              color: '#ffffff'
+              color: 'text.primary'
             }}
           >
             {blog.title}
@@ -218,7 +218,7 @@ export const BlogDetails: React.FC = () => {
                 {getAuthorInitials(blog.authorName)}
               </Avatar>
               <Box sx={{ display: 'flex', flexDirection: 'column' }}>
-                <Typography variant="body1" sx={{ fontWeight: 700, color: '#f8fafc' }}>
+                <Typography variant="body1" sx={{ fontWeight: 700, color: 'text.primary' }}>
                   {blog.authorName}
                 </Typography>
                 <Typography variant="caption" color="text.secondary" sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mt: 0.2 }}>
@@ -277,10 +277,10 @@ export const BlogDetails: React.FC = () => {
           sx={{ 
             p: { xs: 3, md: 6 }, 
             borderRadius: 5,
-            background: 'rgba(15, 23, 42, 0.35)',
+            background: (theme) => theme.palette.mode === 'dark' ? 'rgba(15, 23, 42, 0.35)' : 'rgba(255, 255, 255, 0.55)',
             backdropFilter: 'blur(16px)',
-            border: '1px solid rgba(255, 255, 255, 0.04)',
-            boxShadow: '0 15px 35px -5px rgba(0, 0, 0, 0.3)',
+            border: (theme) => theme.palette.mode === 'dark' ? '1px solid rgba(255, 255, 255, 0.04)' : '1px solid rgba(15, 23, 42, 0.05)',
+            boxShadow: (theme) => theme.palette.mode === 'dark' ? '0 15px 35px -5px rgba(0, 0, 0, 0.3)' : '0 15px 35px -5px rgba(15, 23, 42, 0.05)',
             mb: 6,
             width: '100%'
           }}

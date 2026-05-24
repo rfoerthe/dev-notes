@@ -21,9 +21,10 @@ import {
   ListItemButton,
   ListItemText
 } from '@mui/material';
-import { Terminal, PenTool, ShieldAlert, LogOut, Menu as MenuIcon } from 'lucide-react';
+import { Terminal, PenTool, ShieldAlert, LogOut, Menu as MenuIcon, Settings, Sun, Moon, Monitor } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { fetchUsersByStatus } from '../services/authService';
+import { useCustomTheme } from '../context/CustomThemeContext';
 
 export const NavBar: React.FC = () => {
   const { currentUser, userProfile, logout } = useAuth();
@@ -65,6 +66,22 @@ export const NavBar: React.FC = () => {
     setAnchorEl(null);
   };
 
+  const { themeMode, setThemeMode } = useCustomTheme();
+  const [themeAnchorEl, setThemeAnchorEl] = useState<null | HTMLElement>(null);
+
+  const handleOpenThemeMenu = (event: React.MouseEvent<HTMLElement>) => {
+    setThemeAnchorEl(event.currentTarget);
+  };
+
+  const handleCloseThemeMenu = () => {
+    setThemeAnchorEl(null);
+  };
+
+  const handleSelectTheme = (mode: 'light' | 'dark' | 'system') => {
+    setThemeMode(mode);
+    handleCloseThemeMenu();
+  };
+
   const handleLogout = async () => {
     handleCloseUserMenu();
     try {
@@ -93,7 +110,7 @@ export const NavBar: React.FC = () => {
     : 'U';
 
   const drawer = (
-    <Box onClick={handleDrawerToggle} sx={{ textAlign: 'center', p: 2, bgcolor: '#070a13', height: '100%' }}>
+    <Box onClick={handleDrawerToggle} sx={{ textAlign: 'center', p: 2, bgcolor: 'background.default', height: '100%' }}>
       <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 1, mb: 3 }}>
         <Terminal color="#8b5cf6" size={24} />
         <Typography variant="h6" sx={{ fontFamily: 'Outfit, sans-serif', fontWeight: 800 }}>
@@ -112,9 +129,11 @@ export const NavBar: React.FC = () => {
                 mx: 1,
                 justifyContent: 'center',
                 backgroundColor: isActive(item.path) ? 'rgba(139, 92, 246, 0.08)' : 'transparent',
-                color: isActive(item.path) ? '#a78bfa' : '#94a3b8',
+                color: (theme) => isActive(item.path) 
+                  ? (theme.palette.mode === 'dark' ? '#a78bfa' : 'primary.main') 
+                  : (theme.palette.mode === 'dark' ? '#94a3b8' : '#475569'),
                 '&:hover': {
-                  backgroundColor: 'rgba(255, 255, 255, 0.03)',
+                  backgroundColor: (theme) => theme.palette.mode === 'dark' ? 'rgba(255, 255, 255, 0.03)' : 'rgba(15, 23, 42, 0.03)',
                 }
               }}
             >
@@ -196,7 +215,9 @@ export const NavBar: React.FC = () => {
                 sx={{ 
                   fontFamily: 'Outfit, sans-serif', 
                   fontWeight: 800,
-                  background: 'linear-gradient(135deg, #ffffff 0%, #cbd5e1 100%)',
+                  background: (theme) => theme.palette.mode === 'dark' 
+                    ? 'linear-gradient(135deg, #ffffff 0%, #cbd5e1 100%)' 
+                    : 'linear-gradient(135deg, #0f172a 0%, #334155 100%)',
                   WebkitBackgroundClip: 'text',
                   WebkitTextFillColor: 'transparent',
                   display: 'flex',
@@ -221,13 +242,15 @@ export const NavBar: React.FC = () => {
                       py: 1,
                       fontFamily: 'Outfit, sans-serif',
                       fontWeight: 600,
-                      color: isActive(link.path) ? '#ffffff' : '#94a3b8',
+                      color: (theme) => isActive(link.path) 
+                        ? (theme.palette.mode === 'dark' ? '#ffffff' : 'primary.main') 
+                        : (theme.palette.mode === 'dark' ? '#94a3b8' : '#475569'),
                       backgroundColor: isActive(link.path) ? 'rgba(139, 92, 246, 0.08)' : 'transparent',
                       border: isActive(link.path) ? '1px solid rgba(139, 92, 246, 0.15)' : '1px solid transparent',
                       '&:hover': {
-                        color: '#ffffff',
-                        backgroundColor: 'rgba(255, 255, 255, 0.03)',
-                        borderColor: 'rgba(255, 255, 255, 0.08)'
+                        color: (theme) => theme.palette.mode === 'dark' ? '#ffffff' : 'primary.main',
+                        backgroundColor: (theme) => theme.palette.mode === 'dark' ? 'rgba(255, 255, 255, 0.03)' : 'rgba(139, 92, 246, 0.04)',
+                        borderColor: (theme) => theme.palette.mode === 'dark' ? 'rgba(255, 255, 255, 0.08)' : 'rgba(139, 92, 246, 0.12)'
                       }
                     }}
                   >
@@ -255,10 +278,75 @@ export const NavBar: React.FC = () => {
 
             {/* RIGHT SIDE USER ACTIONS */}
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+              {/* Theme Selector Dropdown */}
+              <Tooltip title="Design anpassen">
+                <IconButton 
+                  onClick={handleOpenThemeMenu} 
+                  sx={{ 
+                    p: 1.2, 
+                    border: (theme) => theme.palette.mode === 'dark' ? '1px solid rgba(255, 255, 255, 0.08)' : '1px solid rgba(15, 23, 42, 0.08)', 
+                    borderRadius: 3,
+                    color: 'inherit',
+                    '&:hover': {
+                      borderColor: 'primary.light',
+                      bgcolor: (theme) => theme.palette.mode === 'dark' ? 'rgba(255, 255, 255, 0.03)' : 'rgba(15, 23, 42, 0.03)'
+                    }
+                  }}
+                >
+                  {themeMode === 'light' ? <Sun size={18} /> : themeMode === 'dark' ? <Moon size={18} /> : <Monitor size={18} />}
+                </IconButton>
+              </Tooltip>
+              
+              <Menu
+                id="theme-menu"
+                anchorEl={themeAnchorEl}
+                open={Boolean(themeAnchorEl)}
+                onClose={handleCloseThemeMenu}
+                anchorOrigin={{
+                  vertical: 'bottom',
+                  horizontal: 'right',
+                }}
+                transformOrigin={{
+                  vertical: 'top',
+                  horizontal: 'right',
+                }}
+                sx={{ 
+                  mt: 1.5, 
+                  '& .MuiPaper-root': { 
+                    bgcolor: 'background.paper', 
+                    border: (theme) => theme.palette.mode === 'dark' ? '1px solid rgba(255, 255, 255, 0.06)' : '1px solid rgba(15, 23, 42, 0.06)',
+                    borderRadius: 3,
+                    p: 0.5
+                  } 
+                }}
+              >
+                <MenuItem 
+                  onClick={() => handleSelectTheme('light')}
+                  selected={themeMode === 'light'}
+                  sx={{ fontFamily: 'Outfit, sans-serif', fontSize: 14, py: 1, borderRadius: 2 }}
+                >
+                  <Sun size={14} style={{ marginRight: 8 }} /> Hell (Light)
+                </MenuItem>
+                <MenuItem 
+                  onClick={() => handleSelectTheme('dark')}
+                  selected={themeMode === 'dark'}
+                  sx={{ fontFamily: 'Outfit, sans-serif', fontSize: 14, py: 1, borderRadius: 2 }}
+                >
+                  <Moon size={14} style={{ marginRight: 8 }} /> Dunkel (Dark)
+                </MenuItem>
+                <MenuItem 
+                  onClick={() => handleSelectTheme('system')}
+                  selected={themeMode === 'system'}
+                  sx={{ fontFamily: 'Outfit, sans-serif', fontSize: 14, py: 1, borderRadius: 2 }}
+                >
+                  <Monitor size={14} style={{ marginRight: 8 }} /> System-Einstellung
+                </MenuItem>
+              </Menu>
+
               {currentUser ? (
                 <>
                   <Tooltip title="Profil öffnen">
-                    <IconButton onClick={handleOpenUserMenu} sx={{ p: 0.5, border: '1px solid rgba(255, 255, 255, 0.08)', borderRadius: '50%' }}>
+                    <IconButton onClick={handleOpenUserMenu} sx={{ p: 0.5, border: (theme) => theme.palette.mode === 'dark' ? '1px solid rgba(255, 255, 255, 0.08)' : '1px solid rgba(15, 23, 42, 0.08)', borderRadius: '50%' }}>
                       <Avatar 
                         sx={{ 
                           width: 36, 
@@ -276,7 +364,7 @@ export const NavBar: React.FC = () => {
                     </IconButton>
                   </Tooltip>
                   <Menu
-                    sx={{ mt: '45px', '& .MuiPaper-root': { bgcolor: 'background.paper', border: '1px solid rgba(255, 255, 255, 0.06)' } }}
+                    sx={{ mt: '45px', '& .MuiPaper-root': { bgcolor: 'background.paper', border: (theme) => theme.palette.mode === 'dark' ? '1px solid rgba(255, 255, 255, 0.06)' : '1px solid rgba(15, 23, 42, 0.06)' } }}
                     id="menu-appbar"
                     anchorEl={anchorEl}
                     anchorOrigin={{ vertical: 'top', horizontal: 'right' }}
@@ -334,6 +422,12 @@ export const NavBar: React.FC = () => {
                         <PenTool size={14} style={{ marginRight: 8 }} /> Beitrag schreiben
                       </MenuItem>
                     )}
+                    <MenuItem 
+                      onClick={() => { handleCloseUserMenu(); navigate('/profile'); }}
+                      sx={{ fontFamily: 'Outfit, sans-serif', fontSize: 14, py: 1 }}
+                    >
+                      <Settings size={14} style={{ marginRight: 8 }} /> Profil & Einstellungen
+                    </MenuItem>
                     {userProfile?.role === 'admin' && (
                       <MenuItem 
                         onClick={() => { handleCloseUserMenu(); navigate('/admin'); }}
@@ -379,7 +473,7 @@ export const NavBar: React.FC = () => {
                   aria-label="open drawer"
                   edge="start"
                   onClick={handleDrawerToggle}
-                  sx={{ ml: 1, border: '1px solid rgba(255, 255, 255, 0.08)', borderRadius: 3, p: 1 }}
+                  sx={{ ml: 1, border: (theme) => theme.palette.mode === 'dark' ? '1px solid rgba(255, 255, 255, 0.08)' : '1px solid rgba(15, 23, 42, 0.08)', borderRadius: 3, p: 1 }}
                 >
                   <MenuIcon size={20} />
                 </IconButton>
@@ -397,7 +491,13 @@ export const NavBar: React.FC = () => {
         ModalProps={{ keepMounted: true }}
         sx={{
           display: { xs: 'block', md: 'none' },
-          '& .MuiDrawer-paper': { boxSizing: 'border-box', width: 260, border: 'none', borderLeft: '1px solid rgba(255, 255, 255, 0.06)' },
+          '& .MuiDrawer-paper': { 
+            boxSizing: 'border-box', 
+            width: 260, 
+            border: 'none', 
+            bgcolor: 'background.paper',
+            borderLeft: (theme) => theme.palette.mode === 'dark' ? '1px solid rgba(255, 255, 255, 0.06)' : '1px solid rgba(15, 23, 42, 0.06)' 
+          },
         }}
         anchor="right"
       >

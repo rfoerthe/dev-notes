@@ -135,7 +135,9 @@ export const Home: React.FC = () => {
               fontFamily: 'Outfit, sans-serif',
               fontSize: { xs: '2.5rem', md: '3.75rem' },
               letterSpacing: '-0.02em',
-              background: 'linear-gradient(135deg, #ffffff 0%, #a78bfa 50%, #8b5cf6 100%)',
+              background: (theme) => theme.palette.mode === 'dark' 
+                ? 'linear-gradient(135deg, #ffffff 0%, #a78bfa 50%, #8b5cf6 100%)' 
+                : 'linear-gradient(135deg, #0f172a 0%, #6d28d9 50%, #7c3aed 100%)',
               WebkitBackgroundClip: 'text',
               WebkitTextFillColor: 'transparent'
             }}
@@ -193,13 +195,13 @@ export const Home: React.FC = () => {
             clickable
             onClick={() => setSelectedTag(null)}
             sx={{
-              bgcolor: !selectedTag ? 'primary.main' : 'rgba(255, 255, 255, 0.03)',
-              color: !selectedTag ? '#ffffff' : '#94a3b8',
-              border: !selectedTag ? '1px solid transparent' : '1px solid rgba(255, 255, 255, 0.05)',
+              bgcolor: (theme) => !selectedTag ? 'primary.main' : (theme.palette.mode === 'dark' ? 'rgba(255, 255, 255, 0.03)' : 'rgba(15, 23, 42, 0.05)'),
+              color: (theme) => !selectedTag ? '#ffffff' : (theme.palette.mode === 'dark' ? '#94a3b8' : '#475569'),
+              border: (theme) => !selectedTag ? '1px solid transparent' : (theme.palette.mode === 'dark' ? '1px solid rgba(255, 255, 255, 0.05)' : '1px solid rgba(15, 23, 42, 0.08)'),
               fontFamily: 'Outfit, sans-serif',
               fontWeight: 600,
               '&:hover': {
-                bgcolor: !selectedTag ? 'primary.dark' : 'rgba(255, 255, 255, 0.08)'
+                bgcolor: (theme) => !selectedTag ? 'primary.dark' : (theme.palette.mode === 'dark' ? 'rgba(255, 255, 255, 0.08)' : 'rgba(15, 23, 42, 0.1)')
               }
             }}
           />
@@ -212,13 +214,13 @@ export const Home: React.FC = () => {
                 clickable
                 onClick={() => setSelectedTag(isSelected ? null : tag)}
                 sx={{
-                  bgcolor: isSelected ? 'primary.main' : 'rgba(255, 255, 255, 0.03)',
-                  color: isSelected ? '#ffffff' : '#94a3b8',
-                  border: isSelected ? '1px solid transparent' : '1px solid rgba(255, 255, 255, 0.05)',
+                  bgcolor: (theme) => isSelected ? 'primary.main' : (theme.palette.mode === 'dark' ? 'rgba(255, 255, 255, 0.03)' : 'rgba(15, 23, 42, 0.05)'),
+                  color: (theme) => isSelected ? '#ffffff' : (theme.palette.mode === 'dark' ? '#94a3b8' : '#475569'),
+                  border: (theme) => isSelected ? '1px solid transparent' : (theme.palette.mode === 'dark' ? '1px solid rgba(255, 255, 255, 0.05)' : '1px solid rgba(15, 23, 42, 0.08)'),
                   fontFamily: 'Outfit, sans-serif',
                   fontWeight: 600,
                   '&:hover': {
-                    bgcolor: isSelected ? 'primary.dark' : 'rgba(255, 255, 255, 0.08)'
+                    bgcolor: (theme) => isSelected ? 'primary.dark' : (theme.palette.mode === 'dark' ? 'rgba(255, 255, 255, 0.08)' : 'rgba(15, 23, 42, 0.1)')
                   }
                 }}
               />
@@ -290,7 +292,7 @@ export const Home: React.FC = () => {
                         fontFamily: 'Outfit, sans-serif', 
                         fontWeight: 750, 
                         lineHeight: 1.3,
-                        color: '#f8fafc',
+                        color: 'text.primary',
                         '&:hover': {
                           color: '#a78bfa'
                         }
@@ -335,7 +337,7 @@ export const Home: React.FC = () => {
                         {getAuthorInitials(blog.authorName)}
                       </Avatar>
                       <Box sx={{ flexGrow: 1 }}>
-                        <Typography variant="body2" sx={{ fontWeight: 600, color: '#e2e8f0', fontSize: 13 }}>
+                        <Typography variant="body2" sx={{ fontWeight: 600, color: 'text.primary', fontSize: 13 }}>
                           {blog.authorName}
                         </Typography>
                          <Stack direction="row" spacing={1.5} sx={{ color: 'text.secondary', mt: 0.2 }}>

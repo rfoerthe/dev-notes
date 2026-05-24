@@ -1,7 +1,7 @@
 import React from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
-import { ThemeProvider, CssBaseline, Box, Typography, Link, Container } from '@mui/material';
-import { theme } from './theme/theme';
+import { CssBaseline, Box, Typography, Link, Container } from '@mui/material';
+import { CustomThemeProvider } from './context/CustomThemeContext';
 import { AuthProvider } from './context/AuthContext';
 import { NavBar } from './components/NavBar';
 import { Home } from './pages/Home';
@@ -12,11 +12,12 @@ import { AdminDashboard } from './pages/AdminDashboard';
 import { CreateBlog } from './pages/CreateBlog';
 import { BlogDetails } from './pages/BlogDetails';
 import { EditBlog } from './pages/EditBlog';
+import { Profile } from './pages/Profile';
 import { ProtectedRoute, AdminRoute } from './components/RouteGuards';
 
 const App: React.FC = () => {
   return (
-    <ThemeProvider theme={theme}>
+    <CustomThemeProvider>
       <CssBaseline />
       <AuthProvider>
         <BrowserRouter>
@@ -36,6 +37,7 @@ const App: React.FC = () => {
                 <Route element={<ProtectedRoute />}>
                   <Route path="/write" element={<CreateBlog />} />
                   <Route path="/edit/:id" element={<EditBlog />} />
+                  <Route path="/profile" element={<Profile />} />
                 </Route>
 
                 {/* Admin routes */}
@@ -79,7 +81,7 @@ const App: React.FC = () => {
           </Box>
         </BrowserRouter>
       </AuthProvider>
-    </ThemeProvider>
+    </CustomThemeProvider>
   );
 };
 

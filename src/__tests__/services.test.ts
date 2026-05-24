@@ -5,7 +5,8 @@ import {
   loginUser, 
   isUsernameAvailable, 
   isEmailAvailable,
-  ADMIN_CREDENTIALS
+  ADMIN_CREDENTIALS,
+  updateUserProfile
 } from '../services/authService';
 import { 
   createBlog, 
@@ -163,6 +164,120 @@ describe('Developer\'s Blog Service Layer (Mock Mode)', () => {
       expect(blogs.length).toBe(1);
       expect(blogs[0].title).toBe('New Edited Title');
       expect(blogs[0].readTime).toBe(3);
+    });
+  });
+
+  describe('Security & Hashing (Mock Mode)', () => {
+    it('should hash passwords and never store them in plain text', async () => {
+      await registerUser({
+        firstName: 'Secure',
+        lastName: 'Dev',
+        username: 'securedev',
+        email: 'secure@dev.com',
+        password: 'MySecretPassword123!'
+      });
+
+      // Retrieve local passwords database
+      const rawPasswords = localStorage.getItem('devblog_mock_passwords');
+      expect(rawPasswords).toBeTruthy();
+
+      const passwords = JSON.parse(rawPasswords!);
+      const storedPassword = passwords['secure@dev.com'];
+
+      // Password must be hashed (64-char hex string) and NOT plain text
+      expect(storedPassword).not.toBe('MySecretPassword123!');
+      expect(storedPassword).toHaveLength(64); // SHA-256 is 64 hex characters
+      expect(storedPassword).toMatch(/^[a-f0-9]{64}$/);
+    });
+
+    it('should securely salt/hash predefined admin credentials', async () => {
+      await seedAdminUser();
+
+      const rawPasswords = localStorage.getItem('devblog_mock_passwords');
+      const passwords = JSON.parse(rawPasswords!);
+      const storedAdminPassword = passwords[ADMIN_CREDENTIALS.email];
+
+      expect(storedAdminPassword).not.toBe(ADMIN_CREDENTIALS.password);
+      expect(storedAdminPassword).toHaveLength(64);
+    });
+
+    it('should enforce default role and pending status on user registration', async () => {
+      const profile = await registerUser({
+        firstName: 'Jane',
+        lastName: 'Doe',
+        username: 'janedoe',
+        email: 'jane@doe.com',
+        password: 'Password123!'
+      });
+
+      // In alignment with firestore.rules 'create' security checks,
+      // registered users MUST be forced to 'user' role and 'pending' status.
+      expect(profile.role).toBe('user');
+      expect(profile.status).toBe('pending');
+    });
+
+    it('should block registration if username is already reserved', async () => {
+      await registerUser({
+        firstName: 'First',
+        lastName: 'User',
+        username: 'duplicate',
+        email: 'first@user.com',
+        password: 'Password123!'
+      });
+
+      // Attempt to register another account with the same username
+      await expect(
+        registerUser({
+          firstName: 'Second',
+          lastName: 'User',
+          username: 'duplicate',
+          email: 'second@user.com',
+          password: 'Password123!'
+        })
+      ).rejects.toThrow('Dieser Benutzername ist bereits vergeben.');
+    });
+
+    it('should successfully update user profile names and secure password hashing', async () => {
+      const profile = await registerUser({
+        firstName: 'OldFirst',
+        lastName: 'OldLast',
+        username: 'updatable',
+        email: 'update@profile.com',
+        password: 'OldPassword123!'
+      });
+
+      expect(profile.firstName).toBe('OldFirst');
+
+      // Update name and password
+      await updateUserProfile({
+        uid: profile.uid,
+        firstName: 'NewFirst',
+        lastName: 'NewLast',
+        newPassword: 'NewPassword123!'
+      });
+
+      // Fetch the mock user profile directly
+      const rawUsers = localStorage.getItem('devblog_mock_users');
+      const users = JSON.parse(rawUsers!);
+      const updatedUser = users.find((u: any) => u.uid === profile.uid);
+
+      expect(updatedUser.firstName).toBe('NewFirst');
+      expect(updatedUser.lastName).toBe('NewLast');
+      expect(updatedUser.username).toBe('updatable'); // Should remain unchanged
+      expect(updatedUser.email).toBe('update@profile.com'); // Should remain unchanged
+
+      // Validate the hashed password
+      const rawPasswords = localStorage.getItem('devblog_mock_passwords');
+      const passwords = JSON.parse(rawPasswords!);
+      const storedPasswordHash = passwords['update@profile.com'];
+
+      const expectedNewHash = await crypto.subtle.digest(
+        'SHA-256',
+        new TextEncoder().encode('NewPassword123!')
+      ).then(buf => Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, '0')).join(''));
+
+      expect(storedPasswordHash).toBe(expectedNewHash);
+      expect(storedPasswordHash).not.toBe('NewPassword123!');
     });
   });
 });

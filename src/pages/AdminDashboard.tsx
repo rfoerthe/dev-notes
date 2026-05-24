@@ -154,7 +154,12 @@ export const AdminDashboard: React.FC = () => {
       )}
 
       {/* Tabs Menu */}
-      <Paper sx={{ bgcolor: 'rgba(15, 23, 42, 0.4)', backdropFilter: 'blur(16px)', border: '1px solid rgba(255, 255, 255, 0.05)', borderRadius: 4 }}>
+      <Paper sx={{ 
+        bgcolor: (theme) => theme.palette.mode === 'dark' ? 'rgba(15, 23, 42, 0.4)' : 'rgba(255, 255, 255, 0.45)', 
+        backdropFilter: 'blur(16px)', 
+        border: (theme) => theme.palette.mode === 'dark' ? '1px solid rgba(255, 255, 255, 0.05)' : '1px solid rgba(0, 0, 0, 0.05)', 
+        borderRadius: 4 
+      }}>
         <Tabs 
           value={tabValue} 
           onChange={handleTabChange} 
