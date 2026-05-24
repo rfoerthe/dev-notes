@@ -92,6 +92,42 @@ Run linting:
 npm run lint
 ```
 
+## Initial Admin Bootstrap
+
+Do not create or seed admin credentials in the browser client. A public first-run setup screen would let the first visitor claim the administrator account, so DevNotes uses a local Firebase Admin SDK bootstrap script instead.
+
+The script creates or updates the admin profile in Firebase Auth and Firestore without storing a password. It prints a Firebase password reset link that the admin uses to set the initial password.
+
+Prerequisites:
+
+- A Firebase service account JSON file, kept outside version control.
+- `ADMIN_EMAIL` set to the admin's email address.
+- Optional `ADMIN_USERNAME`, `ADMIN_FIRST_NAME`, `ADMIN_LAST_NAME`, `FIREBASE_PROJECT_ID`, and `APP_URL`.
+
+Example:
+
+```bash
+GOOGLE_APPLICATION_CREDENTIALS=./firebase-service-account.json \
+ADMIN_EMAIL=admin@example.com \
+ADMIN_USERNAME=admin \
+APP_URL=https://your-domain.example \
+npm run bootstrap:admin
+```
+
+The generated reset link is sensitive. Use it once, then discard it.
+
+### Local Mock Admin
+
+In local mock mode, the browser uses `localStorage` instead of Firebase. Run the app with `npm run dev` and open:
+
+```text
+http://localhost:5173/mock-admin-setup
+```
+
+This development-only page appears only when Firebase is not configured, the app is running through the Vite dev server, and no local mock admin exists yet. It lets you choose the local admin password yourself, stores only the local password hash, signs you in, and then redirects to `/admin`.
+
+For an existing local mock admin, use the normal login page. In mock mode you can log in with either username or email.
+
 ## Firebase Configuration
 
 Create a local `.env` file when you want to connect the app to a real Firebase project:
@@ -103,9 +139,12 @@ VITE_FIREBASE_PROJECT_ID=your-project-id
 VITE_FIREBASE_STORAGE_BUCKET=your-project.appspot.com
 VITE_FIREBASE_MESSAGING_SENDER_ID=your-sender-id
 VITE_FIREBASE_APP_ID=your-app-id
+VITE_FIREBASE_MEASUREMENT_ID=G-XXXXXXXXXX
 ```
 
 If these values are not present, DevNotes automatically falls back to local mock mode.
+
+When `VITE_FIREBASE_MEASUREMENT_ID` is present, DevNotes initializes Firebase Analytics in supported browser environments and records route changes as `page_view` events. Analytics stays disabled in local mock mode.
 
 ## Authentication Flow
 
@@ -116,7 +155,48 @@ New registrations are created with:
 
 Pending users cannot access authoring tools until an admin approves them. Approved users can create and edit their own blog posts. Admin users can manage registrations and have elevated Firestore permissions.
 
-For local development, the app seeds a predefined admin account in mock mode and in Firebase mode when possible. Treat the current predefined credentials in `src/services/authService.ts` as development defaults and replace them before any production use.
+In Firebase mode, users sign in with their email address and password. Username login is intentionally not used in production because a frontend-only username login would require exposing a public username-to-email mapping.
+
+## Deleting Regular Users
+
+Admins can remove regular user profiles from the admin dashboard. In Firebase mode, deleting a user only from Firestore is not enough: the Firebase Auth account must also be removed, otherwise the email address remains reserved and the same person cannot register again with that email.
+
+Use the Admin SDK cleanup script to delete a regular user completely from:
+
+- Firebase Authentication
+- `users/{uid}`
+- `usernames/{username}`
+
+Prerequisites:
+
+- A Firebase service account JSON file, kept outside version control.
+- `GOOGLE_APPLICATION_CREDENTIALS` pointing to that service account file.
+- Either the user's email address or Firebase Auth UID.
+
+Delete by email:
+
+```bash
+GOOGLE_APPLICATION_CREDENTIALS=./firebase-service-account.json \
+npm run user:delete -- user@example.com
+```
+
+Delete by environment variable:
+
+```bash
+GOOGLE_APPLICATION_CREDENTIALS=./firebase-service-account.json \
+USER_EMAIL=user@example.com \
+npm run user:delete
+```
+
+Delete by Firebase Auth UID:
+
+```bash
+GOOGLE_APPLICATION_CREDENTIALS=./firebase-service-account.json \
+USER_UID=firebase-auth-uid \
+npm run user:delete
+```
+
+The script refuses to delete admin accounts. It is intended only for regular user cleanup.
 
 ## Data Model
 

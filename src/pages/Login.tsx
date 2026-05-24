@@ -23,7 +23,7 @@ export const Login: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState<boolean>(false);
 
-  const { login } = useAuth();
+  const { login, isMock } = useAuth();
   const navigate = useNavigate();
 
   const handleTogglePassword = () => {
@@ -36,7 +36,7 @@ export const Login: React.FC = () => {
 
     const trimmedUsername = username.trim();
     if (!trimmedUsername || !password) {
-      setError('Bitte fülle alle Felder aus.');
+      setError('Bitte fülle E-Mail/Benutzername und Passwort aus.');
       return;
     }
 
@@ -114,9 +114,9 @@ export const Login: React.FC = () => {
 
           <form onSubmit={handleSubmit}>
             <Stack spacing={2.5}>
-              {/* Username Input */}
+              {/* Login Input */}
               <TextField
-                label="Benutzername"
+                label={isMock ? 'E-Mail-Adresse oder Benutzername' : 'E-Mail-Adresse'}
                 variant="outlined"
                 fullWidth
                 value={username}
@@ -193,6 +193,24 @@ export const Login: React.FC = () => {
               Registrieren
             </Typography>
           </Stack>
+
+          {isMock && import.meta.env.DEV && (
+            <Box sx={{ textAlign: 'center', mt: 2 }}>
+              <Typography
+                component={RouterLink}
+                to="/mock-admin-setup"
+                variant="body2"
+                sx={{
+                  color: 'secondary.main',
+                  textDecoration: 'none',
+                  fontWeight: 700,
+                  '&:hover': { textDecoration: 'underline' }
+                }}
+              >
+                Lokalen Admin einrichten
+              </Typography>
+            </Box>
+          )}
         </Box>
       </Paper>
     </Container>

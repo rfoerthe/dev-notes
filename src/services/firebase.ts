@@ -1,6 +1,7 @@
-import { initializeApp, getApps, getApp } from 'firebase/app';
+import { initializeApp, getApps, getApp, type FirebaseApp } from 'firebase/app';
 import { getAuth } from 'firebase/auth';
-import { getFirestore } from 'firebase/firestore';
+import { getFirestore, initializeFirestore } from 'firebase/firestore';
+import { initializeAnalytics, isSupported, type Analytics } from 'firebase/analytics';
 
 // Environment variables check
 const firebaseConfig = {
@@ -9,21 +10,44 @@ const firebaseConfig = {
   projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID || "",
   storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET || "",
   messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID || "",
-  appId: import.meta.env.VITE_FIREBASE_APP_ID || ""
+  appId: import.meta.env.VITE_FIREBASE_APP_ID || "",
+  measurementId: import.meta.env.VITE_FIREBASE_MEASUREMENT_ID || ""
 };
 
-const isFirebaseConfigured = !!import.meta.env.VITE_FIREBASE_API_KEY;
+const forceMockMode = import.meta.env.VITE_FORCE_MOCK_MODE === 'true';
+const isFirebaseConfigured = !!import.meta.env.VITE_FIREBASE_API_KEY && !forceMockMode;
 
-let app;
+let app: FirebaseApp | undefined;
 let auth: any;
 let db: any;
+let analyticsPromise: Promise<Analytics | null> = Promise.resolve(null);
 let isMockEnabled = false;
 
 if (isFirebaseConfigured) {
   try {
     app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
     auth = getAuth(app);
-    db = getFirestore(app);
+    try {
+      db = initializeFirestore(app, {
+        experimentalForceLongPolling: true
+      });
+    } catch {
+      db = getFirestore(app);
+    }
+
+    if (firebaseConfig.measurementId) {
+      const firebaseApp = app;
+      analyticsPromise = isSupported()
+        .then(supported => supported ? initializeAnalytics(firebaseApp, {
+          config: {
+            send_page_view: false
+          }
+        }) : null)
+        .catch(error => {
+          console.warn('Firebase Analytics is not available in this environment:', error);
+          return null;
+        });
+    }
   } catch (error) {
     console.warn("Failed to initialize real Firebase, falling back to mock services:", error);
     isMockEnabled = true;
@@ -106,6 +130,7 @@ const mockAuthInstance = new MockAuth();
 export {
   auth,
   db,
+  analyticsPromise,
   isMockEnabled,
   mockAuthInstance,
   MOCK_USERS_KEY,

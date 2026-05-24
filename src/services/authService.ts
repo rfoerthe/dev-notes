@@ -24,6 +24,7 @@ import {
   setMockData,
   MOCK_USERS_KEY
 } from './firebase';
+import { updateAuthorNameForBlogs } from './blogService';
 
 export interface UserProfile {
   uid: string;
@@ -37,15 +38,6 @@ export interface UserProfile {
   operatingSystem?: string;
 }
 
-// Predefined Admin Credentials
-export const ADMIN_CREDENTIALS = {
-  username: 'admin',
-  email: 'admin@devblog.local',
-  password: 'AdminPassword123!',
-  firstName: 'Blog',
-  lastName: 'Admin'
-};
-
 // Secure SHA-256 password hashing helper via browser Web Crypto API (fully supported in Node and modern browsers)
 export async function hashPassword(password: string): Promise<string> {
   const encoder = new TextEncoder();
@@ -53,96 +45,6 @@ export async function hashPassword(password: string): Promise<string> {
   const hashBuffer = await crypto.subtle.digest('SHA-256', data);
   const hashArray = Array.from(new Uint8Array(hashBuffer));
   return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
-}
-
-// Seed Predefined Admin
-export async function seedAdminUser(): Promise<void> {
-  if (isMockEnabled) {
-    const users: UserProfile[] = getMockData(MOCK_USERS_KEY, []);
-    const adminExists = users.some(u => u.username === ADMIN_CREDENTIALS.username);
-    if (!adminExists) {
-      const adminProfile: UserProfile = {
-        uid: 'admin-uid',
-        firstName: ADMIN_CREDENTIALS.firstName,
-        lastName: ADMIN_CREDENTIALS.lastName,
-        username: ADMIN_CREDENTIALS.username,
-        email: ADMIN_CREDENTIALS.email,
-        role: 'admin',
-        status: 'approved',
-        createdAt: new Date().toISOString()
-      };
-      
-      // Hash and store the admin user's password in a separate mockup block for local login validation
-      const hashedPassword = await hashPassword(ADMIN_CREDENTIALS.password);
-      const mockPasswords = getMockData('devblog_mock_passwords', {});
-      mockPasswords[ADMIN_CREDENTIALS.email] = hashedPassword;
-      setMockData('devblog_mock_passwords', mockPasswords);
-
-      // Reserve username
-      const mockUsernames = getMockData('devblog_mock_usernames', {});
-      mockUsernames[ADMIN_CREDENTIALS.username] = 'admin-uid';
-      setMockData('devblog_mock_usernames', mockUsernames);
-
-      users.push(adminProfile);
-      setMockData(MOCK_USERS_KEY, users);
-      console.log('Seeded predefined admin locally with hashed credentials.');
-    }
-  } else {
-    try {
-      // For real Firebase, we check if the admin profile exists in Firestore
-      const usersRef = collection(db, 'users');
-      const q = query(usersRef, where('username', '==', ADMIN_CREDENTIALS.username));
-      const snapshot = await getDocs(q);
-
-      if (snapshot.empty) {
-        // We will seed the admin in Firebase Auth as well!
-        let uid = '';
-        try {
-          const userCredential = await createUserWithEmailAndPassword(
-            auth,
-            ADMIN_CREDENTIALS.email,
-            ADMIN_CREDENTIALS.password
-          );
-          uid = userCredential.user.uid;
-          await signOut(auth); // Sign out the newly registered admin immediately
-        } catch (authError: any) {
-          if (authError.code === 'auth/email-already-in-use') {
-            try {
-              const loginCred = await signInWithEmailAndPassword(
-                auth,
-                ADMIN_CREDENTIALS.email,
-                ADMIN_CREDENTIALS.password
-              );
-              uid = loginCred.user.uid;
-              await signOut(auth);
-            } catch (loginErr) {
-              console.error('Predefined admin credentials mismatch on seeding.', loginErr);
-            }
-          } else {
-            throw authError;
-          }
-        }
-
-        if (uid) {
-          const adminProfile: UserProfile = {
-            uid,
-            firstName: ADMIN_CREDENTIALS.firstName,
-            lastName: ADMIN_CREDENTIALS.lastName,
-            username: ADMIN_CREDENTIALS.username,
-            email: ADMIN_CREDENTIALS.email,
-            role: 'admin',
-            status: 'approved',
-            createdAt: new Date().toISOString()
-          };
-          await setDoc(doc(db, 'users', uid), adminProfile);
-          await setDoc(doc(db, 'usernames', ADMIN_CREDENTIALS.username), { uid });
-          console.log('Seeded predefined admin in Firestore and usernames reservation.');
-        }
-      }
-    } catch (err) {
-      console.error('Failed to seed real Firebase admin:', err);
-    }
-  }
 }
 
 // Check Username Availability
@@ -170,10 +72,10 @@ export async function isEmailAvailable(email: string): Promise<boolean> {
     const users: UserProfile[] = getMockData(MOCK_USERS_KEY, []);
     return !users.some(u => u.email.toLowerCase() === normEmail);
   } else {
-    const usersRef = collection(db, 'users');
-    const q = query(usersRef, where('email', '==', normEmail));
-    const snapshot = await getDocs(q);
-    return snapshot.empty;
+    // Email uniqueness is enforced by Firebase Authentication. Querying the
+    // users collection before authentication is intentionally avoided because
+    // Firestore rules do not expose user profile data publicly.
+    return true;
   }
 }
 
@@ -186,6 +88,78 @@ export interface RegisterParams {
   password: string;
 }
 
+export interface BootstrapMockAdminParams {
+  firstName: string;
+  lastName: string;
+  username?: string;
+  email: string;
+  password: string;
+}
+
+export function canBootstrapMockAdmin(): boolean {
+  if (!isMockEnabled || !import.meta.env.DEV) {
+    return false;
+  }
+
+  const users: UserProfile[] = getMockData(MOCK_USERS_KEY, []);
+  return !users.some(user => user.role === 'admin');
+}
+
+export async function bootstrapMockAdmin(params: BootstrapMockAdminParams): Promise<UserProfile> {
+  if (!isMockEnabled || !import.meta.env.DEV) {
+    throw new Error('Die lokale Admin-Ersteinrichtung ist nur im Mock-Modus des Dev-Servers verfügbar.');
+  }
+
+  if (!canBootstrapMockAdmin()) {
+    throw new Error('Es existiert bereits ein lokaler Admin-Benutzer.');
+  }
+
+  const username = (params.username || 'admin').trim().toLowerCase();
+  const email = params.email.trim().toLowerCase();
+
+  if (!username || !email || !params.password) {
+    throw new Error('Bitte fülle Benutzername, E-Mail-Adresse und Passwort aus.');
+  }
+
+  if (!(await isUsernameAvailable(username))) {
+    throw new Error('Dieser Benutzername ist bereits vergeben.');
+  }
+
+  if (!(await isEmailAvailable(email))) {
+    throw new Error('Diese E-Mail-Adresse wird bereits verwendet.');
+  }
+
+  const adminProfile: UserProfile = {
+    uid: 'mock-admin-uid',
+    firstName: params.firstName.trim() || 'Blog',
+    lastName: params.lastName.trim() || 'Admin',
+    username,
+    email,
+    role: 'admin',
+    status: 'approved',
+    createdAt: new Date().toISOString()
+  };
+
+  const users: UserProfile[] = getMockData(MOCK_USERS_KEY, []);
+  setMockData(MOCK_USERS_KEY, [...users, adminProfile]);
+
+  const mockUsernames = getMockData('devblog_mock_usernames', {});
+  mockUsernames[username] = adminProfile.uid;
+  setMockData('devblog_mock_usernames', mockUsernames);
+
+  const passwords = getMockData('devblog_mock_passwords', {});
+  passwords[email] = await hashPassword(params.password);
+  setMockData('devblog_mock_passwords', passwords);
+
+  await mockAuthInstance.mockSignIn({
+    uid: adminProfile.uid,
+    email: adminProfile.email,
+    displayName: `${adminProfile.firstName} ${adminProfile.lastName}`
+  });
+
+  return adminProfile;
+}
+
 export async function registerUser(params: RegisterParams): Promise<UserProfile> {
   const username = params.username.trim().toLowerCase();
   const email = params.email.trim().toLowerCase();
@@ -195,9 +169,11 @@ export async function registerUser(params: RegisterParams): Promise<UserProfile>
     throw new Error('Dieser Benutzername ist bereits vergeben.');
   }
 
-  const emailAvail = await isEmailAvailable(email);
-  if (!emailAvail) {
-    throw new Error('Diese E-Mail-Adresse wird bereits verwendet.');
+  if (isMockEnabled) {
+    const emailAvail = await isEmailAvailable(email);
+    if (!emailAvail) {
+      throw new Error('Diese E-Mail-Adresse wird bereits verwendet.');
+    }
   }
 
   if (isMockEnabled) {
@@ -231,8 +207,15 @@ export async function registerUser(params: RegisterParams): Promise<UserProfile>
 
     return newProfile;
   } else {
-    // Create Firebase Auth user
-    const userCredential = await createUserWithEmailAndPassword(auth, email, params.password);
+    let userCredential;
+    try {
+      userCredential = await createUserWithEmailAndPassword(auth, email, params.password);
+    } catch (authError: any) {
+      if (authError.code === 'auth/email-already-in-use') {
+        throw new Error('Diese E-Mail-Adresse wird bereits verwendet.');
+      }
+      throw new Error(authError.message || 'Registrierung fehlgeschlagen.');
+    }
     const uid = userCredential.user.uid;
 
     const newProfile: UserProfile = {
@@ -262,29 +245,52 @@ export async function registerUser(params: RegisterParams): Promise<UserProfile>
   }
 }
 
-// Login via Username & Password
-export async function loginUser(usernameInput: string, passwordInput: string): Promise<UserProfile> {
-  const username = usernameInput.trim().toLowerCase();
+// Login via username in mock mode and via email in Firebase mode.
+export async function loginUser(loginInput: string, passwordInput: string): Promise<UserProfile> {
+  const normalizedLogin = loginInput.trim().toLowerCase();
 
   // 1. Find user by username to get their email
   let userProfile: UserProfile | undefined;
 
   if (isMockEnabled) {
     const users: UserProfile[] = getMockData(MOCK_USERS_KEY, []);
-    userProfile = users.find(u => u.username.toLowerCase() === username);
+    userProfile = users.find(
+      u => u.username.toLowerCase() === normalizedLogin || u.email.toLowerCase() === normalizedLogin
+    );
   } else {
-    // In production, we find the UID from /usernames/{username} document securely
     try {
-      const uSnap = await getDoc(doc(db, 'usernames', username));
-      if (uSnap.exists()) {
-        const uid = uSnap.data().uid;
-        const profileSnap = await getDoc(doc(db, 'users', uid));
-        if (profileSnap.exists()) {
-          userProfile = profileSnap.data() as UserProfile;
-        }
+      if (!normalizedLogin.includes('@')) {
+        throw new Error('Bitte melde dich mit deiner E-Mail-Adresse an.');
       }
-    } catch (err) {
-      console.error('Failed secure profile lookup in Firestore login:', err);
+      const userCredential = await signInWithEmailAndPassword(auth, normalizedLogin, passwordInput);
+      const uid = userCredential.user.uid;
+      const profileSnap = await getDoc(doc(db, 'users', uid));
+      const profile = profileSnap.exists() ? profileSnap.data() as UserProfile : null;
+
+      if (!profile) {
+        await signOut(auth);
+        throw new Error('Benutzerprofil existiert nicht.');
+      }
+
+      if (profile.status === 'pending') {
+        await signOut(auth);
+        throw new Error('Dein Account wurde noch nicht freigegeben. Bitte warte auf die Admin-Genehmigung.');
+      }
+      if (profile.status === 'rejected') {
+        await signOut(auth);
+        throw new Error('Dein Account wurde abgelehnt. Du kannst dich an den Support wenden.');
+      }
+
+      return profile;
+    } catch (authError: any) {
+      if (
+        authError.code === 'auth/wrong-password' ||
+        authError.code === 'auth/user-not-found' ||
+        authError.code === 'auth/invalid-credential'
+      ) {
+        throw new Error('Ungültige E-Mail-Adresse oder Passwort.');
+      }
+      throw new Error(authError.message || 'Anmeldung fehlgeschlagen.');
     }
   }
 
@@ -292,7 +298,6 @@ export async function loginUser(usernameInput: string, passwordInput: string): P
     throw new Error('Ungültiger Benutzername oder Passwort.');
   }
 
-  // 2. Perform authentication
   if (isMockEnabled) {
     const passwords = getMockData('devblog_mock_passwords', {});
     const correctPasswordHash = passwords[userProfile.email];
@@ -318,42 +323,9 @@ export async function loginUser(usernameInput: string, passwordInput: string): P
     };
     await mockAuthInstance.mockSignIn(mockUserObj);
     return userProfile;
-  } else {
-    try {
-      // Sign in via Firebase Auth
-      const userCredential = await signInWithEmailAndPassword(auth, userProfile.email, passwordInput);
-      const uid = userCredential.user.uid;
-
-      // Fetch profile to double check status & role
-      const profileSnap = await getDoc(doc(db, 'users', uid));
-      const profile = profileSnap.data() as UserProfile;
-
-      if (!profile) {
-        await signOut(auth);
-        throw new Error('Benutzerprofil existiert nicht.');
-      }
-
-      if (profile.status === 'pending') {
-        await signOut(auth);
-        throw new Error('Dein Account wurde noch nicht freigegeben. Bitte warte auf die Admin-Genehmigung.');
-      }
-      if (profile.status === 'rejected') {
-        await signOut(auth);
-        throw new Error('Dein Account wurde abgelehnt. Du kannst dich an den Support wenden.');
-      }
-
-      return profile;
-    } catch (authError: any) {
-      if (
-        authError.code === 'auth/wrong-password' ||
-        authError.code === 'auth/user-not-found' ||
-        authError.code === 'auth/invalid-credential'
-      ) {
-        throw new Error('Ungültiger Benutzername oder Passwort.');
-      }
-      throw new Error(authError.message || 'Anmeldung fehlgeschlagen.');
-    }
   }
+
+  throw new Error('Anmeldung fehlgeschlagen.');
 }
 
 // Sign Out
@@ -392,13 +364,15 @@ export async function fetchUsersByStatus(status: 'pending' | 'approved' | 'rejec
     const usersRef = collection(db, 'users');
     const q = query(
       usersRef,
-      where('status', '==', status),
-      where('role', '!=', 'admin') // Exclude admins
+      where('status', '==', status)
     );
     const snapshot = await getDocs(q);
     const results: UserProfile[] = [];
     snapshot.forEach(docSnap => {
-      results.push(docSnap.data() as UserProfile);
+      const user = docSnap.data() as UserProfile;
+      if (user.role !== 'admin') {
+        results.push(user);
+      }
     });
     return results;
   }
@@ -459,6 +433,10 @@ export interface UpdateUserProfileParams {
 }
 
 export async function updateUserProfile(params: UpdateUserProfileParams): Promise<void> {
+  const firstName = params.firstName.trim();
+  const lastName = params.lastName.trim();
+  const authorName = `${firstName} ${lastName}`;
+
   if (isMockEnabled) {
     // 1. Update first name and last name and OS
     const users: UserProfile[] = getMockData(MOCK_USERS_KEY, []);
@@ -468,12 +446,13 @@ export async function updateUserProfile(params: UpdateUserProfileParams): Promis
     }
     
     const user = users[userIndex];
-    user.firstName = params.firstName.trim();
-    user.lastName = params.lastName.trim();
+    user.firstName = firstName;
+    user.lastName = lastName;
     user.operatingSystem = params.operatingSystem;
     
     users[userIndex] = user;
     setMockData(MOCK_USERS_KEY, users);
+    await updateAuthorNameForBlogs(params.uid, authorName);
     
     // 2. Update password if provided
     if (params.newPassword && params.newPassword.trim() !== '') {
@@ -488,7 +467,7 @@ export async function updateUserProfile(params: UpdateUserProfileParams): Promis
     if (rawSession) {
       const sessionUser = JSON.parse(rawSession);
       if (sessionUser.uid === params.uid) {
-        sessionUser.displayName = `${user.firstName} ${user.lastName}`;
+        sessionUser.displayName = authorName;
         localStorage.setItem('devblog_mock_current_user', JSON.stringify(sessionUser));
       }
     }
@@ -496,10 +475,11 @@ export async function updateUserProfile(params: UpdateUserProfileParams): Promis
     // 1. Update Firestore document (firstName, lastName, and operatingSystem; role/status are locked)
     const docRef = doc(db, 'users', params.uid);
     await updateDoc(docRef, {
-      firstName: params.firstName.trim(),
-      lastName: params.lastName.trim(),
+      firstName,
+      lastName,
       operatingSystem: params.operatingSystem || null
     });
+    await updateAuthorNameForBlogs(params.uid, authorName);
     
     // 2. Update password in Firebase Auth if provided
     if (params.newPassword && params.newPassword.trim() !== '') {

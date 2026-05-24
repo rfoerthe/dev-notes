@@ -1,11 +1,12 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { 
-  seedAdminUser, 
   registerUser, 
   loginUser, 
   isUsernameAvailable, 
   isEmailAvailable,
-  ADMIN_CREDENTIALS,
+  hashPassword,
+  bootstrapMockAdmin,
+  canBootstrapMockAdmin,
   updateUserProfile,
   deleteUserRegistration
 } from '../services/authService';
@@ -13,9 +14,31 @@ import {
   createBlog, 
   getBlogs, 
   calculateReadTime,
-  updateBlog
+  updateBlog,
+  deleteBlog
 } from '../services/blogService';
 import { MOCK_USERS_KEY, MOCK_BLOGS_KEY, setMockData } from '../services/firebase';
+
+const seedApprovedMockUser = async () => {
+  const user = {
+    uid: 'approved-user-uid',
+    firstName: 'Approved',
+    lastName: 'User',
+    username: 'approveduser',
+    email: 'approved@example.com',
+    role: 'user' as const,
+    status: 'approved' as const,
+    createdAt: new Date().toISOString()
+  };
+
+  setMockData(MOCK_USERS_KEY, [user]);
+  setMockData('devblog_mock_usernames', { [user.username]: user.uid });
+  setMockData('devblog_mock_passwords', {
+    [user.email]: await hashPassword('Password123!')
+  });
+
+  return user;
+};
 
 describe('Developer\'s Blog Service Layer (Mock Mode)', () => {
   beforeEach(() => {
@@ -26,14 +49,48 @@ describe('Developer\'s Blog Service Layer (Mock Mode)', () => {
   });
 
   describe('Authentication & User Management', () => {
-    it('should successfully seed the predefined admin user', async () => {
-      await seedAdminUser();
-      
-      const adminAvailable = await isUsernameAvailable(ADMIN_CREDENTIALS.username);
-      expect(adminAvailable).toBe(false); // Admin should exist, so username is NOT available
+    it('should bootstrap a local mock admin with a self-assigned password', async () => {
+      expect(canBootstrapMockAdmin()).toBe(true);
 
-      const emailAvailable = await isEmailAvailable(ADMIN_CREDENTIALS.email);
-      expect(emailAvailable).toBe(false); // Email should be taken
+      const admin = await bootstrapMockAdmin({
+        firstName: 'Local',
+        lastName: 'Admin',
+        username: 'admin',
+        email: 'admin@example.local',
+        password: 'LocalPassword123!'
+      });
+
+      expect(admin.role).toBe('admin');
+      expect(admin.status).toBe('approved');
+      expect(canBootstrapMockAdmin()).toBe(false);
+
+      const profile = await loginUser('admin', 'LocalPassword123!');
+      expect(profile.role).toBe('admin');
+
+      const rawPasswords = localStorage.getItem('devblog_mock_passwords');
+      const passwords = JSON.parse(rawPasswords!);
+      expect(passwords['admin@example.local']).not.toBe('LocalPassword123!');
+      expect(passwords['admin@example.local']).toHaveLength(64);
+    });
+
+    it('should not bootstrap a second local mock admin', async () => {
+      await bootstrapMockAdmin({
+        firstName: 'Local',
+        lastName: 'Admin',
+        username: 'admin',
+        email: 'admin@example.local',
+        password: 'LocalPassword123!'
+      });
+
+      await expect(
+        bootstrapMockAdmin({
+          firstName: 'Second',
+          lastName: 'Admin',
+          username: 'admin2',
+          email: 'admin2@example.local',
+          password: 'LocalPassword123!'
+        })
+      ).rejects.toThrow('Es existiert bereits ein lokaler Admin-Benutzer.');
     });
 
     it('should verify username and email availability correctly', async () => {
@@ -66,13 +123,11 @@ describe('Developer\'s Blog Service Layer (Mock Mode)', () => {
       expect(profile.role).toBe('user'); // Default role is user
     });
 
-    it('should allow the predefined admin to log in successfully', async () => {
-      await seedAdminUser();
+    it('should allow approved users to log in successfully', async () => {
+      const approvedUser = await seedApprovedMockUser();
+      const profile = await loginUser(approvedUser.username, 'Password123!');
       
-      const profile = await loginUser(ADMIN_CREDENTIALS.username, ADMIN_CREDENTIALS.password);
-      
-      expect(profile.username).toBe(ADMIN_CREDENTIALS.username);
-      expect(profile.role).toBe('admin');
+      expect(profile.username).toBe(approvedUser.username);
       expect(profile.status).toBe('approved');
     });
 
@@ -92,9 +147,9 @@ describe('Developer\'s Blog Service Layer (Mock Mode)', () => {
     });
 
     it('should throw error for incorrect password or invalid user', async () => {
-      await seedAdminUser();
+      await seedApprovedMockUser();
       
-      await expect(loginUser('admin', 'WrongPassword')).rejects.toThrow(
+      await expect(loginUser('approveduser', 'WrongPassword')).rejects.toThrow(
         'Ungültiger Benutzername oder Passwort.'
       );
 
@@ -188,6 +243,54 @@ describe('Developer\'s Blog Service Layer (Mock Mode)', () => {
       expect(blogs[0].title).toBe('New Edited Title');
       expect(blogs[0].readTime).toBe(3);
     });
+
+    it('should successfully delete an existing blog post', async () => {
+      const created = await createBlog({
+        title: 'Delete Me',
+        summary: 'This post should be deleted',
+        content: 'Temporary content.',
+        tags: ['Temporary'],
+        authorId: 'some-author-uid',
+        authorName: 'Creative Dev'
+      });
+
+      expect((await getBlogs()).length).toBe(1);
+
+      await deleteBlog(created.id);
+
+      const remainingBlogs = await getBlogs();
+      expect(remainingBlogs.some(blog => blog.id === created.id)).toBe(false);
+    });
+
+    it('should update author names on existing blog posts when the profile name changes', async () => {
+      const profile = await registerUser({
+        firstName: 'Old',
+        lastName: 'Author',
+        username: 'oldauthor',
+        email: 'old@author.com',
+        password: 'Password123!'
+      });
+
+      const created = await createBlog({
+        title: 'Author Snapshot',
+        summary: 'The author name should follow profile changes',
+        content: 'A short post.',
+        tags: ['Profile'],
+        authorId: profile.uid,
+        authorName: 'Old Author'
+      });
+
+      await updateUserProfile({
+        uid: profile.uid,
+        firstName: 'New',
+        lastName: 'Author'
+      });
+
+      const blogs = await getBlogs();
+      const updatedBlog = blogs.find(blog => blog.id === created.id);
+
+      expect(updatedBlog?.authorName).toBe('New Author');
+    });
   });
 
   describe('Security & Hashing (Mock Mode)', () => {
@@ -211,17 +314,6 @@ describe('Developer\'s Blog Service Layer (Mock Mode)', () => {
       expect(storedPassword).not.toBe('MySecretPassword123!');
       expect(storedPassword).toHaveLength(64); // SHA-256 is 64 hex characters
       expect(storedPassword).toMatch(/^[a-f0-9]{64}$/);
-    });
-
-    it('should securely salt/hash predefined admin credentials', async () => {
-      await seedAdminUser();
-
-      const rawPasswords = localStorage.getItem('devblog_mock_passwords');
-      const passwords = JSON.parse(rawPasswords!);
-      const storedAdminPassword = passwords[ADMIN_CREDENTIALS.email];
-
-      expect(storedAdminPassword).not.toBe(ADMIN_CREDENTIALS.password);
-      expect(storedAdminPassword).toHaveLength(64);
     });
 
     it('should enforce default role and pending status on user registration', async () => {

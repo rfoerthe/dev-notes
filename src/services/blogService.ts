@@ -6,7 +6,10 @@ import {
   doc,
   query,
   orderBy,
-  updateDoc
+  updateDoc,
+  deleteDoc,
+  where,
+  writeBatch
 } from 'firebase/firestore';
 import {
   db,
@@ -292,3 +295,52 @@ export async function updateBlog(params: UpdateBlogParams): Promise<BlogPost> {
   }
 }
 
+export async function deleteBlog(id: string): Promise<void> {
+  if (isMockEnabled) {
+    const blogs: BlogPost[] = getMockData(MOCK_BLOGS_KEY, []);
+    const updatedBlogs = blogs.filter(blog => blog.id !== id);
+
+    if (updatedBlogs.length === blogs.length) {
+      throw new Error('Beitrag nicht gefunden.');
+    }
+
+    setMockData(MOCK_BLOGS_KEY, updatedBlogs);
+    return;
+  }
+
+  const docRef = doc(db, 'blogs', id);
+  await deleteDoc(docRef);
+}
+
+export async function updateAuthorNameForBlogs(authorId: string, authorName: string): Promise<void> {
+  const trimmedAuthorName = authorName.trim();
+
+  if (isMockEnabled) {
+    const blogs: BlogPost[] = getMockData(MOCK_BLOGS_KEY, []);
+    const updatedBlogs = blogs.map(blog => (
+      blog.authorId === authorId
+        ? { ...blog, authorName: trimmedAuthorName }
+        : blog
+    ));
+
+    setMockData(MOCK_BLOGS_KEY, updatedBlogs);
+    return;
+  }
+
+  const blogsRef = collection(db, 'blogs');
+  const authorBlogsQuery = query(blogsRef, where('authorId', '==', authorId));
+  const snapshot = await getDocs(authorBlogsQuery);
+
+  if (snapshot.empty) {
+    return;
+  }
+
+  for (let i = 0; i < snapshot.docs.length; i += 500) {
+    const batch = writeBatch(db);
+    snapshot.docs.slice(i, i + 500).forEach(blogDoc => {
+      batch.update(blogDoc.ref, { authorName: trimmedAuthorName });
+    });
+
+    await batch.commit();
+  }
+}

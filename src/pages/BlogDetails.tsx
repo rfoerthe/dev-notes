@@ -23,7 +23,7 @@ import { Edit3 } from 'lucide-react';
 export const BlogDetails: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { currentUser } = useAuth();
+  const { currentUser, userProfile } = useAuth();
 
   const [blog, setBlog] = useState<BlogPost | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
@@ -239,7 +239,7 @@ export const BlogDetails: React.FC = () => {
                 </Stack>
               </Stack>
               <Stack direction="row" spacing={1} sx={{ alignItems: 'center' }}>
-                {currentUser && blog.authorId === currentUser.uid && (
+                {currentUser && (blog.authorId === currentUser.uid || userProfile?.role === 'admin') && (
                   <Tooltip title="Beitrag bearbeiten">
                     <IconButton 
                       onClick={() => navigate(`/edit/${blog.id}`)} 

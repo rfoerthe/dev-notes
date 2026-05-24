@@ -8,7 +8,9 @@
     "build": "tsc -b && vite build",
     "lint": "eslint .",
     "test": "vitest run",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "bootstrap:admin": "node scripts/bootstrap-admin.mjs",
+    "user:delete": "node scripts/delete-user.mjs"
   },
   "dependencies": {
     "@emotion/react": "^11.14.0",
@@ -31,6 +33,7 @@
     "eslint": "^10.3.0",
     "eslint-plugin-react-hooks": "^7.1.1",
     "eslint-plugin-react-refresh": "^0.5.2",
+    "firebase-admin": "^13.10.0",
     "globals": "^17.6.0",
     "jsdom": "^29.1.1",
     "typescript": "6.0.3",

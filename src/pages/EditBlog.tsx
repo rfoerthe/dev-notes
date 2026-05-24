@@ -12,17 +12,22 @@ import {
   Chip,
   Tabs,
   Tab,
-  CircularProgress
+  CircularProgress,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogContentText,
+  DialogTitle
 } from '@mui/material';
-import { BookOpen, Eye, Edit3, Save, Plus, ArrowLeft } from 'lucide-react';
+import { BookOpen, Eye, Edit3, Save, Plus, ArrowLeft, Trash2 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
-import { getBlogById, updateBlog, calculateReadTime } from '../services/blogService';
+import { getBlogById, updateBlog, deleteBlog, calculateReadTime } from '../services/blogService';
 import { renderMarkdown } from '../components/markdownParser';
 
 export const EditBlog: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { currentUser } = useAuth();
+  const { currentUser, userProfile } = useAuth();
 
   // Loading & Error states
   const [fetching, setFetching] = useState<boolean>(true);
@@ -36,6 +41,7 @@ export const EditBlog: React.FC = () => {
   const [tagInput, setTagInput] = useState<string>('');
   const [tags, setTags] = useState<string[]>([]);
   const [authorId, setAuthorId] = useState<string>('');
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState<boolean>(false);
   
   // UI states
   const [activeTab, setActiveTab] = useState<number>(0);
@@ -51,9 +57,11 @@ export const EditBlog: React.FC = () => {
           return;
         }
 
-        // Security check: Only the author can edit their post
-        if (currentUser && blog.authorId !== currentUser.uid) {
-          setError('Zugriff verweigert. Du bist nicht der Autor dieses Beitrags.');
+        const isAdmin = userProfile?.role === 'admin';
+        const isAuthor = currentUser && blog.authorId === currentUser.uid;
+
+        if (!isAuthor && !isAdmin) {
+          setError('Zugriff verweigert. Du bist weder Autor noch Admin dieses Beitrags.');
           setFetching(false);
           // Redirect after 3 seconds
           setTimeout(() => navigate('/'), 3000);
@@ -74,7 +82,9 @@ export const EditBlog: React.FC = () => {
     };
 
     loadBlog();
-  }, [id, currentUser, navigate]);
+  }, [id, currentUser, userProfile, navigate]);
+
+  const canManageBlog = Boolean(authorId && currentUser && (authorId === currentUser.uid || userProfile?.role === 'admin'));
 
   const handleTabChange = (_event: React.SyntheticEvent, newValue: number) => {
     setActiveTab(newValue);
@@ -145,6 +155,22 @@ export const EditBlog: React.FC = () => {
     }
   };
 
+  const handleDelete = async () => {
+    if (!id) return;
+
+    setLoading(true);
+    setError(null);
+    try {
+      await deleteBlog(id);
+      navigate('/');
+    } catch (err: any) {
+      setError(err.message || 'Löschen fehlgeschlagen.');
+    } finally {
+      setLoading(false);
+      setDeleteDialogOpen(false);
+    }
+  };
+
   const estimatedReadTime = calculateReadTime(content);
 
   if (fetching) {
@@ -195,7 +221,7 @@ export const EditBlog: React.FC = () => {
       )}
 
       {/* If access denied or not loaded, stop rendering form */}
-      {authorId && currentUser && authorId === currentUser.uid && (
+      {canManageBlog && (
         <form onSubmit={handleSubmit}>
           <Stack spacing={4}>
             {/* Main info card */}
@@ -347,28 +373,67 @@ export const EditBlog: React.FC = () => {
             )}
 
             {/* Submit Action */}
-            <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 2 }}>
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', gap: 2, flexWrap: 'wrap' }}>
               <Button 
-                variant="outlined" 
-                onClick={() => navigate(`/blog/${id}`)}
+                variant="outlined"
+                color="error"
+                startIcon={<Trash2 size={16} />}
+                onClick={() => setDeleteDialogOpen(true)}
                 disabled={loading}
                 sx={{ borderRadius: 3, px: 3 }}
               >
-                Abbrechen
+                Beitrag löschen
               </Button>
-              <Button
-                type="submit"
-                variant="contained"
-                disabled={loading}
-                startIcon={loading ? <CircularProgress size={16} color="inherit" /> : <Save size={16} />}
-                sx={{ borderRadius: 3, px: 4 }}
-              >
-                Beitrag speichern
-              </Button>
+
+              <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 2 }}>
+                <Button 
+                  variant="outlined" 
+                  onClick={() => navigate(`/blog/${id}`)}
+                  disabled={loading}
+                  sx={{ borderRadius: 3, px: 3 }}
+                >
+                  Abbrechen
+                </Button>
+                <Button
+                  type="submit"
+                  variant="contained"
+                  disabled={loading}
+                  startIcon={loading ? <CircularProgress size={16} color="inherit" /> : <Save size={16} />}
+                  sx={{ borderRadius: 3, px: 4 }}
+                >
+                  Beitrag speichern
+                </Button>
+              </Box>
             </Box>
           </Stack>
         </form>
       )}
+
+      <Dialog
+        open={deleteDialogOpen}
+        onClose={() => !loading && setDeleteDialogOpen(false)}
+      >
+        <DialogTitle>Beitrag wirklich löschen?</DialogTitle>
+        <DialogContent>
+          <DialogContentText>
+            Diese Aktion entfernt den Beitrag dauerhaft und kann nicht rückgängig gemacht werden.
+          </DialogContentText>
+        </DialogContent>
+        <DialogActions sx={{ px: 3, pb: 2 }}>
+          <Button onClick={() => setDeleteDialogOpen(false)} disabled={loading}>
+            Abbrechen
+          </Button>
+          <Button
+            onClick={handleDelete}
+            color="error"
+            variant="contained"
+            disabled={loading}
+            startIcon={loading ? <CircularProgress size={16} color="inherit" /> : <Trash2 size={16} />}
+          >
+            Endgültig löschen
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Container>
   );
 };

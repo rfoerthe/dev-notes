@@ -9,8 +9,7 @@ import {
   getUserProfile,
   loginUser,
   logoutUser,
-  registerUser,
-  seedAdminUser
+  registerUser
 } from '../services/authService';
 import type { RegisterParams, UserProfile } from '../services/authService';
 
@@ -31,18 +30,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [currentUser, setCurrentUser] = useState<any>(null);
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
-
-  // Initialize and seed admin
-  useEffect(() => {
-    const initApp = async () => {
-      try {
-        await seedAdminUser();
-      } catch (err) {
-        console.error("Admin seeding failed on startup:", err);
-      }
-    };
-    initApp();
-  }, []);
 
   // Listen for auth state changes
   useEffect(() => {
