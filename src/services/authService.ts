@@ -12,7 +12,8 @@ import {
   query,
   where,
   getDocs,
-  updateDoc
+  updateDoc,
+  deleteDoc
 } from 'firebase/firestore';
 import {
   auth,
@@ -414,6 +415,38 @@ export async function updateUserStatus(uid: string, status: 'approved' | 'reject
   } else {
     const docRef = doc(db, 'users', uid);
     await updateDoc(docRef, { status });
+  }
+}
+
+export async function deleteUserRegistration(uid: string, username: string): Promise<void> {
+  if (isMockEnabled) {
+    const users: UserProfile[] = getMockData(MOCK_USERS_KEY, []);
+    const user = users.find(u => u.uid === uid);
+    
+    // 1. Delete user profile from mock list
+    const updatedUsers = users.filter(u => u.uid !== uid);
+    setMockData(MOCK_USERS_KEY, updatedUsers);
+    
+    // 2. Delete username reservation
+    const mockUsernames = getMockData('devblog_mock_usernames', {});
+    const normUsername = username.trim().toLowerCase();
+    delete mockUsernames[normUsername];
+    setMockData('devblog_mock_usernames', mockUsernames);
+    
+    // 3. Delete password entry
+    if (user) {
+      const passwords = getMockData('devblog_mock_passwords', {});
+      const normEmail = user.email.trim().toLowerCase();
+      delete passwords[normEmail];
+      setMockData('devblog_mock_passwords', passwords);
+    }
+  } else {
+    // Delete user profile document
+    await deleteDoc(doc(db, 'users', uid));
+    
+    // Delete username document
+    const normUsername = username.trim().toLowerCase();
+    await deleteDoc(doc(db, 'usernames', normUsername));
   }
 }
 

@@ -6,7 +6,8 @@ import {
   isUsernameAvailable, 
   isEmailAvailable,
   ADMIN_CREDENTIALS,
-  updateUserProfile
+  updateUserProfile,
+  deleteUserRegistration
 } from '../services/authService';
 import { 
   createBlog, 
@@ -100,6 +101,28 @@ describe('Developer\'s Blog Service Layer (Mock Mode)', () => {
       await expect(loginUser('nonexistentuser', 'SomePassword')).rejects.toThrow(
         'Ungültiger Benutzername oder Passwort.'
       );
+    });
+
+    it('should permanently delete a rejected user registration and free up their username and email', async () => {
+      const profile = await registerUser({
+        firstName: 'Rejected',
+        lastName: 'Dev',
+        username: 'rejecteddev',
+        email: 'rejected@dev.com',
+        password: 'Password123!'
+      });
+
+      // Confirm registration exists and is pending
+      expect(profile.username).toBe('rejecteddev');
+      expect(await isUsernameAvailable('rejecteddev')).toBe(false);
+      expect(await isEmailAvailable('rejected@dev.com')).toBe(false);
+
+      // Permanently delete registration
+      await deleteUserRegistration(profile.uid, profile.username);
+
+      // Verify profile is removed and username + email are available again
+      expect(await isUsernameAvailable('rejecteddev')).toBe(true);
+      expect(await isEmailAvailable('rejected@dev.com')).toBe(true);
     });
   });
 

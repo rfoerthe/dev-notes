@@ -19,8 +19,8 @@ import {
   CircularProgress,
   Tooltip
 } from '@mui/material';
-import { Check, X, Shield, Users, UserMinus, UserCheck, Calendar } from 'lucide-react';
-import { fetchUsersByStatus, updateUserStatus } from '../services/authService';
+import { Check, X, Shield, Users, UserMinus, UserCheck, Calendar, Trash2 } from 'lucide-react';
+import { fetchUsersByStatus, updateUserStatus, deleteUserRegistration } from '../services/authService';
 import type { UserProfile } from '../services/authService';
 
 interface TabPanelProps {
@@ -98,6 +98,28 @@ export const AdminDashboard: React.FC = () => {
     } catch (err) {
       console.error("Failed to update status:", err);
       setMessage({ type: 'error', text: 'Statusänderung fehlgeschlagen.' });
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  const handleDeleteUser = async (uid: string, username: string) => {
+    const confirmed = window.confirm(`Bist du sicher, dass du die Registrierung von @${username} endgültig löschen möchtest? Dieser Schritt kann nicht rückgängig gemacht werden.`);
+    if (!confirmed) return;
+
+    setActionLoading(uid);
+    setMessage(null);
+    try {
+      await deleteUserRegistration(uid, username);
+      setMessage({
+        type: 'success',
+        text: `Die Registrierung von @${username} wurde endgültig gelöscht.`
+      });
+      // Reload lists
+      await loadAllUsers();
+    } catch (err) {
+      console.error("Failed to delete user:", err);
+      setMessage({ type: 'error', text: 'Das Löschen des Benutzers ist fehlgeschlagen.' });
     } finally {
       setActionLoading(null);
     }
@@ -384,17 +406,31 @@ export const AdminDashboard: React.FC = () => {
                             </Stack>
                           </TableCell>
                           <TableCell align="right">
-                            <Button
-                              variant="contained"
-                              color="secondary"
-                              size="small"
-                              startIcon={<Check size={14} />}
-                              onClick={() => handleStatusChange(user.uid, user.username, 'approved')}
-                              disabled={actionLoading !== null}
-                              sx={{ borderRadius: 2 }}
-                            >
-                              Freigeben
-                            </Button>
+                            <Stack direction="row" spacing={1} sx={{ justifyContent: 'flex-end' }}>
+                              <Tooltip title="Dauerhaft löschen">
+                                <Button
+                                  variant="outlined"
+                                  color="error"
+                                  size="small"
+                                  onClick={() => handleDeleteUser(user.uid, user.username)}
+                                  disabled={actionLoading !== null}
+                                  sx={{ p: 1, minWidth: 'auto', borderRadius: 2 }}
+                                >
+                                  <Trash2 size={16} />
+                                </Button>
+                              </Tooltip>
+                              <Button
+                                variant="contained"
+                                color="secondary"
+                                size="small"
+                                startIcon={actionLoading === user.uid ? <CircularProgress size={12} color="inherit" /> : <Check size={14} />}
+                                onClick={() => handleStatusChange(user.uid, user.username, 'approved')}
+                                disabled={actionLoading !== null}
+                                sx={{ borderRadius: 2 }}
+                              >
+                                Freigeben
+                              </Button>
+                            </Stack>
                           </TableCell>
                         </TableRow>
                       ))}

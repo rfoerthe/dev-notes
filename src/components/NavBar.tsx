@@ -114,7 +114,7 @@ export const NavBar: React.FC = () => {
       <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 1, mb: 3 }}>
         <Terminal color="#8b5cf6" size={24} />
         <Typography variant="h6" sx={{ fontFamily: 'Outfit, sans-serif', fontWeight: 800 }}>
-          Dev<span style={{ color: '#14b8a6' }}>Space</span>
+          Dev<span style={{ color: '#14b8a6' }}>Notes</span>
         </Typography>
       </Box>
       <Divider sx={{ mb: 2 }} />
@@ -224,7 +224,7 @@ export const NavBar: React.FC = () => {
                   alignItems: 'center'
                 }}
               >
-                Dev<span style={{ color: '#14b8a6' }}>Space</span>
+                Dev<span style={{ color: '#14b8a6' }}>Notes</span>
               </Typography>
             </Box>
 

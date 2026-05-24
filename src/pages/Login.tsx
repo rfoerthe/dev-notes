@@ -102,7 +102,7 @@ export const Login: React.FC = () => {
               Anmelden
             </Typography>
             <Typography variant="body2" color="text.secondary">
-              Willkommen zurück bei DevSpace!
+              Willkommen zurück bei DevNotes!
             </Typography>
           </Stack>
 

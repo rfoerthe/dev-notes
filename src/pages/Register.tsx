@@ -25,6 +25,7 @@ export const Register: React.FC = () => {
   const [email, setEmail] = useState<string>('');
   const [password, setPassword] = useState<string>('');
   const [confirmPassword, setConfirmPassword] = useState<string>('');
+  const [honeypot, setHoneypot] = useState<string>('');
 
   // UI state
   const [showPassword, setShowPassword] = useState<boolean>(false);
@@ -46,6 +47,13 @@ export const Register: React.FC = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
+
+    // Anti-bot check: if honeypot is filled out, reject immediately
+    if (honeypot.trim()) {
+      console.warn("Honeypot bot registration attempt blocked.");
+      setError('Registrierung fehlgeschlagen.');
+      return;
+    }
 
     const fName = firstName.trim();
     const lName = lastName.trim();
@@ -144,7 +152,7 @@ export const Register: React.FC = () => {
             </Typography>
             
             <Typography variant="body1" color="text.secondary" sx={{ mb: 4, lineHeight: 1.7 }}>
-              Vielen Dank für deine Registrierung bei <strong>DevSpace</strong>, {firstName}! Dein Account wurde erfolgreich angelegt und befindet sich nun im Status <strong>„Ausstehend“</strong>.
+              Vielen Dank für deine Registrierung bei <strong>DevNotes</strong>, {firstName}! Dein Account wurde erfolgreich angelegt und befindet sich nun im Status <strong>„Ausstehend“</strong>.
             </Typography>
 
             <Alert severity="warning" sx={{ mb: 4, borderRadius: 3, textAlign: 'left', bgcolor: 'rgba(251, 191, 36, 0.06)', border: '1px solid rgba(251, 191, 36, 0.2)' }}>
@@ -232,6 +240,24 @@ export const Register: React.FC = () => {
 
           <form onSubmit={handleSubmit}>
             <Stack spacing={2.5}>
+              {/* Invisible Honeypot Field for anti-bot protection */}
+              <TextField
+                name="middleName"
+                value={honeypot}
+                onChange={(e) => setHoneypot(e.target.value)}
+                autoComplete="off"
+                tabIndex={-1}
+                sx={{
+                  position: 'absolute',
+                  left: '-9999px',
+                  opacity: 0,
+                  height: 0,
+                  width: 0,
+                  zIndex: -1,
+                  pointerEvents: 'none'
+                }}
+              />
+
               {/* Names row */}
               <Grid container spacing={2}>
                 <Grid size={{ xs: 12, sm: 6 }}>

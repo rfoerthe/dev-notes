@@ -13,7 +13,11 @@ import { CreateBlog } from './pages/CreateBlog';
 import { BlogDetails } from './pages/BlogDetails';
 import { EditBlog } from './pages/EditBlog';
 import { Profile } from './pages/Profile';
+import { Impressum } from './pages/Impressum';
+import { Datenschutz } from './pages/Datenschutz';
+import { Nutzungsbedingungen } from './pages/Nutzungsbedingungen';
 import { ProtectedRoute, AdminRoute } from './components/RouteGuards';
+import { Link as RouterLink } from 'react-router-dom';
 
 const App: React.FC = () => {
   return (
@@ -32,6 +36,9 @@ const App: React.FC = () => {
                 <Route path="/register" element={<Register />} />
                 <Route path="/blog/:id" element={<BlogDetails />} />
                 <Route path="/pending-approval" element={<PendingApproval />} />
+                <Route path="/impressum" element={<Impressum />} />
+                <Route path="/datenschutz" element={<Datenschutz />} />
+                <Route path="/nutzungsbedingungen" element={<Nutzungsbedingungen />} />
 
                 {/* Approved developer routes */}
                 <Route element={<ProtectedRoute />}>
@@ -54,7 +61,7 @@ const App: React.FC = () => {
             <Box 
               component="footer" 
               sx={{ 
-                py: 3.5, 
+                py: 2.75, 
                 px: 2, 
                 mt: 'auto', 
                 bgcolor: (theme) => theme.palette.mode === 'dark' ? 'rgba(7, 10, 19, 0.9)' : 'rgba(248, 250, 252, 0.9)', 
@@ -67,14 +74,24 @@ const App: React.FC = () => {
                 <Typography variant="body2" color="text.secondary" sx={{ fontFamily: 'Outfit, sans-serif' }}>
                   {'© '}
                   {new Date().getFullYear()}
-                  {' '}
+                  {' Roland Förther. '}
                   <Link href="/" color="inherit" sx={{ fontWeight: 700, textDecoration: 'none', '&:hover': { color: 'primary.light' } }}>
-                    DevSpace
+                    DevNotes
                   </Link>
-                  {'. Alle Rechte vorbehalten. Built for Developers with 💜'}
+                  {'. Alle Rechte vorbehalten.'}
                 </Typography>
-                <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.5, fontSize: 10 }}>
-                  Tech Stack: React 19, Vite 8, TypeScript 6.0.3, MUI 6, Cloud Firestore
+                <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.8, fontSize: 11, fontFamily: 'Outfit, sans-serif' }}>
+                  <Link component={RouterLink} to="/impressum" color="inherit" sx={{ textDecoration: 'none', '&:hover': { color: 'primary.main', textDecoration: 'underline' } }}>
+                    Impressum
+                  </Link>
+                  {' | '}
+                  <Link component={RouterLink} to="/datenschutz" color="inherit" sx={{ textDecoration: 'none', '&:hover': { color: 'primary.main', textDecoration: 'underline' } }}>
+                    Datenschutz
+                  </Link>
+                  {' | '}
+                  <Link component={RouterLink} to="/nutzungsbedingungen" color="inherit" sx={{ textDecoration: 'none', '&:hover': { color: 'primary.main', textDecoration: 'underline' } }}>
+                    Nutzungsbedingungen
+                  </Link>
                 </Typography>
               </Container>
             </Box>

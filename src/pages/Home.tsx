@@ -185,7 +185,7 @@ export const Home: React.FC = () => {
               WebkitTextFillColor: 'transparent'
             }}
           >
-            Entdecke das DevSpace Universum
+            Entdecke DevNotes
           </Typography>
           <Typography 
             variant="h6" 
