@@ -15,13 +15,20 @@ const firebaseConfig = {
 };
 
 const forceMockMode = import.meta.env.VITE_FORCE_MOCK_MODE === 'true';
-const isFirebaseConfigured = !!import.meta.env.VITE_FIREBASE_API_KEY && !forceMockMode;
+const hasRequiredFirebaseConfig = [
+  firebaseConfig.apiKey,
+  firebaseConfig.authDomain,
+  firebaseConfig.projectId,
+  firebaseConfig.appId
+].every(Boolean);
+const isFirebaseConfigured = hasRequiredFirebaseConfig && !forceMockMode;
 
 let app: FirebaseApp | undefined;
 let auth: any;
 let db: any;
-let analyticsPromise: Promise<Analytics | null> = Promise.resolve(null);
+let analyticsPromise: Promise<Analytics | null> | null = null;
 let isMockEnabled = false;
+let isAnalyticsConfigured = false;
 
 if (isFirebaseConfigured) {
   try {
@@ -36,22 +43,17 @@ if (isFirebaseConfigured) {
     }
 
     if (firebaseConfig.measurementId) {
-      const firebaseApp = app;
-      analyticsPromise = isSupported()
-        .then(supported => supported ? initializeAnalytics(firebaseApp, {
-          config: {
-            send_page_view: false
-          }
-        }) : null)
-        .catch(error => {
-          console.warn('Firebase Analytics is not available in this environment:', error);
-          return null;
-        });
+      isAnalyticsConfigured = true;
     }
   } catch (error) {
+    if (import.meta.env.PROD) {
+      throw error;
+    }
     console.warn("Failed to initialize real Firebase, falling back to mock services:", error);
     isMockEnabled = true;
   }
+} else if (import.meta.env.PROD) {
+  throw new Error('Firebase credentials are required in production. Refusing to start in local mock mode.');
 } else {
   console.log("Firebase credentials not configured in environment. Using high-fidelity local mock mode.");
   isMockEnabled = true;
@@ -127,10 +129,33 @@ class MockAuth {
 // Create mock instances
 const mockAuthInstance = new MockAuth();
 
+const getAnalyticsInstance = (): Promise<Analytics | null> => {
+  if (!isAnalyticsConfigured || !app) {
+    return Promise.resolve(null);
+  }
+
+  if (!analyticsPromise) {
+    const firebaseApp = app;
+    analyticsPromise = isSupported()
+      .then(supported => supported ? initializeAnalytics(firebaseApp, {
+        config: {
+          send_page_view: false
+        }
+      }) : null)
+      .catch(error => {
+        console.warn('Firebase Analytics is not available in this environment:', error);
+        return null;
+      });
+  }
+
+  return analyticsPromise;
+};
+
 export {
   auth,
   db,
-  analyticsPromise,
+  getAnalyticsInstance,
+  isAnalyticsConfigured,
   isMockEnabled,
   mockAuthInstance,
   MOCK_USERS_KEY,

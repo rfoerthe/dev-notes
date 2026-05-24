@@ -22,6 +22,7 @@ import {
 import { Check, X, Shield, Users, UserMinus, UserCheck, Calendar, Trash2 } from 'lucide-react';
 import { fetchUsersByStatus, updateUserStatus, deleteUserRegistration } from '../services/authService';
 import type { UserProfile } from '../services/authService';
+import { useAuth } from '../context/AuthContext';
 
 interface TabPanelProps {
   children?: React.ReactNode;
@@ -45,6 +46,7 @@ const CustomTabPanel = (props: TabPanelProps) => {
 };
 
 export const AdminDashboard: React.FC = () => {
+  const { isMock } = useAuth();
   const [tabValue, setTabValue] = useState(0);
   
   // Data lists
@@ -104,6 +106,14 @@ export const AdminDashboard: React.FC = () => {
   };
 
   const handleDeleteUser = async (uid: string, username: string) => {
+    if (!isMock) {
+      setMessage({
+        type: 'error',
+        text: 'Firebase-Benutzer müssen mit npm run user:delete gelöscht werden, damit auch der Auth-Account entfernt wird.'
+      });
+      return;
+    }
+
     const confirmed = window.confirm(`Bist du sicher, dass du die Registrierung von @${username} endgültig löschen möchtest? Dieser Schritt kann nicht rückgängig gemacht werden.`);
     if (!confirmed) return;
 
@@ -372,6 +382,11 @@ export const AdminDashboard: React.FC = () => {
 
             {/* TAB 3: REJECTED */}
             <CustomTabPanel value={tabValue} index={2}>
+              {!isMock && (
+                <Alert severity="info" sx={{ mb: 2, borderRadius: 3 }}>
+                  Firebase-Benutzer werden vollständig über den Admin-SDK-Script gelöscht: <strong>npm run user:delete -- user@example.com</strong>
+                </Alert>
+              )}
               {rejectedUsers.length > 0 ? (
                 <TableContainer>
                   <Table sx={{ minWidth: 650 }}>
@@ -407,13 +422,13 @@ export const AdminDashboard: React.FC = () => {
                           </TableCell>
                           <TableCell align="right">
                             <Stack direction="row" spacing={1} sx={{ justifyContent: 'flex-end' }}>
-                              <Tooltip title="Dauerhaft löschen">
+                              <Tooltip title={isMock ? 'Dauerhaft löschen' : 'Nur per Admin-SDK-Script verfügbar'}>
                                 <Button
                                   variant="outlined"
                                   color="error"
                                   size="small"
                                   onClick={() => handleDeleteUser(user.uid, user.username)}
-                                  disabled={actionLoading !== null}
+                                  disabled={!isMock || actionLoading !== null}
                                   sx={{ p: 1, minWidth: 'auto', borderRadius: 2 }}
                                 >
                                   <Trash2 size={16} />

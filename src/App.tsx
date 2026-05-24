@@ -5,6 +5,7 @@ import { CustomThemeProvider } from './context/CustomThemeContext';
 import { AuthProvider } from './context/AuthContext';
 import { NavBar } from './components/NavBar';
 import { AnalyticsRouteTracker } from './components/AnalyticsRouteTracker';
+import { AnalyticsConsentBanner } from './components/AnalyticsConsentBanner';
 import { Home } from './pages/Home';
 import { Login } from './pages/Login';
 import { Register } from './pages/Register';
@@ -60,6 +61,8 @@ const App: React.FC = () => {
                 <Route path="*" element={<Navigate to="/" replace />} />
               </Routes>
             </Box>
+
+            <AnalyticsConsentBanner />
 
             {/* Premium Sticky Footer */}
             <Box 

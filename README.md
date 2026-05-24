@@ -142,9 +142,9 @@ VITE_FIREBASE_APP_ID=your-app-id
 VITE_FIREBASE_MEASUREMENT_ID=G-XXXXXXXXXX
 ```
 
-If these values are not present, DevNotes automatically falls back to local mock mode.
+If these values are not present, DevNotes falls back to local mock mode during development. Production builds require Firebase credentials and refuse to start in mock mode.
 
-When `VITE_FIREBASE_MEASUREMENT_ID` is present, DevNotes initializes Firebase Analytics in supported browser environments and records route changes as `page_view` events. Analytics stays disabled in local mock mode.
+When `VITE_FIREBASE_MEASUREMENT_ID` is present, DevNotes can use Firebase Analytics in supported browser environments. Analytics stays disabled in local mock mode and is initialized only after the user grants analytics consent in the browser.
 
 ## Authentication Flow
 
