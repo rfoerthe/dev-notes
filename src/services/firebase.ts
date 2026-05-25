@@ -2,6 +2,7 @@ import { initializeApp, getApps, getApp, type FirebaseApp } from 'firebase/app';
 import { getAuth, type Auth } from 'firebase/auth';
 import { getFirestore, initializeFirestore, type Firestore } from 'firebase/firestore';
 import { initializeAnalytics, isSupported, type Analytics } from 'firebase/analytics';
+import { initializeAppCheck, ReCaptchaV3Provider, type AppCheck } from 'firebase/app-check';
 
 // Environment variables check
 const firebaseConfig = {
@@ -11,7 +12,8 @@ const firebaseConfig = {
   storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET || "",
   messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID || "",
   appId: import.meta.env.VITE_FIREBASE_APP_ID || "",
-  measurementId: import.meta.env.VITE_FIREBASE_MEASUREMENT_ID || ""
+  measurementId: import.meta.env.VITE_FIREBASE_MEASUREMENT_ID || "",
+  appCheckSiteKey: import.meta.env.VITE_FIREBASE_APPCHECK_SITE_KEY || ""
 };
 
 const forceMockMode = import.meta.env.VITE_FORCE_MOCK_MODE === 'true';
@@ -27,12 +29,23 @@ let app: FirebaseApp | undefined;
 let auth: Auth;
 let db: Firestore;
 let analyticsPromise: Promise<Analytics | null> | null = null;
+let appCheck: AppCheck | undefined;
 let isMockEnabled = false;
 let isAnalyticsConfigured = false;
+let isAppCheckConfigured = false;
 
 if (isFirebaseConfigured) {
   try {
     app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
+
+    if (firebaseConfig.appCheckSiteKey) {
+      appCheck = initializeAppCheck(app, {
+        provider: new ReCaptchaV3Provider(firebaseConfig.appCheckSiteKey),
+        isTokenAutoRefreshEnabled: true
+      });
+      isAppCheckConfigured = true;
+    }
+
     auth = getAuth(app);
     try {
       db = initializeFirestore(app, {
@@ -161,6 +174,8 @@ export {
   auth,
   db,
   getAnalyticsInstance,
+  appCheck,
+  isAppCheckConfigured,
   isAnalyticsConfigured,
   isMockEnabled,
   mockAuthInstance,

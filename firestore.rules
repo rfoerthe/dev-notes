@@ -36,9 +36,36 @@ service cloud.firestore {
         (request.resource.data.operatingSystem is string && request.resource.data.operatingSystem.size() <= 50);
     }
 
+    function validOptionalThemeMode() {
+      return !request.resource.data.keys().hasAny(['themeMode']) ||
+        request.resource.data.themeMode in ['light', 'dark', 'system'];
+    }
+
     function validOptionalBootstrappedAt() {
       return !request.resource.data.keys().hasAny(['bootstrappedAt']) ||
         request.resource.data.bootstrappedAt == resource.data.bootstrappedAt;
+    }
+
+    function validUsernameValue(username) {
+      return username is string &&
+        username.matches('^[a-z0-9][a-z0-9_-]{2,29}$');
+    }
+
+    function authEmailMatchesProfile() {
+      return request.auth.token.email != null &&
+        request.resource.data.email == request.auth.token.email;
+    }
+
+    function usernameReservationMatchesCreatedProfile(userId) {
+      return existsAfter(/databases/$(database)/documents/usernames/$(request.resource.data.username)) &&
+        getAfter(/databases/$(database)/documents/usernames/$(request.resource.data.username)).data.uid == userId;
+    }
+
+    function profileMatchesCreatedUsername(username) {
+      return existsAfter(/databases/$(database)/documents/users/$(request.resource.data.uid)) &&
+        getAfter(/databases/$(database)/documents/users/$(request.resource.data.uid)).data.uid == request.resource.data.uid &&
+        getAfter(/databases/$(database)/documents/users/$(request.resource.data.uid)).data.username == username &&
+        getAfter(/databases/$(database)/documents/users/$(request.resource.data.uid)).data.email == request.auth.token.email;
     }
 
     function validUserProfile() {
@@ -52,17 +79,19 @@ service cloud.firestore {
         'status',
         'createdAt',
         'operatingSystem',
+        'themeMode',
         'bootstrappedAt'
       ]) &&
         request.resource.data.uid is string &&
         request.resource.data.firstName is string && request.resource.data.firstName.size() <= 50 &&
         request.resource.data.lastName is string && request.resource.data.lastName.size() <= 50 &&
-        request.resource.data.username is string && request.resource.data.username.size() <= 30 &&
+        validUsernameValue(request.resource.data.username) &&
         request.resource.data.email is string && request.resource.data.email.size() <= 100 &&
         request.resource.data.role in ['admin', 'user'] &&
         request.resource.data.status in ['pending', 'approved', 'rejected'] &&
         request.resource.data.createdAt is string &&
-        validOptionalOperatingSystem();
+        validOptionalOperatingSystem() &&
+        validOptionalThemeMode();
     }
 
     function userIdentityIsImmutable() {
@@ -72,6 +101,40 @@ service cloud.firestore {
         request.resource.data.role == resource.data.role &&
         request.resource.data.createdAt == resource.data.createdAt &&
         validOptionalBootstrappedAt();
+    }
+
+    function validTagAt(index) {
+      return request.resource.data.tags.size() <= index ||
+        (
+          request.resource.data.tags[index] is string &&
+          request.resource.data.tags[index].size() > 0 &&
+          request.resource.data.tags[index].size() <= 40 &&
+          request.resource.data.tags[index].matches('^[^<>]+$')
+        );
+    }
+
+    function validTags() {
+      return request.resource.data.tags is list &&
+        request.resource.data.tags.size() > 0 &&
+        request.resource.data.tags.size() <= 10 &&
+        validTagAt(0) &&
+        validTagAt(1) &&
+        validTagAt(2) &&
+        validTagAt(3) &&
+        validTagAt(4) &&
+        validTagAt(5) &&
+        validTagAt(6) &&
+        validTagAt(7) &&
+        validTagAt(8) &&
+        validTagAt(9);
+    }
+
+    function validCreatedAtValue() {
+      return request.resource.data.createdAt is timestamp ||
+        (
+          request.resource.data.createdAt is string &&
+          request.resource.data.createdAt.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}[.][0-9]{3}Z$')
+        );
     }
 
     function validBlogPost() {
@@ -88,11 +151,13 @@ service cloud.firestore {
         request.resource.data.title is string && request.resource.data.title.size() <= 150 &&
         request.resource.data.summary is string && request.resource.data.summary.size() <= 300 &&
         request.resource.data.content is string && request.resource.data.content.size() <= 50000 &&
-        request.resource.data.tags is list && request.resource.data.tags.size() <= 10 &&
+        validTags() &&
         request.resource.data.readTime is int &&
+        request.resource.data.readTime >= 1 &&
+        request.resource.data.readTime <= 240 &&
         request.resource.data.authorId is string &&
         request.resource.data.authorName is string && request.resource.data.authorName.size() <= 100 &&
-        request.resource.data.createdAt is string;
+        validCreatedAtValue();
     }
 
     function blogOwnershipIsImmutable() {
@@ -111,6 +176,8 @@ service cloud.firestore {
         validUserProfile() &&
         request.auth.uid == userId &&
         request.resource.data.uid == request.auth.uid &&
+        authEmailMatchesProfile() &&
+        usernameReservationMatchesCreatedProfile(userId) &&
         request.resource.data.role == 'user' &&
         request.resource.data.status == 'pending' &&
         !request.resource.data.keys().hasAny(['bootstrappedAt']);
@@ -121,11 +188,11 @@ service cloud.firestore {
         validUserProfile() &&
         userIdentityIsImmutable() &&
         (
-          (isAdmin() && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['firstName', 'lastName', 'status', 'operatingSystem'])) ||
+          (isAdmin() && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['firstName', 'lastName', 'status', 'operatingSystem', 'themeMode'])) ||
           (
             request.auth.uid == userId &&
             request.resource.data.status == resource.data.status &&
-            request.resource.data.diff(resource.data).affectedKeys().hasOnly(['firstName', 'lastName', 'operatingSystem'])
+            request.resource.data.diff(resource.data).affectedKeys().hasOnly(['firstName', 'lastName', 'operatingSystem', 'themeMode'])
           )
       );
       
@@ -144,8 +211,10 @@ service cloud.firestore {
       // Users can reserve their own username only if it doesn't exist yet
       allow create: if isAuthenticated() &&
         request.resource.data.keys().hasOnly(['uid']) &&
+        validUsernameValue(username) &&
         !exists(/databases/$(database)/documents/usernames/$(username)) &&
-        request.resource.data.uid == request.auth.uid;
+        request.resource.data.uid == request.auth.uid &&
+        profileMatchesCreatedUsername(username);
         
       // Username deletion must go through the Admin SDK cleanup script together
       // with the matching Auth account and user profile.
@@ -159,6 +228,7 @@ service cloud.firestore {
       // Enforce strict field-level type safety and size constraints on creation
       allow create: if isApproved() &&
         validBlogPost() &&
+        request.resource.data.createdAt == request.time &&
         request.resource.data.authorId == request.auth.uid &&
         request.resource.data.authorName == currentUserFullName();
       

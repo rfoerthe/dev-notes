@@ -61,6 +61,9 @@ export const Home: React.FC = () => {
         ? currentTags.filter(currentTag => currentTag !== tag)
         : [...currentTags, tag]
     ));
+    if (anchorEl) {
+      handleClosePopover();
+    }
     setOlderPage(1);
   };
 

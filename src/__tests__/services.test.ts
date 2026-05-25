@@ -9,7 +9,8 @@ import {
   canBootstrapMockAdmin,
   resetMockAdmin,
   updateUserProfile,
-  deleteUserRegistration
+  deleteUserRegistration,
+  getUserProfile
 } from '../services/authService';
 import { 
   createBlog, 
@@ -19,6 +20,7 @@ import {
   deleteBlog
 } from '../services/blogService';
 import { MOCK_USERS_KEY, MOCK_BLOGS_KEY, setMockData } from '../services/firebase';
+import { MIN_PASSWORD_LENGTH } from '../services/securityValidation';
 
 const seedApprovedMockUser = async () => {
   const user = {
@@ -161,6 +163,58 @@ describe('Developer\'s Blog Service Layer (Mock Mode)', () => {
       
       expect(profile.username).toBe(approvedUser.username);
       expect(profile.status).toBe('approved');
+    });
+
+    it('should keep saved theme settings on the matching user profile', async () => {
+      const firstUser = {
+        uid: 'first-user-uid',
+        firstName: 'First',
+        lastName: 'User',
+        username: 'firstuser',
+        email: 'first@example.com',
+        role: 'user' as const,
+        status: 'approved' as const,
+        createdAt: new Date().toISOString(),
+        themeMode: 'dark' as const
+      };
+      const secondUser = {
+        uid: 'second-user-uid',
+        firstName: 'Second',
+        lastName: 'User',
+        username: 'seconduser',
+        email: 'second@example.com',
+        role: 'user' as const,
+        status: 'approved' as const,
+        createdAt: new Date().toISOString(),
+        themeMode: 'light' as const
+      };
+
+      setMockData(MOCK_USERS_KEY, [firstUser, secondUser]);
+      setMockData('devblog_mock_usernames', {
+        [firstUser.username]: firstUser.uid,
+        [secondUser.username]: secondUser.uid
+      });
+      setMockData('devblog_mock_passwords', {
+        [firstUser.email]: await hashPassword('Password123!'),
+        [secondUser.email]: await hashPassword('Password123!')
+      });
+
+      const firstProfile = await loginUser(firstUser.username, 'Password123!');
+      const secondProfile = await loginUser(secondUser.username, 'Password123!');
+
+      expect(firstProfile.themeMode).toBe('dark');
+      expect(secondProfile.themeMode).toBe('light');
+
+      await updateUserProfile({
+        uid: secondUser.uid,
+        firstName: secondUser.firstName,
+        lastName: secondUser.lastName,
+        operatingSystem: 'linux',
+        themeMode: 'system'
+      });
+
+      expect((await getUserProfile(firstUser.uid))?.themeMode).toBe('dark');
+      expect((await getUserProfile(secondUser.uid))?.themeMode).toBe('system');
     });
 
     it('should prevent pending users from logging in', async () => {
@@ -384,6 +438,44 @@ describe('Developer\'s Blog Service Layer (Mock Mode)', () => {
       ).rejects.toThrow('Dieser Benutzername ist bereits vergeben.');
     });
 
+    it('should enforce stronger password and username validation before storing users', async () => {
+      await expect(
+        registerUser({
+          firstName: 'Weak',
+          lastName: 'Password',
+          username: 'weakpass',
+          email: 'weak@password.com',
+          password: 'short'
+        })
+      ).rejects.toThrow(`Das Passwort muss mindestens ${MIN_PASSWORD_LENGTH} Zeichen lang sein.`);
+
+      await expect(
+        registerUser({
+          firstName: 'Bad',
+          lastName: 'Username',
+          username: 'Bad User!',
+          email: 'bad@username.com',
+          password: 'StrongPassword123!'
+        })
+      ).rejects.toThrow('Der Benutzername muss 3 bis 30 Zeichen lang sein');
+    });
+
+    it('should reject invalid blog tags before persisting posts', async () => {
+      await expect(
+        createBlog({
+          title: 'Invalid Tags',
+          summary: 'This post should not be stored',
+          content: 'Content with an invalid tag.',
+          tags: ['Security', 'bad<tag'],
+          authorId: 'some-author-uid',
+          authorName: 'Creative Dev'
+        })
+      ).rejects.toThrow('bad<tag');
+
+      const blogs = await getBlogs();
+      expect(blogs.some(blog => blog.title === 'Invalid Tags')).toBe(false);
+    });
+
     it('should successfully update user profile names and secure password hashing', async () => {
       const profile = await registerUser({
         firstName: 'OldFirst',
@@ -400,18 +492,20 @@ describe('Developer\'s Blog Service Layer (Mock Mode)', () => {
         uid: profile.uid,
         firstName: 'NewFirst',
         lastName: 'NewLast',
-        newPassword: 'NewPassword123!'
+        newPassword: 'NewPassword123!',
+        themeMode: 'dark'
       });
 
       // Fetch the mock user profile directly
       const rawUsers = localStorage.getItem('devblog_mock_users');
-      const users = JSON.parse(rawUsers!) as Array<{ uid: string; firstName: string; lastName: string; username: string; email: string }>;
+      const users = JSON.parse(rawUsers!) as Array<{ uid: string; firstName: string; lastName: string; username: string; email: string; themeMode?: string }>;
       const updatedUser = users.find((u) => u.uid === profile.uid);
 
       expect(updatedUser?.firstName).toBe('NewFirst');
       expect(updatedUser?.lastName).toBe('NewLast');
       expect(updatedUser?.username).toBe('updatable'); // Should remain unchanged
       expect(updatedUser?.email).toBe('update@profile.com'); // Should remain unchanged
+      expect(updatedUser?.themeMode).toBe('dark');
 
       // Validate the hashed password
       const rawPasswords = localStorage.getItem('devblog_mock_passwords');

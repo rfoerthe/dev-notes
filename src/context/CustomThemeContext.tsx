@@ -1,10 +1,10 @@
 /* eslint-disable react-refresh/only-export-components */
-import React, { createContext, useContext, useEffect, useState, useMemo } from 'react';
+import React, { createContext, useCallback, useContext, useEffect, useState, useMemo } from 'react';
 import { ThemeProvider, createTheme } from '@mui/material/styles';
 import type { Theme } from '@mui/material/styles';
 import useMediaQuery from '@mui/material/useMediaQuery';
 
-type ThemeMode = 'light' | 'dark' | 'system';
+export type ThemeMode = 'light' | 'dark' | 'system';
 
 interface CustomThemeContextType {
   themeMode: ThemeMode;
@@ -22,10 +22,10 @@ export const CustomThemeProvider: React.FC<{ children: React.ReactNode }> = ({ c
 
   const systemPrefersDark = useMediaQuery('(prefers-color-scheme: dark)');
 
-  const setThemeMode = (mode: ThemeMode) => {
+  const setThemeMode = useCallback((mode: ThemeMode) => {
     setThemeModeState(mode);
     localStorage.setItem('devblog_theme_mode', mode);
-  };
+  }, []);
 
   const activeMode = useMemo<'light' | 'dark'>(() => {
     if (themeMode === 'system') {

@@ -25,6 +25,14 @@ import {
   MOCK_USERS_KEY
 } from './firebase';
 import { updateAuthorNameForBlogs } from './blogService';
+import {
+  normalizeEmail,
+  normalizeUsername,
+  validateEmailAddress,
+  validatePasswordStrength,
+  validateUsername
+} from './securityValidation';
+import type { ThemeMode } from '../context/CustomThemeContext';
 
 export interface UserProfile {
   uid: string;
@@ -36,6 +44,7 @@ export interface UserProfile {
   status: 'pending' | 'approved' | 'rejected';
   createdAt: string;
   operatingSystem?: string;
+  themeMode?: ThemeMode;
 }
 
 type StringMap = Record<string, string>;
@@ -61,7 +70,12 @@ function getErrorMessage(error: unknown): string | undefined {
 
 // Check Username Availability
 export async function isUsernameAvailable(username: string): Promise<boolean> {
-  const normUsername = username.trim().toLowerCase();
+  const normUsername = normalizeUsername(username);
+  const usernameError = validateUsername(normUsername);
+  if (usernameError) {
+    throw new Error(usernameError);
+  }
+
   if (isMockEnabled) {
     const mockUsernames = getMockData<StringMap>('devblog_mock_usernames', {});
     return !mockUsernames[normUsername];
@@ -79,7 +93,12 @@ export async function isUsernameAvailable(username: string): Promise<boolean> {
 
 // Check Email Availability
 export async function isEmailAvailable(email: string): Promise<boolean> {
-  const normEmail = email.trim().toLowerCase();
+  const normEmail = normalizeEmail(email);
+  const emailError = validateEmailAddress(normEmail);
+  if (emailError) {
+    throw new Error(emailError);
+  }
+
   if (isMockEnabled) {
     const users = getMockData<UserProfile[]>(MOCK_USERS_KEY, []);
     return !users.some(u => u.email.toLowerCase() === normEmail);
@@ -166,11 +185,26 @@ export async function bootstrapMockAdmin(params: BootstrapMockAdminParams): Prom
     throw new Error('Es existiert bereits ein lokaler Admin-Benutzer.');
   }
 
-  const username = (params.username || 'admin').trim().toLowerCase();
-  const email = params.email.trim().toLowerCase();
+  const username = normalizeUsername(params.username || 'admin');
+  const email = normalizeEmail(params.email);
 
   if (!username || !email || !params.password) {
     throw new Error('Bitte fülle Benutzername, E-Mail-Adresse und Passwort aus.');
+  }
+
+  const usernameError = validateUsername(username);
+  if (usernameError) {
+    throw new Error(usernameError);
+  }
+
+  const emailError = validateEmailAddress(email);
+  if (emailError) {
+    throw new Error(emailError);
+  }
+
+  const passwordError = validatePasswordStrength(params.password);
+  if (passwordError) {
+    throw new Error(passwordError);
   }
 
   if (!(await isUsernameAvailable(username))) {
@@ -213,8 +247,23 @@ export async function bootstrapMockAdmin(params: BootstrapMockAdminParams): Prom
 }
 
 export async function registerUser(params: RegisterParams): Promise<UserProfile> {
-  const username = params.username.trim().toLowerCase();
-  const email = params.email.trim().toLowerCase();
+  const username = normalizeUsername(params.username);
+  const email = normalizeEmail(params.email);
+
+  const usernameError = validateUsername(username);
+  if (usernameError) {
+    throw new Error(usernameError);
+  }
+
+  const emailError = validateEmailAddress(email);
+  if (emailError) {
+    throw new Error(emailError);
+  }
+
+  const passwordError = validatePasswordStrength(params.password);
+  if (passwordError) {
+    throw new Error(passwordError);
+  }
 
   const userAvail = await isUsernameAvailable(username);
   if (!userAvail) {
@@ -500,6 +549,7 @@ export interface UpdateUserProfileParams {
   lastName: string;
   newPassword?: string;
   operatingSystem?: string;
+  themeMode?: ThemeMode;
 }
 
 export async function updateUserProfile(params: UpdateUserProfileParams): Promise<void> {
@@ -519,6 +569,7 @@ export async function updateUserProfile(params: UpdateUserProfileParams): Promis
     user.firstName = firstName;
     user.lastName = lastName;
     user.operatingSystem = params.operatingSystem;
+    user.themeMode = params.themeMode || 'system';
     
     users[userIndex] = user;
     setMockData(MOCK_USERS_KEY, users);
@@ -526,6 +577,11 @@ export async function updateUserProfile(params: UpdateUserProfileParams): Promis
     
     // 2. Update password if provided
     if (params.newPassword && params.newPassword.trim() !== '') {
+      const passwordError = validatePasswordStrength(params.newPassword);
+      if (passwordError) {
+        throw new Error(passwordError);
+      }
+
       const hashedPassword = await hashPassword(params.newPassword);
       const passwords = getMockData<StringMap>('devblog_mock_passwords', {});
       passwords[user.email] = hashedPassword;
@@ -542,17 +598,23 @@ export async function updateUserProfile(params: UpdateUserProfileParams): Promis
       }
     }
   } else {
-    // 1. Update Firestore document (firstName, lastName, and operatingSystem; role/status are locked)
+    // 1. Update Firestore document (profile settings; role/status are locked)
     const docRef = doc(db, 'users', params.uid);
     await updateDoc(docRef, {
       firstName,
       lastName,
-      operatingSystem: params.operatingSystem || null
+      operatingSystem: params.operatingSystem || null,
+      themeMode: params.themeMode || 'system'
     });
     await updateAuthorNameForBlogs(params.uid, authorName);
     
     // 2. Update password in Firebase Auth if provided
     if (params.newPassword && params.newPassword.trim() !== '') {
+      const passwordError = validatePasswordStrength(params.newPassword);
+      if (passwordError) {
+        throw new Error(passwordError);
+      }
+
       if (!auth.currentUser) {
         throw new Error('Kein angemeldeter Benutzer für Passwortänderung gefunden.');
       }

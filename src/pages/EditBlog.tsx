@@ -23,6 +23,7 @@ import { BookOpen, Eye, Edit3, Save, Plus, ArrowLeft, Trash2 } from 'lucide-reac
 import { useAuth } from '../context/AuthContext';
 import { getBlogById, updateBlog, deleteBlog, calculateReadTime } from '../services/blogService';
 import { renderMarkdown } from '../components/markdownParser';
+import { validateBlogContent } from '../services/securityValidation';
 
 export const EditBlog: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -127,13 +128,9 @@ export const EditBlog: React.FC = () => {
 
     if (!id) return;
 
-    if (!title.trim() || !summary.trim() || !content.trim()) {
-      setError('Bitte fülle Titel, Zusammenfassung und Inhalt aus.');
-      return;
-    }
-
-    if (tags.length === 0) {
-      setError('Bitte füge mindestens ein Schlagwort (Tag) hinzu.');
+    const validationErrors = validateBlogContent(title, summary, content, tags);
+    if (validationErrors.length > 0) {
+      setError(validationErrors[0]);
       return;
     }
 

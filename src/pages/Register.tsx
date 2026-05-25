@@ -16,6 +16,7 @@ import {
 } from '@mui/material';
 import { User, Mail, Lock, Eye, EyeOff, Terminal, CheckCircle2, ChevronLeft } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import { validatePasswordStrength, validateUsername } from '../services/securityValidation';
 
 export const Register: React.FC = () => {
   // Input fields
@@ -71,8 +72,15 @@ export const Register: React.FC = () => {
       return;
     }
 
-    if (password.length < 6) {
-      setError('Das Passwort muss mindestens 6 Zeichen lang sein.');
+    const usernameError = validateUsername(uName);
+    if (usernameError) {
+      setError(usernameError);
+      return;
+    }
+
+    const passwordError = validatePasswordStrength(password);
+    if (passwordError) {
+      setError(passwordError);
       return;
     }
 

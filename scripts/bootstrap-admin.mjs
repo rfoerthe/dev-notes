@@ -82,6 +82,7 @@ const main = async () => {
   const firstName = (process.env.ADMIN_FIRST_NAME || 'Blog').trim();
   const lastName = (process.env.ADMIN_LAST_NAME || 'Admin').trim();
   const appUrl = process.env.APP_URL?.trim();
+  const shouldPrintResetLink = process.env.PRINT_ADMIN_RESET_LINK === '1';
 
   if (!adminUsername) {
     throw new BootstrapInputError('ADMIN_USERNAME must not be empty.', [
@@ -181,8 +182,13 @@ const main = async () => {
   console.log(`Email: ${adminEmail}`);
   console.log(`Username reservation: ${adminUsername}`);
   console.log('');
-  console.log('Use this Firebase password reset link to set the initial admin password:');
-  console.log(resetLink);
+  if (shouldPrintResetLink) {
+    console.log('Use this Firebase password reset link to set the initial admin password:');
+    console.log(resetLink);
+  } else {
+    console.log('A password reset link was generated but not printed to protect logs.');
+    console.log('Run with PRINT_ADMIN_RESET_LINK=1 in a local trusted terminal if you need to display it.');
+  }
 };
 
 try {

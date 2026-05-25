@@ -115,6 +115,7 @@ Prerequisites:
 - `GOOGLE_APPLICATION_CREDENTIALS` pointing to that service account file, or `FIREBASE_SERVICE_ACCOUNT_JSON` containing the full service account JSON.
 - `ADMIN_EMAIL` set to the admin's email address.
 - Optional `ADMIN_USERNAME`, `ADMIN_FIRST_NAME`, `ADMIN_LAST_NAME`, `FIREBASE_PROJECT_ID`, and `APP_URL`.
+- Optional `PRINT_ADMIN_RESET_LINK=1` when you explicitly want the generated reset link printed in a trusted local terminal.
 
 Example:
 
@@ -123,10 +124,11 @@ GOOGLE_APPLICATION_CREDENTIALS=./firebase-service-account.json \
 ADMIN_EMAIL=admin@example.com \
 ADMIN_USERNAME=admin \
 APP_URL=https://your-domain.example \
+PRINT_ADMIN_RESET_LINK=1 \
 npm run bootstrap:admin
 ```
 
-The generated reset link is sensitive. Use it once, then discard it.
+The generated reset link is sensitive. By default the script creates the link but does not print it, which protects CI logs and shared terminals. Use `PRINT_ADMIN_RESET_LINK=1` only in a trusted local terminal, use the link once, then discard it.
 
 If admin credentials are missing, the script prints a setup checklist instead of a stack trace. For local development, the recommended setup is a service account file referenced through `GOOGLE_APPLICATION_CREDENTIALS`.
 
@@ -211,6 +213,7 @@ VITE_FIREBASE_STORAGE_BUCKET=your-project.appspot.com
 VITE_FIREBASE_MESSAGING_SENDER_ID=your-sender-id
 VITE_FIREBASE_APP_ID=your-app-id
 VITE_FIREBASE_MEASUREMENT_ID=G-XXXXXXXXXX
+VITE_FIREBASE_APPCHECK_SITE_KEY=your-recaptcha-v3-site-key
 ```
 
 If these values are not present, DevNotes falls back to local mock mode during development. Production builds require Firebase credentials and refuse to start in mock mode.
@@ -218,6 +221,8 @@ If these values are not present, DevNotes falls back to local mock mode during d
 When `VITE_FIREBASE_MEASUREMENT_ID` is present, DevNotes can use Firebase Analytics in supported browser environments. Analytics stays disabled in local mock mode and is initialized only after the user grants analytics consent in the browser.
 
 The app suppresses Firebase's automatic page view event and logs route changes itself after consent. Consent is persisted in `localStorage` under `devnotes_analytics_consent`.
+
+When `VITE_FIREBASE_APPCHECK_SITE_KEY` is present, DevNotes initializes Firebase App Check with reCAPTCHA v3. Enable App Check enforcement for Firebase services in the Firebase Console before relying on it for abuse protection.
 
 ## Authentication Flow
 
@@ -281,7 +286,16 @@ The app currently uses these Firestore collections:
 - `usernames`: username reservations used to prevent duplicate usernames without exposing the full user collection.
 - `blogs`: blog post documents with title, summary, content, tags, read time, author metadata, and timestamps.
 
-Firestore rules enforce role and status checks, immutable ownership fields, field type validation, and content size limits.
+Firestore rules enforce role and status checks, immutable ownership fields, profile/email invariants, coupled username reservations, field type validation, server-generated blog creation timestamps, tag limits, read-time bounds, and content size limits.
+
+## Security Hardening
+
+- Firebase Hosting sends a Content Security Policy, clickjacking protection, MIME-sniffing protection, referrer policy, and a restrictive permissions policy.
+- Usernames must be lowercase URL-safe identifiers and are transaction-coupled to the matching user profile.
+- Firebase user profiles must use the authenticated email address from the Firebase Auth token.
+- Blog posts created through the browser use a server timestamp; legacy string timestamps are still readable and editable for existing Admin SDK seeded content.
+- Password forms require at least 12 characters with uppercase, lowercase, numeric, and symbol characters.
+- Optional Firebase App Check can be enabled with `VITE_FIREBASE_APPCHECK_SITE_KEY`.
 
 ## Routes
 

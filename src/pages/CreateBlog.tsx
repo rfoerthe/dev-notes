@@ -18,6 +18,7 @@ import { BookOpen, Eye, Edit3, Send, Plus } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { createBlog, calculateReadTime } from '../services/blogService';
 import { renderMarkdown } from '../components/markdownParser';
+import { validateBlogContent } from '../services/securityValidation';
 
 export const CreateBlog: React.FC = () => {
   // Input states
@@ -74,13 +75,9 @@ export const CreateBlog: React.FC = () => {
     e.preventDefault();
     setError(null);
 
-    if (!title.trim() || !summary.trim() || !content.trim()) {
-      setError('Bitte fülle Titel, Zusammenfassung und Inhalt aus.');
-      return;
-    }
-
-    if (tags.length === 0) {
-      setError('Bitte füge mindestens ein Schlagwort (Tag) hinzu.');
+    const validationErrors = validateBlogContent(title, summary, content, tags);
+    if (validationErrors.length > 0) {
+      setError(validationErrors[0]);
       return;
     }
 

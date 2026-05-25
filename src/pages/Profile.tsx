@@ -18,8 +18,8 @@ import { User, Lock, Eye, EyeOff, ShieldCheck, Mail, AlertCircle, Save, Laptop, 
 import { useAuth } from '../context/AuthContext';
 import { updateUserProfile } from '../services/authService';
 import { useCustomTheme } from '../context/CustomThemeContext';
-
-type ThemeMode = 'light' | 'dark' | 'system';
+import type { ThemeMode } from '../context/CustomThemeContext';
+import { validatePasswordStrength } from '../services/securityValidation';
 
 export const Profile: React.FC = () => {
   const { userProfile, refreshProfile } = useAuth();
@@ -62,8 +62,9 @@ export const Profile: React.FC = () => {
     }
 
     if (password) {
-      if (password.length < 6) {
-        setError('Das Passwort muss mindestens 6 Zeichen lang sein.');
+      const passwordError = validatePasswordStrength(password);
+      if (passwordError) {
+        setError(passwordError);
         return;
       }
       if (password !== confirmPassword) {
@@ -84,7 +85,8 @@ export const Profile: React.FC = () => {
         firstName: firstName.trim(),
         lastName: lastName.trim(),
         newPassword: password ? password : undefined,
-        operatingSystem
+        operatingSystem,
+        themeMode
       });
 
       // Clear password inputs

@@ -1,8 +1,8 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { CssBaseline, Box, Typography, Link, Container } from '@mui/material';
-import { CustomThemeProvider } from './context/CustomThemeContext';
-import { AuthProvider } from './context/AuthContext';
+import { CustomThemeProvider, useCustomTheme } from './context/CustomThemeContext';
+import { AuthProvider, useAuth } from './context/AuthContext';
 import { NavBar } from './components/NavBar';
 import { AnalyticsRouteTracker } from './components/AnalyticsRouteTracker';
 import { AnalyticsConsentBanner } from './components/AnalyticsConsentBanner';
@@ -22,11 +22,27 @@ import { MockAdminSetup } from './pages/MockAdminSetup';
 import { ProtectedRoute, AdminRoute } from './components/RouteGuards';
 import { Link as RouterLink } from 'react-router-dom';
 
+const ProfileThemeSync: React.FC = () => {
+  const { loading, userProfile } = useAuth();
+  const { setThemeMode } = useCustomTheme();
+
+  useEffect(() => {
+    if (loading) {
+      return;
+    }
+
+    setThemeMode(userProfile?.themeMode || 'system');
+  }, [loading, setThemeMode, userProfile?.themeMode, userProfile?.uid]);
+
+  return null;
+};
+
 const App: React.FC = () => {
   return (
     <CustomThemeProvider>
       <CssBaseline />
       <AuthProvider>
+        <ProfileThemeSync />
         <BrowserRouter>
           <AnalyticsRouteTracker />
           <Box sx={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>

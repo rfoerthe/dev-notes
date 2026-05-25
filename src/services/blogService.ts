@@ -9,7 +9,9 @@ import {
   updateDoc,
   deleteDoc,
   where,
-  writeBatch
+  writeBatch,
+  serverTimestamp,
+  Timestamp
 } from 'firebase/firestore';
 import {
   db,
@@ -18,6 +20,7 @@ import {
   setMockData,
   MOCK_BLOGS_KEY
 } from './firebase';
+import { sanitizeTags, validateBlogContent } from './securityValidation';
 
 const MOCK_BLOGS_SEEDED_KEY = 'devblog_mock_blogs_seeded';
 
@@ -33,9 +36,48 @@ export interface BlogPost {
   readTime: number; // in minutes
 }
 
+type FirestoreTimestampLike = {
+  toDate: () => Date;
+};
+
+function normalizeCreatedAt(value: unknown): string {
+  if (typeof value === 'string') {
+    return value;
+  }
+
+  if (value instanceof Timestamp) {
+    return value.toDate().toISOString();
+  }
+
+  if (
+    typeof value === 'object' &&
+    value !== null &&
+    'toDate' in value &&
+    typeof (value as FirestoreTimestampLike).toDate === 'function'
+  ) {
+    return (value as FirestoreTimestampLike).toDate().toISOString();
+  }
+
+  return new Date().toISOString();
+}
+
+function normalizeBlogPost(id: string, data: Record<string, unknown>): BlogPost {
+  return {
+    id,
+    title: String(data.title || ''),
+    summary: String(data.summary || ''),
+    content: String(data.content || ''),
+    tags: Array.isArray(data.tags) ? data.tags.map(tag => String(tag)) : [],
+    authorId: String(data.authorId || ''),
+    authorName: String(data.authorName || ''),
+    createdAt: normalizeCreatedAt(data.createdAt),
+    readTime: typeof data.readTime === 'number' ? data.readTime : 1
+  };
+}
+
 // Calculate read time (roughly 200 words per minute)
 export function calculateReadTime(text: string): number {
-  const words = text.trim().split(/\s+/).length;
+  const words = text.trim().split(/\s+/).filter(Boolean).length;
   const time = Math.ceil(words / 200);
   return Math.max(1, time);
 }
@@ -167,7 +209,7 @@ export async function getBlogs(): Promise<BlogPost[]> {
       const snapshot = await getDocs(q);
       const results: BlogPost[] = [];
       snapshot.forEach(docSnap => {
-        results.push({ id: docSnap.id, ...docSnap.data() } as BlogPost);
+        results.push(normalizeBlogPost(docSnap.id, docSnap.data()));
       });
       return results;
     } catch (err) {
@@ -188,7 +230,7 @@ export async function getBlogById(id: string): Promise<BlogPost | null> {
       const docRef = doc(db, 'blogs', id);
       const docSnap = await getDoc(docRef);
       if (docSnap.exists()) {
-        return { id: docSnap.id, ...docSnap.data() } as BlogPost;
+        return normalizeBlogPost(docSnap.id, docSnap.data());
       }
       return null;
     } catch (err) {
@@ -209,8 +251,14 @@ interface CreateBlogParams {
 }
 
 export async function createBlog(params: CreateBlogParams): Promise<BlogPost> {
+  const validationErrors = validateBlogContent(params.title, params.summary, params.content, params.tags);
+  if (validationErrors.length > 0) {
+    throw new Error(validationErrors[0]);
+  }
+
   const readTime = calculateReadTime(params.content);
   const createdAt = new Date().toISOString();
+  const tags = sanitizeTags(params.tags);
 
   if (isMockEnabled) {
     const id = 'blog-uid-' + Math.random().toString(36).substr(2, 9);
@@ -219,7 +267,7 @@ export async function createBlog(params: CreateBlogParams): Promise<BlogPost> {
       title: params.title.trim(),
       summary: params.summary.trim(),
       content: params.content,
-      tags: params.tags.map(t => t.trim()).filter(Boolean),
+      tags,
       authorId: params.authorId,
       authorName: params.authorName,
       createdAt,
@@ -235,20 +283,30 @@ export async function createBlog(params: CreateBlogParams): Promise<BlogPost> {
       title: params.title.trim(),
       summary: params.summary.trim(),
       content: params.content,
-      tags: params.tags.map(t => t.trim()).filter(Boolean),
+      tags,
       authorId: params.authorId,
       authorName: params.authorName,
-      createdAt,
+      createdAt: serverTimestamp(),
       readTime
     };
 
     const blogsRef = collection(db, 'blogs');
     const docRef = await addDoc(blogsRef, newBlogData);
+    const docSnap = await getDoc(docRef);
 
-    return {
-      id: docRef.id,
-      ...newBlogData
-    };
+    return docSnap.exists()
+      ? normalizeBlogPost(docSnap.id, docSnap.data())
+      : {
+          id: docRef.id,
+          title: params.title.trim(),
+          summary: params.summary.trim(),
+          content: params.content,
+          tags,
+          authorId: params.authorId,
+          authorName: params.authorName,
+          createdAt,
+          readTime
+        };
   }
 }
 
@@ -261,7 +319,13 @@ interface UpdateBlogParams {
 }
 
 export async function updateBlog(params: UpdateBlogParams): Promise<BlogPost> {
+  const validationErrors = validateBlogContent(params.title, params.summary, params.content, params.tags);
+  if (validationErrors.length > 0) {
+    throw new Error(validationErrors[0]);
+  }
+
   const readTime = calculateReadTime(params.content);
+  const tags = sanitizeTags(params.tags);
 
   if (isMockEnabled) {
     const blogs = getMockData<BlogPost[]>(MOCK_BLOGS_KEY, []);
@@ -275,7 +339,7 @@ export async function updateBlog(params: UpdateBlogParams): Promise<BlogPost> {
       title: params.title.trim(),
       summary: params.summary.trim(),
       content: params.content,
-      tags: params.tags.map(t => t.trim()).filter(Boolean),
+      tags,
       readTime
     };
 
@@ -288,7 +352,7 @@ export async function updateBlog(params: UpdateBlogParams): Promise<BlogPost> {
       title: params.title.trim(),
       summary: params.summary.trim(),
       content: params.content,
-      tags: params.tags.map(t => t.trim()).filter(Boolean),
+      tags,
       readTime
     };
 
@@ -298,7 +362,7 @@ export async function updateBlog(params: UpdateBlogParams): Promise<BlogPost> {
     if (!docSnap.exists()) {
       throw new Error('Beitrag nach Update nicht gefunden.');
     }
-    return { id: docSnap.id, ...docSnap.data() } as BlogPost;
+    return normalizeBlogPost(docSnap.id, docSnap.data());
   }
 }
 

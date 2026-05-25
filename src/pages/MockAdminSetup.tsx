@@ -15,6 +15,7 @@ import {
 import { Lock, Mail, ShieldCheck, Terminal, Trash2, User } from 'lucide-react';
 import { bootstrapMockAdmin, canBootstrapMockAdmin, resetMockAdmin } from '../services/authService';
 import { isMockEnabled } from '../services/firebase';
+import { normalizeUsername, validatePasswordStrength, validateUsername } from '../services/securityValidation';
 
 export const MockAdminSetup: React.FC = () => {
   const navigate = useNavigate();
@@ -36,8 +37,15 @@ export const MockAdminSetup: React.FC = () => {
     setError(null);
     setNotice(null);
 
-    if (password.length < 6) {
-      setError('Das Passwort muss mindestens 6 Zeichen lang sein.');
+    const usernameError = validateUsername(normalizeUsername(username));
+    if (usernameError) {
+      setError(usernameError);
+      return;
+    }
+
+    const passwordError = validatePasswordStrength(password);
+    if (passwordError) {
+      setError(passwordError);
       return;
     }
 
