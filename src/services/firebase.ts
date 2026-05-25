@@ -2,7 +2,7 @@ import { initializeApp, getApps, getApp, type FirebaseApp } from 'firebase/app';
 import { getAuth, type Auth } from 'firebase/auth';
 import { getFirestore, initializeFirestore, type Firestore } from 'firebase/firestore';
 import { initializeAnalytics, isSupported, type Analytics } from 'firebase/analytics';
-import { initializeAppCheck, ReCaptchaEnterpriseProvider, type AppCheck } from 'firebase/app-check';
+import { initializeAppCheck, ReCaptchaEnterpriseProvider } from 'firebase/app-check';
 
 // Environment variables check
 const firebaseConfig = {
@@ -30,7 +30,6 @@ let app: FirebaseApp | undefined;
 let auth: Auth;
 let db: Firestore;
 let analyticsPromise: Promise<Analytics | null> | null = null;
-let appCheck: AppCheck | undefined;
 let isMockEnabled = false;
 let isAnalyticsConfigured = false;
 let isAppCheckConfigured = false;
@@ -40,7 +39,7 @@ if (isFirebaseConfigured) {
     app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
 
     if (firebaseConfig.appCheckSiteKey) {
-      appCheck = initializeAppCheck(app, {
+      initializeAppCheck(app, {
         provider: new ReCaptchaEnterpriseProvider(firebaseConfig.appCheckSiteKey),
         isTokenAutoRefreshEnabled: true
       });
@@ -175,7 +174,6 @@ export {
   auth,
   db,
   getAnalyticsInstance,
-  n,
   isAppCheckConfigured,
   isAnalyticsConfigured,
   isMockEnabled,
