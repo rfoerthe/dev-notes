@@ -117,6 +117,46 @@ export function canBootstrapMockAdmin(): boolean {
   return !users.some(user => user.role === 'admin');
 }
 
+export async function resetMockAdmin(): Promise<boolean> {
+  if (!isMockEnabled || !import.meta.env.DEV) {
+    throw new Error('Der lokale Admin kann nur im Mock-Modus des Dev-Servers geloescht werden.');
+  }
+
+  const users = getMockData<UserProfile[]>(MOCK_USERS_KEY, []);
+  const adminUsers = users.filter(user => user.role === 'admin');
+
+  if (adminUsers.length === 0) {
+    return false;
+  }
+
+  const adminUids = new Set(adminUsers.map(user => user.uid));
+  const remainingUsers = users.filter(user => !adminUids.has(user.uid));
+  setMockData(MOCK_USERS_KEY, remainingUsers);
+
+  const mockUsernames = getMockData<StringMap>('devblog_mock_usernames', {});
+  for (const admin of adminUsers) {
+    delete mockUsernames[admin.username.trim().toLowerCase()];
+  }
+  for (const [username, uid] of Object.entries(mockUsernames)) {
+    if (adminUids.has(uid)) {
+      delete mockUsernames[username];
+    }
+  }
+  setMockData('devblog_mock_usernames', mockUsernames);
+
+  const passwords = getMockData<StringMap>('devblog_mock_passwords', {});
+  for (const admin of adminUsers) {
+    delete passwords[admin.email.trim().toLowerCase()];
+  }
+  setMockData('devblog_mock_passwords', passwords);
+
+  if (mockAuthInstance.currentUser && adminUids.has(mockAuthInstance.currentUser.uid)) {
+    await mockAuthInstance.mockSignOut();
+  }
+
+  return true;
+}
+
 export async function bootstrapMockAdmin(params: BootstrapMockAdminParams): Promise<UserProfile> {
   if (!isMockEnabled || !import.meta.env.DEV) {
     throw new Error('Die lokale Admin-Ersteinrichtung ist nur im Mock-Modus des Dev-Servers verfügbar.');

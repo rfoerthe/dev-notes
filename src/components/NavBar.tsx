@@ -25,6 +25,7 @@ import { Terminal, PenTool, ShieldAlert, LogOut, Menu as MenuIcon, Settings, Sun
 import { useAuth } from '../context/AuthContext';
 import { fetchUsersByStatus } from '../services/authService';
 import { useCustomTheme } from '../context/CustomThemeContext';
+import { isMockEnabled } from '../services/firebase';
 
 export const NavBar: React.FC = () => {
   const { currentUser, userProfile, logout } = useAuth();
@@ -36,6 +37,7 @@ export const NavBar: React.FC = () => {
   const [pendingCount, setPendingCount] = useState<number>(0);
 
   const isMdUp = useMediaQuery('(min-width:900px)');
+  const showMockModeIndicator = isMockEnabled && import.meta.env.DEV;
 
   // Poll or check for pending user registration requests to show in admin badge
   useEffect(() => {
@@ -115,6 +117,27 @@ export const NavBar: React.FC = () => {
           Dev<span style={{ color: '#14b8a6' }}>Notes</span>
         </Typography>
       </Box>
+      {showMockModeIndicator && (
+        <Box
+          sx={{
+            mx: 1,
+            mb: 2,
+            px: 1.25,
+            py: 0.8,
+            borderRadius: 2,
+            bgcolor: (theme) => theme.palette.mode === 'dark' ? 'rgba(251, 191, 36, 0.12)' : 'rgba(217, 119, 6, 0.1)',
+            border: (theme) => theme.palette.mode === 'dark' ? '1px solid rgba(251, 191, 36, 0.28)' : '1px solid rgba(217, 119, 6, 0.22)',
+            color: (theme) => theme.palette.mode === 'dark' ? '#fbbf24' : '#92400e',
+            fontFamily: 'Outfit, sans-serif',
+            fontSize: 12,
+            fontWeight: 800,
+            letterSpacing: 0,
+            textTransform: 'uppercase'
+          }}
+        >
+          MOCK MODE
+        </Box>
+      )}
       <Divider sx={{ mb: 2 }} />
       <List>
         {navLinks.map((item) => (
@@ -479,6 +502,47 @@ export const NavBar: React.FC = () => {
             </Box>
           </Toolbar>
         </Container>
+        {showMockModeIndicator && (
+          <Box
+            sx={{
+              borderTop: (theme) => theme.palette.mode === 'dark' ? '1px solid rgba(251, 191, 36, 0.12)' : '1px solid rgba(217, 119, 6, 0.12)',
+              borderBottom: (theme) => theme.palette.mode === 'dark' ? '1px solid rgba(251, 191, 36, 0.18)' : '1px solid rgba(217, 119, 6, 0.18)',
+              bgcolor: (theme) => theme.palette.mode === 'dark' ? 'rgba(120, 53, 15, 0.32)' : 'rgba(255, 251, 235, 0.92)',
+              color: (theme) => theme.palette.mode === 'dark' ? '#fbbf24' : '#92400e'
+            }}
+          >
+            <Container maxWidth="lg">
+              <Box
+                sx={{
+                  minHeight: 28,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: 1,
+                  textAlign: 'center',
+                  fontFamily: 'Outfit, sans-serif',
+                  fontSize: { xs: 11, sm: 12 },
+                  fontWeight: 800,
+                  letterSpacing: 0,
+                  textTransform: 'uppercase'
+                }}
+              >
+                <Terminal size={14} />
+                <Box component="span">MOCK MODE</Box>
+                <Box
+                  component="span"
+                  sx={{
+                    display: { xs: 'none', sm: 'inline' },
+                    fontWeight: 700,
+                    textTransform: 'none'
+                  }}
+                >
+                  Lokaler Browser-Store aktiv
+                </Box>
+              </Box>
+            </Container>
+          </Box>
+        )}
       </AppBar>
 
       {/* MOBILE DRAWER */}

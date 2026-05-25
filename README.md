@@ -121,15 +121,23 @@ If admin credentials are missing, the script prints a setup checklist instead of
 
 ### Local Mock Admin
 
-In local mock mode, the browser uses `localStorage` instead of Firebase. Run the app with `npm run dev` and open:
+In local mock mode, the browser uses `localStorage` instead of Firebase. To force this mode even when `.env` contains Firebase credentials, run:
+
+```bash
+npm run dev:mock
+```
+
+Then open:
 
 ```text
 http://localhost:5173/mock-admin-setup
 ```
 
-This development-only page appears only when Firebase is not configured, the app is running through the Vite dev server, and no local mock admin exists yet. It lets you choose the local admin password yourself, stores only the local password hash, signs you in, and then redirects to `/admin`.
+This development-only page appears only when mock mode is active, the app is running through the Vite dev server, and no local mock admin exists yet. It lets you choose the local admin password yourself, stores only the local password hash, signs you in, and then redirects to `/admin`.
 
 For an existing local mock admin, use the normal login page. In mock mode you can log in with either username or email.
+
+If you want to recreate the local mock admin, open `/mock-admin-setup` while `npm run dev:mock` is running and use the reset button. This deletes only the admin profile, username reservation, password hash, and active mock admin session from this browser's `localStorage`.
 
 ## Firebase Configuration
 

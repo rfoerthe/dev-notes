@@ -7,6 +7,7 @@ import {
   hashPassword,
   bootstrapMockAdmin,
   canBootstrapMockAdmin,
+  resetMockAdmin,
   updateUserProfile,
   deleteUserRegistration
 } from '../services/authService';
@@ -91,6 +92,37 @@ describe('Developer\'s Blog Service Layer (Mock Mode)', () => {
           password: 'LocalPassword123!'
         })
       ).rejects.toThrow('Es existiert bereits ein lokaler Admin-Benutzer.');
+    });
+
+    it('should reset the local mock admin and allow bootstrapping again', async () => {
+      await bootstrapMockAdmin({
+        firstName: 'Local',
+        lastName: 'Admin',
+        username: 'admin',
+        email: 'admin@example.local',
+        password: 'LocalPassword123!'
+      });
+
+      expect(canBootstrapMockAdmin()).toBe(false);
+      expect(localStorage.getItem('devblog_mock_current_user')).not.toBeNull();
+
+      await expect(resetMockAdmin()).resolves.toBe(true);
+
+      expect(canBootstrapMockAdmin()).toBe(true);
+      expect(await isUsernameAvailable('admin')).toBe(true);
+      expect(await isEmailAvailable('admin@example.local')).toBe(true);
+      expect(localStorage.getItem('devblog_mock_current_user')).toBeNull();
+
+      const newAdmin = await bootstrapMockAdmin({
+        firstName: 'Fresh',
+        lastName: 'Admin',
+        username: 'admin',
+        email: 'admin@example.local',
+        password: 'AnotherPassword123!'
+      });
+
+      expect(newAdmin.firstName).toBe('Fresh');
+      expect(newAdmin.role).toBe('admin');
     });
 
     it('should verify username and email availability correctly', async () => {

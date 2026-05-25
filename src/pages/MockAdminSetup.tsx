@@ -12,8 +12,8 @@ import {
   TextField,
   Typography
 } from '@mui/material';
-import { Lock, Mail, ShieldCheck, Terminal, User } from 'lucide-react';
-import { bootstrapMockAdmin, canBootstrapMockAdmin } from '../services/authService';
+import { Lock, Mail, ShieldCheck, Terminal, Trash2, User } from 'lucide-react';
+import { bootstrapMockAdmin, canBootstrapMockAdmin, resetMockAdmin } from '../services/authService';
 import { isMockEnabled } from '../services/firebase';
 
 export const MockAdminSetup: React.FC = () => {
@@ -25,13 +25,16 @@ export const MockAdminSetup: React.FC = () => {
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [resetting, setResetting] = useState(false);
 
   const isAvailable = isMockEnabled && import.meta.env.DEV && canBootstrapMockAdmin();
 
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
     setError(null);
+    setNotice(null);
 
     if (password.length < 6) {
       setError('Das Passwort muss mindestens 6 Zeichen lang sein.');
@@ -60,6 +63,33 @@ export const MockAdminSetup: React.FC = () => {
     }
   };
 
+  const handleResetAdmin = async () => {
+    setError(null);
+    setNotice(null);
+
+    const confirmed = window.confirm(
+      'Lokalen Mock-Admin wirklich aus dem Browser-Store loeschen? Danach kannst du ihn neu anlegen.'
+    );
+
+    if (!confirmed) {
+      return;
+    }
+
+    setResetting(true);
+    try {
+      const wasDeleted = await resetMockAdmin();
+      setNotice(
+        wasDeleted
+          ? 'Der lokale Mock-Admin wurde geloescht. Du kannst ihn jetzt neu anlegen.'
+          : 'Es wurde kein lokaler Mock-Admin gefunden.'
+      );
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Lokaler Admin konnte nicht geloescht werden.');
+    } finally {
+      setResetting(false);
+    }
+  };
+
   if (!isMockEnabled || !import.meta.env.DEV) {
     return (
       <Container maxWidth="sm" sx={{ py: 10, flexGrow: 1 }}>
@@ -81,9 +111,32 @@ export const MockAdminSetup: React.FC = () => {
           <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
             Melde dich mit dem vorhandenen lokalen Admin-Konto an.
           </Typography>
-          <Button component={RouterLink} to="/login" variant="contained" sx={{ borderRadius: 3 }}>
-            Zum Login
-          </Button>
+
+          {error && (
+            <Alert severity="error" sx={{ mb: 3, borderRadius: 3, textAlign: 'left' }}>
+              {error}
+            </Alert>
+          )}
+
+          <Alert severity="warning" sx={{ mb: 3, borderRadius: 3, textAlign: 'left' }}>
+            Der Reset betrifft nur den lokalen Browser-Store dieses Mock-Modus. Firebase-Daten werden nicht veraendert.
+          </Alert>
+
+          <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5} sx={{ justifyContent: 'center' }}>
+            <Button component={RouterLink} to="/login" variant="contained" sx={{ borderRadius: 3 }}>
+              Zum Login
+            </Button>
+            <Button
+              variant="outlined"
+              color="error"
+              onClick={handleResetAdmin}
+              disabled={resetting}
+              startIcon={!resetting ? <Trash2 size={16} /> : undefined}
+              sx={{ borderRadius: 3 }}
+            >
+              {resetting ? <CircularProgress size={20} color="inherit" /> : 'Lokalen Admin loeschen'}
+            </Button>
+          </Stack>
         </Paper>
       </Container>
     );
@@ -107,6 +160,12 @@ export const MockAdminSetup: React.FC = () => {
         {error && (
           <Alert severity="error" sx={{ mb: 3, borderRadius: 3 }}>
             {error}
+          </Alert>
+        )}
+
+        {notice && (
+          <Alert severity="success" sx={{ mb: 3, borderRadius: 3 }}>
+            {notice}
           </Alert>
         )}
 
