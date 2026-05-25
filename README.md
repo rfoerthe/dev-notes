@@ -201,6 +201,62 @@ npm run posts:seed -- --target all
 
 The normal mock service also seeds a small starter set of local posts the first time the local blog store is empty.
 
+## Firestore Backup and Restore
+
+DevNotes can create a local JSON backup of the complete Firestore database and restore it through the Firebase Admin SDK. The scripts use the same credential setup as `npm run bootstrap:admin`.
+
+Create a backup:
+
+```bash
+npm run firestore:backup
+```
+
+By default, backups are written to `backups/firestore-backup-<timestamp>.json`. The `backups/` directory is ignored by git because it may contain production data.
+
+Use a custom file path:
+
+```bash
+npm run firestore:backup -- --output backups/pre-release.json
+```
+
+Restore a backup:
+
+```bash
+npm run firestore:restore -- --input backups/pre-release.json --yes
+```
+
+Restore the newest file from `backups/`:
+
+```bash
+npm run firestore:restore -- --latest --yes
+```
+
+By default, restore overwrites documents that are present in the backup but does not delete extra documents that already exist in Firestore. To replace the database contents, delete existing Firestore documents before writing the backup:
+
+```bash
+npm run firestore:restore -- --input backups/pre-release.json --delete-existing --yes
+```
+
+Preview the restore plan without writing:
+
+```bash
+npm run firestore:restore -- --input backups/pre-release.json --dry-run
+```
+
+After restoring into a new or repaired Firebase project, run the admin repair script so the Firebase Auth account and Firestore admin profile use the same UID:
+
+```bash
+ADMIN_EMAIL=admin@example.com npm run restore:admin
+```
+
+The script creates or re-enables the Firebase Auth user, moves a restored admin profile to `users/<current-auth-uid>`, repairs `usernames/<admin-username>`, and generates a Firebase password reset link. The link is not printed by default:
+
+```bash
+ADMIN_EMAIL=admin@example.com PRINT_ADMIN_RESET_LINK=1 npm run restore:admin
+```
+
+Keep backup files secure. They can contain user profiles, email addresses, and unpublished blog content.
+
 ## Firebase Configuration
 
 Create a local `.env` file when you want to connect the app to a real Firebase project:

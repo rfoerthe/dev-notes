@@ -15,6 +15,7 @@ import {
 import { 
   createBlog, 
   getBlogs, 
+  getBlogsByAuthor,
   calculateReadTime,
   updateBlog,
   deleteBlog
@@ -292,6 +293,48 @@ describe('Developer\'s Blog Service Layer (Mock Mode)', () => {
       expect(blogs[0].title).toBe('Building Premium UIs with MUI');
       expect(blogs[0].readTime).toBe(1);
       expect(blogs[0].tags).toContain('MUI');
+    });
+
+    it('should retrieve only posts from the requested author in newest-first order', async () => {
+      const olderPost = {
+        id: 'older-author-post',
+        title: 'Older Author Post',
+        summary: 'This belongs to the selected author',
+        content: 'A short author post.',
+        tags: ['Author'],
+        authorId: 'author-a',
+        authorName: 'Author A',
+        createdAt: '2024-01-01T12:00:00.000Z',
+        readTime: 1
+      };
+      const otherPost = {
+        id: 'other-author-post',
+        title: 'Other Author Post',
+        summary: 'This belongs to someone else',
+        content: 'A short unrelated post.',
+        tags: ['Other'],
+        authorId: 'author-b',
+        authorName: 'Author B',
+        createdAt: '2024-01-03T12:00:00.000Z',
+        readTime: 1
+      };
+      const newestPost = {
+        id: 'newest-author-post',
+        title: 'Newest Author Post',
+        summary: 'This also belongs to the selected author',
+        content: 'Another short author post.',
+        tags: ['Author'],
+        authorId: 'author-a',
+        authorName: 'Author A',
+        createdAt: '2024-01-02T12:00:00.000Z',
+        readTime: 1
+      };
+      setMockData(MOCK_BLOGS_KEY, [olderPost, otherPost, newestPost]);
+
+      const authorPosts = await getBlogsByAuthor('author-a');
+
+      expect(authorPosts.map(blog => blog.id)).toEqual([newestPost.id, olderPost.id]);
+      expect(authorPosts.some(blog => blog.id === otherPost.id)).toBe(false);
     });
 
     it('should successfully edit an existing blog post and recalculate reading time', async () => {

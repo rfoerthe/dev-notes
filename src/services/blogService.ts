@@ -219,6 +219,31 @@ export async function getBlogs(): Promise<BlogPost[]> {
   }
 }
 
+export async function getBlogsByAuthor(authorId: string): Promise<BlogPost[]> {
+  if (isMockEnabled) {
+    seedMockBlogs();
+    const blogs = getMockData<BlogPost[]>(MOCK_BLOGS_KEY, []);
+    return blogs
+      .filter(blog => blog.authorId === authorId)
+      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+  }
+
+  try {
+    const blogsRef = collection(db, 'blogs');
+    const q = query(blogsRef, where('authorId', '==', authorId));
+    const snapshot = await getDocs(q);
+    const results: BlogPost[] = [];
+    snapshot.forEach(docSnap => {
+      results.push(normalizeBlogPost(docSnap.id, docSnap.data()));
+    });
+
+    return results.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+  } catch (err) {
+    console.error(`Failed to fetch blogs for author ${authorId}:`, err);
+    return [];
+  }
+}
+
 // Get Single Blog Details
 export async function getBlogById(id: string): Promise<BlogPost | null> {
   if (isMockEnabled) {
