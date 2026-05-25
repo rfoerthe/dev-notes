@@ -12,6 +12,8 @@
     "preview": "vite preview",
     "bootstrap:admin": "node scripts/bootstrap-admin.mjs",
     "user:delete": "node scripts/delete-user.mjs",
+    "posts:delete": "node scripts/delete-posts.mjs",
+    "posts:seed": "node scripts/seed-example-posts.mjs",
     "firebase": "firebase",
     "deploy:rules": "node scripts/firebase-cli-project.mjs deploy --only firestore:rules"
   },

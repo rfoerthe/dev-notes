@@ -19,6 +19,8 @@ import {
   MOCK_BLOGS_KEY
 } from './firebase';
 
+const MOCK_BLOGS_SEEDED_KEY = 'devblog_mock_blogs_seeded';
+
 export interface BlogPost {
   id: string;
   title: string;
@@ -139,9 +141,14 @@ Typsicherheit schützt uns vor Fehlern zur Laufzeit. Nutze diese neuen Features,
 export function seedMockBlogs(): void {
   if (isMockEnabled) {
     const blogs = getMockData<BlogPost[]>(MOCK_BLOGS_KEY, []);
-    if (blogs.length === 0) {
+    const hasSeededMockBlogs = localStorage.getItem(MOCK_BLOGS_SEEDED_KEY) === 'true';
+
+    if (blogs.length === 0 && !hasSeededMockBlogs) {
       setMockData(MOCK_BLOGS_KEY, MOCK_SEED_BLOGS);
+      localStorage.setItem(MOCK_BLOGS_SEEDED_KEY, 'true');
       console.log('Seeded mock blogs locally.');
+    } else if (blogs.length > 0 && !hasSeededMockBlogs) {
+      localStorage.setItem(MOCK_BLOGS_SEEDED_KEY, 'true');
     }
   }
 }

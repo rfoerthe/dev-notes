@@ -139,6 +139,38 @@ For an existing local mock admin, use the normal login page. In mock mode you ca
 
 If you want to recreate the local mock admin, open `/mock-admin-setup` while `npm run dev:mock` is running and use the reset button. This deletes only the admin profile, username reservation, password hash, and active mock admin session from this browser's `localStorage`.
 
+## Blog Post Maintenance Scripts
+
+DevNotes includes scripts for clearing all blog posts and for seeding 100 realistic example posts about Frontendentwicklung, KI, Rust, and Python. Half of the generated articles include Markdown code examples.
+
+Firestore mode is applied directly through the Firebase Admin SDK and uses the same credential setup as `npm run bootstrap:admin`. Deleting Firestore posts requires `--yes` because it removes every document in the `blogs` collection.
+
+```bash
+npm run posts:delete -- --target firestore --yes
+npm run posts:seed -- --target firestore
+```
+
+Mock mode stores posts in the browser's `localStorage`, so the scripts print a browser-console snippet for the currently opened DevNotes origin. Start the mock app, open DevTools in that browser tab, paste the snippet, and press Enter.
+
+```bash
+npm run dev:mock
+npm run posts:delete -- --target mock
+npm run posts:seed -- --target mock
+```
+
+On macOS, copy only the generated snippet to the clipboard with npm's silent mode:
+
+```bash
+npm run posts:delete -s -- --target mock | pbcopy
+npm run posts:seed -s -- --target mock | pbcopy
+```
+
+Use `--target all` to apply Firestore directly and print the mock browser snippet in one run:
+
+```bash
+npm run posts:seed -- --target all
+```
+
 ## Firebase Configuration
 
 Create a local `.env` file when you want to connect the app to a real Firebase project:
