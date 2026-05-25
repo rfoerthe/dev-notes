@@ -1,6 +1,6 @@
 # DevNotes
 
-DevNotes is a developer-focused blog application built with React, TypeScript, Vite, Material UI, Firebase, and React Router. It provides a public article feed, Markdown-based article pages, user registration with approval workflows, protected authoring tools, and an admin dashboard for managing developer accounts.
+DevNotes is a developer-focused blog application built with React, TypeScript, Vite, Material UI, Firebase, and React Router. It provides a public article feed, Markdown-based article pages, user registration with approval workflows, protected authoring tools, profile and theme settings, optional analytics consent, and an admin dashboard for managing developer accounts.
 
 The app can run in two modes:
 
@@ -9,16 +9,20 @@ The app can run in two modes:
 
 ## Features
 
-- Public blog overview with search, tag filtering, reading time, author metadata, and article detail pages.
-- Markdown rendering for article content, including tests for parser behavior.
+- Public blog overview with title/summary search, dynamic tag filtering, tag counts, a searchable tag popover, featured articles, and paginated older articles.
+- Article cards and detail pages with reading time, German date formatting, author metadata, share links, and a scroll progress indicator.
+- Markdown rendering for article content, including headings, blockquotes, lists, inline formatting, inline code, fenced code blocks, syntax highlighting, and parser tests.
 - User registration with pending approval status.
 - Protected login flow that blocks pending or rejected users.
-- Admin dashboard for approving, rejecting, and deleting user registrations.
-- Approved-user routes for creating, editing, and managing blog posts.
-- Profile page for account details and password updates.
-- Light, dark, and system theme selection.
+- Admin dashboard for approving, rejecting, blocking, and, in mock mode, deleting user registrations.
+- Approved-user routes for creating, editing, deleting, and managing blog posts.
+- Blog editor with comma/semicolon tag entry, live Markdown preview, and live reading-time estimation.
+- Profile page for account details, operating-system preference, password updates, and author-name propagation across existing posts.
+- Light, dark, and system theme selection from the navbar and profile settings.
+- Development mock-mode indicator when the app is running against local browser storage.
+- Optional Firebase Analytics page tracking that starts only after explicit browser consent.
 - German legal pages for Impressum, Datenschutz, and Nutzungsbedingungen.
-- Firestore security rules for users, username reservations, and blog posts.
+- Firestore security rules for users, username reservations, blog posts, immutable ownership fields, and Admin SDK-only cleanup operations.
 - Firebase Hosting configuration with SPA rewrites.
 
 ## Tech Stack
@@ -37,12 +41,13 @@ The app can run in two modes:
 
 ```text
 src/
-  components/        Shared navigation, route guards, and Markdown renderer
+  components/        Navigation, route guards, analytics consent/tracking, and Markdown renderer
   context/           Authentication and theme context providers
-  pages/             Route-level pages for blog, auth, admin, profile, and legal views
-  services/          Firebase setup, auth workflow, and blog data access
+  pages/             Route-level pages for blog, auth, admin, profile, mock setup, and legal views
+  services/          Firebase setup, analytics consent, auth workflow, and blog data access
   theme/             Material UI theme configuration
   __tests__/         Service and Markdown parser tests
+scripts/             Admin bootstrap, user cleanup, post maintenance, and Firebase CLI helpers
 public/              Static icons and favicon
 firestore.rules      Cloud Firestore security rules
 firebase.json        Firebase Hosting and Firestore configuration
@@ -92,6 +97,12 @@ Run linting:
 npm run lint
 ```
 
+Deploy only Firestore rules:
+
+```bash
+npm run deploy:rules
+```
+
 ## Initial Admin Bootstrap
 
 Do not create or seed admin credentials in the browser client. A public first-run setup screen would let the first visitor claim the administrator account, so DevNotes uses a local Firebase Admin SDK bootstrap script instead.
@@ -139,6 +150,21 @@ For an existing local mock admin, use the normal login page. In mock mode you ca
 
 If you want to recreate the local mock admin, open `/mock-admin-setup` while `npm run dev:mock` is running and use the reset button. This deletes only the admin profile, username reservation, password hash, and active mock admin session from this browser's `localStorage`.
 
+While mock mode is active in development, the navbar displays a visible `MOCK MODE` indicator so local browser storage is not confused with a Firebase-backed environment.
+
+## Authoring Workflow
+
+Approved users can create posts at `/write`. Authors and admins can edit posts from the article detail page, and can permanently delete posts after confirming the delete dialog.
+
+The editor supports:
+
+- Title, summary, Markdown content, and at least one tag.
+- Adding multiple tags at once with commas or semicolons.
+- Editor and preview tabs using the same Markdown renderer as the public article page.
+- Live word count and estimated reading time.
+
+When a user updates their first or last name on the profile page, existing posts by that user are updated with the new author display name in mock mode and Firebase mode.
+
 ## Blog Post Maintenance Scripts
 
 DevNotes includes scripts for clearing all blog posts and for seeding 100 realistic example posts about Frontendentwicklung, KI, Rust, and Python. Half of the generated articles include Markdown code examples.
@@ -171,6 +197,8 @@ Use `--target all` to apply Firestore directly and print the mock browser snippe
 npm run posts:seed -- --target all
 ```
 
+The normal mock service also seeds a small starter set of local posts the first time the local blog store is empty.
+
 ## Firebase Configuration
 
 Create a local `.env` file when you want to connect the app to a real Firebase project:
@@ -189,6 +217,8 @@ If these values are not present, DevNotes falls back to local mock mode during d
 
 When `VITE_FIREBASE_MEASUREMENT_ID` is present, DevNotes can use Firebase Analytics in supported browser environments. Analytics stays disabled in local mock mode and is initialized only after the user grants analytics consent in the browser.
 
+The app suppresses Firebase's automatic page view event and logs route changes itself after consent. Consent is persisted in `localStorage` under `devnotes_analytics_consent`.
+
 ## Authentication Flow
 
 New registrations are created with:
@@ -199,6 +229,8 @@ New registrations are created with:
 Pending users cannot access authoring tools until an admin approves them. Approved users can create and edit their own blog posts. Admin users can manage registrations and have elevated Firestore permissions.
 
 In Firebase mode, users sign in with their email address and password. Username login is intentionally not used in production because a frontend-only username login would require exposing a public username-to-email mapping.
+
+In mock mode, users can sign in with either username or email because the data stays inside the current browser's `localStorage`.
 
 ## Deleting Regular Users
 
