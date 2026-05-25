@@ -242,7 +242,7 @@ Typical deployment flow:
 
 ```bash
 npm run build
-firebase deploy
+npm run firebase deploy
 ```
 
 Deploy Firestore rules together with the hosting configuration when using Firebase in production.
@@ -251,5 +251,4 @@ Deploy Firestore rules together with the hosting configuration when using Fireba
 
 - The UI content is primarily German.
 - Local mock data is stored in the browser's `localStorage`.
-- The production build currently emits a Vite chunk-size warning because the bundled app is larger than the default 500 kB warning threshold.
 - The package name is `dev-notes`.
