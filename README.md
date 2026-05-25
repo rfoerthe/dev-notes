@@ -212,15 +212,21 @@ VITE_FIREBASE_PROJECT_ID=your-project-id
 VITE_FIREBASE_STORAGE_BUCKET=your-project.appspot.com
 VITE_FIREBASE_MESSAGING_SENDER_ID=your-sender-id
 VITE_FIREBASE_APP_ID=your-app-id
+```
+
+Optional Firebase integrations can be enabled with additional variables:
+
+```bash
+VITE_FIREBASE_ANALYTICS_ENABLED=false
 VITE_FIREBASE_MEASUREMENT_ID=G-XXXXXXXXXX
 VITE_FIREBASE_APPCHECK_SITE_KEY=your-recaptcha-v3-site-key
 ```
 
-If these values are not present, DevNotes falls back to local mock mode during development. Production builds require Firebase credentials and refuse to start in mock mode.
+If the required Firebase values are not present, DevNotes falls back to local mock mode during development. Production builds require Firebase credentials and refuse to start in mock mode.
 
-When `VITE_FIREBASE_ANALYTICS_ENABLED=true` and `VITE_FIREBASE_MEASUREMENT_ID` are present, DevNotes can use Firebase Analytics in supported browser environments. Analytics stays disabled in local mock mode and is initialized only after the user grants analytics consent in the browser.
+Firebase Analytics is disabled by default, even when `VITE_FIREBASE_MEASUREMENT_ID` exists. Set `VITE_FIREBASE_ANALYTICS_ENABLED=true` only when you want DevNotes to load Firebase Analytics. Analytics stays disabled in local mock mode and is initialized only after the user grants analytics consent in the browser.
 
-The app suppresses Firebase's automatic page view event and logs route changes itself after consent. Consent is persisted in `localStorage` under `devnotes_analytics_consent`.
+Firebase Analytics loads Google Tag Manager under the hood. Browsers, ad blockers, Pi-hole, or corporate networks can block `https://www.googletagmanager.com`; keeping `VITE_FIREBASE_ANALYTICS_ENABLED=false` avoids that request entirely. The app suppresses Firebase's automatic page view event and logs route changes itself after consent. Consent is persisted in `localStorage` under `devnotes_analytics_consent`.
 
 When `VITE_FIREBASE_APPCHECK_SITE_KEY` is present, DevNotes initializes Firebase App Check with reCAPTCHA v3. Enable App Check enforcement for Firebase services in the Firebase Console before relying on it for abuse protection.
 
