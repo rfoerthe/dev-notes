@@ -13,7 +13,8 @@ const firebaseConfig = {
   messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID || "",
   appId: import.meta.env.VITE_FIREBASE_APP_ID || "",
   measurementId: import.meta.env.VITE_FIREBASE_MEASUREMENT_ID || "",
-  appCheckSiteKey: import.meta.env.VITE_FIREBASE_APPCHECK_SITE_KEY || ""
+  appCheckSiteKey: import.meta.env.VITE_FIREBASE_APPCHECK_SITE_KEY || "",
+  analyticsEnabled: import.meta.env.VITE_FIREBASE_ANALYTICS_ENABLED === 'true'
 };
 
 const forceMockMode = import.meta.env.VITE_FORCE_MOCK_MODE === 'true';
@@ -55,7 +56,7 @@ if (isFirebaseConfigured) {
       db = getFirestore(app);
     }
 
-    if (firebaseConfig.measurementId) {
+    if (firebaseConfig.analyticsEnabled && firebaseConfig.measurementId) {
       isAnalyticsConfigured = true;
     }
   } catch (error) {

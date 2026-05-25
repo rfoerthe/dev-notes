@@ -218,7 +218,7 @@ VITE_FIREBASE_APPCHECK_SITE_KEY=your-recaptcha-v3-site-key
 
 If these values are not present, DevNotes falls back to local mock mode during development. Production builds require Firebase credentials and refuse to start in mock mode.
 
-When `VITE_FIREBASE_MEASUREMENT_ID` is present, DevNotes can use Firebase Analytics in supported browser environments. Analytics stays disabled in local mock mode and is initialized only after the user grants analytics consent in the browser.
+When `VITE_FIREBASE_ANALYTICS_ENABLED=true` and `VITE_FIREBASE_MEASUREMENT_ID` are present, DevNotes can use Firebase Analytics in supported browser environments. Analytics stays disabled in local mock mode and is initialized only after the user grants analytics consent in the browser.
 
 The app suppresses Firebase's automatic page view event and logs route changes itself after consent. Consent is persisted in `localStorage` under `devnotes_analytics_consent`.
 
