@@ -2,7 +2,7 @@ import { initializeApp, getApps, getApp, type FirebaseApp } from 'firebase/app';
 import { getAuth, type Auth } from 'firebase/auth';
 import { getFirestore, initializeFirestore, type Firestore } from 'firebase/firestore';
 import { initializeAnalytics, isSupported, type Analytics } from 'firebase/analytics';
-import { initializeAppCheck, ReCaptchaV3Provider, type AppCheck } from 'firebase/app-check';
+import { initializeAppCheck, ReCaptchaEnterpriseProvider, type AppCheck } from 'firebase/app-check';
 
 // Environment variables check
 const firebaseConfig = {
@@ -41,7 +41,7 @@ if (isFirebaseConfigured) {
 
     if (firebaseConfig.appCheckSiteKey) {
       appCheck = initializeAppCheck(app, {
-        provider: new ReCaptchaV3Provider(firebaseConfig.appCheckSiteKey),
+        provider: new ReCaptchaEnterpriseProvider(firebaseConfig.appCheckSiteKey),
         isTokenAutoRefreshEnabled: true
       });
       isAppCheckConfigured = true;
