@@ -175,7 +175,7 @@ export {
   auth,
   db,
   getAnalyticsInstance,
-  appCheck,
+  n,
   isAppCheckConfigured,
   isAnalyticsConfigured,
   isMockEnabled,

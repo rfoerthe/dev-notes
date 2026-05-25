@@ -23,6 +23,15 @@ import {
 import { MOCK_USERS_KEY, MOCK_BLOGS_KEY, setMockData } from '../services/firebase';
 import { MIN_PASSWORD_LENGTH } from '../services/securityValidation';
 
+const PBKDF2_HASH_PATTERN = /^pbkdf2-sha256:\d+:[A-Za-z0-9+/]+=*:[A-Za-z0-9+/]+=*$/;
+
+const hashPasswordLegacySha256 = async (password: string): Promise<string> => {
+  return crypto.subtle.digest(
+    'SHA-256',
+    new TextEncoder().encode(password)
+  ).then(buf => Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, '0')).join(''));
+};
+
 const seedApprovedMockUser = async () => {
   const user = {
     uid: 'approved-user-uid',
@@ -74,7 +83,7 @@ describe('Developer\'s Blog Service Layer (Mock Mode)', () => {
       const rawPasswords = localStorage.getItem('devblog_mock_passwords');
       const passwords = JSON.parse(rawPasswords!);
       expect(passwords['admin@example.local']).not.toBe('LocalPassword123!');
-      expect(passwords['admin@example.local']).toHaveLength(64);
+      expect(passwords['admin@example.local']).toMatch(PBKDF2_HASH_PATTERN);
     });
 
     it('should not bootstrap a second local mock admin', async () => {
@@ -439,10 +448,36 @@ describe('Developer\'s Blog Service Layer (Mock Mode)', () => {
       const passwords = JSON.parse(rawPasswords!);
       const storedPassword = passwords['secure@dev.com'];
 
-      // Password must be hashed (64-char hex string) and NOT plain text
+      // Password must be PBKDF2-hashed with salt and NOT plain text.
       expect(storedPassword).not.toBe('MySecretPassword123!');
-      expect(storedPassword).toHaveLength(64); // SHA-256 is 64 hex characters
-      expect(storedPassword).toMatch(/^[a-f0-9]{64}$/);
+      expect(storedPassword).toMatch(PBKDF2_HASH_PATTERN);
+    });
+
+    it('should migrate legacy mock SHA-256 password hashes after successful login', async () => {
+      const user = {
+        uid: 'legacy-user-uid',
+        firstName: 'Legacy',
+        lastName: 'User',
+        username: 'legacyuser',
+        email: 'legacy@example.com',
+        role: 'user' as const,
+        status: 'approved' as const,
+        createdAt: new Date().toISOString()
+      };
+
+      setMockData(MOCK_USERS_KEY, [user]);
+      setMockData('devblog_mock_usernames', { [user.username]: user.uid });
+      setMockData('devblog_mock_passwords', {
+        [user.email]: await hashPasswordLegacySha256('Password123!')
+      });
+
+      await expect(loginUser(user.username, 'Password123!')).resolves.toMatchObject({
+        uid: user.uid
+      });
+
+      const passwords = JSON.parse(localStorage.getItem('devblog_mock_passwords')!);
+      expect(passwords[user.email]).toMatch(PBKDF2_HASH_PATTERN);
+      expect(passwords[user.email]).not.toHaveLength(64);
     });
 
     it('should enforce default role and pending status on user registration', async () => {
@@ -555,13 +590,8 @@ describe('Developer\'s Blog Service Layer (Mock Mode)', () => {
       const passwords = JSON.parse(rawPasswords!);
       const storedPasswordHash = passwords['update@profile.com'];
 
-      const expectedNewHash = await crypto.subtle.digest(
-        'SHA-256',
-        new TextEncoder().encode('NewPassword123!')
-      ).then(buf => Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, '0')).join(''));
-
-      expect(storedPasswordHash).toBe(expectedNewHash);
       expect(storedPasswordHash).not.toBe('NewPassword123!');
+      expect(storedPasswordHash).toMatch(PBKDF2_HASH_PATTERN);
     });
   });
 });

@@ -24,7 +24,9 @@ jobs:
 
     - name: Build
       run: |
-        npm install
+        npm ci
+        npm run lint
+        npm audit --omit=dev
         npm run build
         npm run test
         

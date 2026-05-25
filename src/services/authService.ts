@@ -49,13 +49,114 @@ export interface UserProfile {
 
 type StringMap = Record<string, string>;
 
-// Secure SHA-256 password hashing helper via browser Web Crypto API (fully supported in Node and modern browsers)
-export async function hashPassword(password: string): Promise<string> {
-  const encoder = new TextEncoder();
-  const data = encoder.encode(password);
+const MOCK_PASSWORD_HASH_ALGORITHM = 'pbkdf2-sha256';
+const MOCK_PASSWORD_HASH_ITERATIONS = 210000;
+const MOCK_PASSWORD_SALT_BYTES = 16;
+const MOCK_PASSWORD_KEY_BYTES = 32;
+const LEGACY_SHA256_HASH_PATTERN = /^[a-f0-9]{64}$/;
+
+function bytesToBase64(bytes: Uint8Array): string {
+  let binary = '';
+  for (const byte of bytes) {
+    binary += String.fromCharCode(byte);
+  }
+  return btoa(binary);
+}
+
+function base64ToBytes(value: string): Uint8Array {
+  const binary = atob(value);
+  const bytes = new Uint8Array(binary.length);
+  for (let index = 0; index < binary.length; index += 1) {
+    bytes[index] = binary.charCodeAt(index);
+  }
+  return bytes;
+}
+
+function timingSafeEqual(left: Uint8Array, right: Uint8Array): boolean {
+  if (left.length !== right.length) {
+    return false;
+  }
+
+  let diff = 0;
+  for (let index = 0; index < left.length; index += 1) {
+    diff |= left[index] ^ right[index];
+  }
+  return diff === 0;
+}
+
+async function derivePbkdf2Hash(password: string, salt: Uint8Array, iterations: number): Promise<Uint8Array> {
+  const saltBuffer = salt.buffer.slice(salt.byteOffset, salt.byteOffset + salt.byteLength) as ArrayBuffer;
+  const keyMaterial = await crypto.subtle.importKey(
+    'raw',
+    new TextEncoder().encode(password),
+    'PBKDF2',
+    false,
+    ['deriveBits']
+  );
+  const derivedBits = await crypto.subtle.deriveBits(
+    {
+      name: 'PBKDF2',
+      hash: 'SHA-256',
+      salt: saltBuffer,
+      iterations
+    },
+    keyMaterial,
+    MOCK_PASSWORD_KEY_BYTES * 8
+  );
+
+  return new Uint8Array(derivedBits);
+}
+
+async function hashPasswordLegacySha256(password: string): Promise<string> {
+  const data = new TextEncoder().encode(password);
   const hashBuffer = await crypto.subtle.digest('SHA-256', data);
   const hashArray = Array.from(new Uint8Array(hashBuffer));
   return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+}
+
+// PBKDF2 helper for the development-only local mock auth store.
+export async function hashPassword(password: string): Promise<string> {
+  const salt = crypto.getRandomValues(new Uint8Array(MOCK_PASSWORD_SALT_BYTES));
+  const hash = await derivePbkdf2Hash(password, salt, MOCK_PASSWORD_HASH_ITERATIONS);
+  return [
+    MOCK_PASSWORD_HASH_ALGORITHM,
+    String(MOCK_PASSWORD_HASH_ITERATIONS),
+    bytesToBase64(salt),
+    bytesToBase64(hash)
+  ].join(':');
+}
+
+async function verifyStoredPassword(password: string, storedHash: string | undefined): Promise<{ valid: boolean; upgradedHash?: string }> {
+  if (!storedHash) {
+    return { valid: false };
+  }
+
+  const [algorithm, iterationsValue, saltValue, hashValue] = storedHash.split(':');
+  if (algorithm === MOCK_PASSWORD_HASH_ALGORITHM && iterationsValue && saltValue && hashValue) {
+    const iterations = Number(iterationsValue);
+    if (!Number.isSafeInteger(iterations) || iterations <= 0) {
+      return { valid: false };
+    }
+
+    try {
+      const salt = base64ToBytes(saltValue);
+      const expectedHash = base64ToBytes(hashValue);
+      const actualHash = await derivePbkdf2Hash(password, salt, iterations);
+      return { valid: timingSafeEqual(actualHash, expectedHash) };
+    } catch {
+      return { valid: false };
+    }
+  }
+
+  if (LEGACY_SHA256_HASH_PATTERN.test(storedHash)) {
+    const valid = storedHash === await hashPasswordLegacySha256(password);
+    return {
+      valid,
+      upgradedHash: valid ? await hashPassword(password) : undefined
+    };
+  }
+
+  return { valid: false };
 }
 
 function getErrorCode(error: unknown): string | undefined {
@@ -423,11 +524,13 @@ export async function loginUser(loginInput: string, passwordInput: string): Prom
 
   if (isMockEnabled) {
     const passwords = getMockData<StringMap>('devblog_mock_passwords', {});
-    const correctPasswordHash = passwords[userProfile.email];
-
-    const enteredPasswordHash = await hashPassword(passwordInput);
-    if (correctPasswordHash !== enteredPasswordHash) {
+    const passwordCheck = await verifyStoredPassword(passwordInput, passwords[userProfile.email]);
+    if (!passwordCheck.valid) {
       throw new Error('Ungültiger Benutzername oder Passwort.');
+    }
+    if (passwordCheck.upgradedHash) {
+      passwords[userProfile.email] = passwordCheck.upgradedHash;
+      setMockData('devblog_mock_passwords', passwords);
     }
 
     // Check status
