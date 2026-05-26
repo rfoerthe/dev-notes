@@ -52,10 +52,14 @@ describe('Markdown renderer', () => {
 
     const { container } = render(<>{renderMarkdown(markdown)}</>);
     const headers = container.querySelectorAll('th');
+    const cells = container.querySelectorAll('td');
 
     expect(headers[0].getAttribute('style')).toContain('text-align: left');
     expect(headers[1].getAttribute('style')).toContain('text-align: center');
     expect(headers[2].getAttribute('style')).toContain('text-align: right');
+    expect(cells[0].getAttribute('style')).toContain('text-align: left');
+    expect(cells[1].getAttribute('style')).toContain('text-align: center');
+    expect(cells[2].getAttribute('style')).toContain('text-align: right');
   });
 
   it('renders GitHub-flavored task lists', () => {

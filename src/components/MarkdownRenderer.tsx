@@ -116,13 +116,29 @@ const getTableTextAlign = (
   align?: string,
   style?: React.CSSProperties,
 ): React.CSSProperties['textAlign'] => {
-  const textAlign = style?.textAlign ?? align;
+  const textAlign = String(style?.textAlign ?? align ?? '').trim().toLowerCase();
 
   if (textAlign === 'left' || textAlign === 'center' || textAlign === 'right') {
     return textAlign;
   }
 
   return undefined;
+};
+
+const getTableCellStyle = (
+  align?: string,
+  style?: React.CSSProperties,
+): React.CSSProperties | undefined => {
+  const textAlign = getTableTextAlign(align, style);
+
+  if (!style && !textAlign) {
+    return undefined;
+  }
+
+  return {
+    ...style,
+    textAlign,
+  };
 };
 
 const copyTextToClipboard = async (text: string): Promise<boolean> => {
@@ -463,7 +479,7 @@ export const MarkdownRenderer = ({ markdown }: MarkdownRendererProps) => {
       th: ({ align, children, style }) => (
         <Box
           component="th"
-          style={{ textAlign: getTableTextAlign(align, style) }}
+          style={getTableCellStyle(align, style)}
           sx={{
             px: 2,
             py: 1.5,
@@ -484,7 +500,7 @@ export const MarkdownRenderer = ({ markdown }: MarkdownRendererProps) => {
       td: ({ align, children, style }) => (
         <Box
           component="td"
-          style={{ textAlign: getTableTextAlign(align, style) }}
+          style={getTableCellStyle(align, style)}
           sx={{
             px: 2,
             py: 1.5,
