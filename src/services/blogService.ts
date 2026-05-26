@@ -20,7 +20,12 @@ import {
   setMockData,
   MOCK_BLOGS_KEY
 } from './firebase';
-import { sanitizeTags, validateBlogContent } from './securityValidation';
+import {
+  normalizeUsername,
+  sanitizeTags,
+  validateBlogContent,
+  validateUsername
+} from './securityValidation';
 
 const MOCK_BLOGS_SEEDED_KEY = 'devblog_mock_blogs_seeded';
 
@@ -30,8 +35,9 @@ export interface BlogPost {
   summary: string;
   content: string;
   tags: string[];
-  authorId: string;
+  authorId?: string;
   authorName: string;
+  authorUsername: string;
   createdAt: string;
   readTime: number; // in minutes
 }
@@ -68,8 +74,9 @@ function normalizeBlogPost(id: string, data: Record<string, unknown>): BlogPost 
     summary: String(data.summary || ''),
     content: String(data.content || ''),
     tags: Array.isArray(data.tags) ? data.tags.map(tag => String(tag)) : [],
-    authorId: String(data.authorId || ''),
+    authorId: typeof data.authorId === 'string' ? data.authorId : undefined,
     authorName: String(data.authorName || ''),
+    authorUsername: typeof data.authorUsername === 'string' ? data.authorUsername : '',
     createdAt: normalizeCreatedAt(data.createdAt),
     readTime: typeof data.readTime === 'number' ? data.readTime : 1
   };
@@ -119,6 +126,7 @@ React 19 fokussiert sich stark darauf, die Entwicklererfahrung zu verbessern und
     tags: ['React 19', 'Frontend', 'JavaScript'],
     authorId: 'admin-uid',
     authorName: 'Blog Admin',
+    authorUsername: 'admin',
     createdAt: new Date(Date.now() - 3600000 * 24 * 3).toISOString(), // 3 days ago
     readTime: 3
   },
@@ -143,6 +151,7 @@ Der Umstieg auf Vite 8 lohnt sich für jedes React-Projekt. Die Zeitersparnis im
     tags: ['Vite 8', 'Build-Tools', 'Performance'],
     authorId: 'admin-uid',
     authorName: 'Blog Admin',
+    authorUsername: 'admin',
     createdAt: new Date(Date.now() - 3600000 * 24).toISOString(), // 1 day ago
     readTime: 2
   },
@@ -174,6 +183,7 @@ Typsicherheit schützt uns vor Fehlern zur Laufzeit. Nutze diese neuen Features,
     tags: ['TypeScript 6', 'Programming', 'WebDev'],
     authorId: 'admin-uid',
     authorName: 'Blog Admin',
+    authorUsername: 'admin',
     createdAt: new Date().toISOString(), // today
     readTime: 4
   }
@@ -219,18 +229,20 @@ export async function getBlogs(): Promise<BlogPost[]> {
   }
 }
 
-export async function getBlogsByAuthor(authorId: string): Promise<BlogPost[]> {
+export async function getBlogsByAuthorUsername(authorUsername: string): Promise<BlogPost[]> {
+  const normalizedAuthorUsername = normalizeUsername(authorUsername);
+
   if (isMockEnabled) {
     seedMockBlogs();
     const blogs = getMockData<BlogPost[]>(MOCK_BLOGS_KEY, []);
     return blogs
-      .filter(blog => blog.authorId === authorId)
+      .filter(blog => blog.authorUsername === normalizedAuthorUsername)
       .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
   }
 
   try {
     const blogsRef = collection(db, 'blogs');
-    const q = query(blogsRef, where('authorId', '==', authorId));
+    const q = query(blogsRef, where('authorUsername', '==', normalizedAuthorUsername));
     const snapshot = await getDocs(q);
     const results: BlogPost[] = [];
     snapshot.forEach(docSnap => {
@@ -239,7 +251,7 @@ export async function getBlogsByAuthor(authorId: string): Promise<BlogPost[]> {
 
     return results.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
   } catch (err) {
-    console.error(`Failed to fetch blogs for author ${authorId}:`, err);
+    console.error(`Failed to fetch blogs for author username ${normalizedAuthorUsername}:`, err);
     return [];
   }
 }
@@ -271,14 +283,21 @@ interface CreateBlogParams {
   summary: string;
   content: string;
   tags: string[];
-  authorId: string;
+  authorId?: string;
   authorName: string;
+  authorUsername: string;
 }
 
 export async function createBlog(params: CreateBlogParams): Promise<BlogPost> {
   const validationErrors = validateBlogContent(params.title, params.summary, params.content, params.tags);
   if (validationErrors.length > 0) {
     throw new Error(validationErrors[0]);
+  }
+
+  const authorUsername = normalizeUsername(params.authorUsername);
+  const authorUsernameError = validateUsername(authorUsername);
+  if (authorUsernameError) {
+    throw new Error(authorUsernameError);
   }
 
   const readTime = calculateReadTime(params.content);
@@ -295,6 +314,7 @@ export async function createBlog(params: CreateBlogParams): Promise<BlogPost> {
       tags,
       authorId: params.authorId,
       authorName: params.authorName,
+      authorUsername,
       createdAt,
       readTime
     };
@@ -309,8 +329,9 @@ export async function createBlog(params: CreateBlogParams): Promise<BlogPost> {
       summary: params.summary.trim(),
       content: params.content,
       tags,
-      authorId: params.authorId,
+      ...(params.authorId ? { authorId: params.authorId } : {}),
       authorName: params.authorName,
+      authorUsername,
       createdAt: serverTimestamp(),
       readTime
     };
@@ -329,6 +350,7 @@ export async function createBlog(params: CreateBlogParams): Promise<BlogPost> {
           tags,
           authorId: params.authorId,
           authorName: params.authorName,
+          authorUsername,
           createdAt,
           readTime
         };
@@ -408,13 +430,14 @@ export async function deleteBlog(id: string): Promise<void> {
   await deleteDoc(docRef);
 }
 
-export async function updateAuthorNameForBlogs(authorId: string, authorName: string): Promise<void> {
+export async function updateAuthorNameForBlogs(authorUsername: string, authorName: string): Promise<void> {
+  const normalizedAuthorUsername = normalizeUsername(authorUsername);
   const trimmedAuthorName = authorName.trim();
 
   if (isMockEnabled) {
     const blogs = getMockData<BlogPost[]>(MOCK_BLOGS_KEY, []);
     const updatedBlogs = blogs.map(blog => (
-      blog.authorId === authorId
+      blog.authorUsername === normalizedAuthorUsername
         ? { ...blog, authorName: trimmedAuthorName }
         : blog
     ));
@@ -424,7 +447,7 @@ export async function updateAuthorNameForBlogs(authorId: string, authorName: str
   }
 
   const blogsRef = collection(db, 'blogs');
-  const authorBlogsQuery = query(blogsRef, where('authorId', '==', authorId));
+  const authorBlogsQuery = query(blogsRef, where('authorUsername', '==', normalizedAuthorUsername));
   const snapshot = await getDocs(authorBlogsQuery);
 
   if (snapshot.empty) {

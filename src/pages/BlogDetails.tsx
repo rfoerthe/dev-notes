@@ -13,19 +13,20 @@ import {
   IconButton,
   Tooltip
 } from '@mui/material';
-import { ChevronLeft, Calendar, Clock, Share2, CornerDownRight } from 'lucide-react';
+import { ChevronLeft, Calendar, Clock, Share2 } from 'lucide-react';
 import { getBlogById } from '../services/blogService';
 import type { BlogPost } from '../services/blogService';
 import { renderMarkdown } from '../components/markdownParser';
 import { useAuth } from '../context/AuthContext';
 import { Edit3 } from 'lucide-react';
+import { canManageBlogPost } from '../services/blogOwnership';
 
 const SCROLL_PROGRESS_VISIBLE_OFFSET = 160;
 
 export const BlogDetails: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { currentUser, userProfile } = useAuth();
+  const { userProfile } = useAuth();
 
   const [blog, setBlog] = useState<BlogPost | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
@@ -254,8 +255,8 @@ export const BlogDetails: React.FC = () => {
                 <Typography variant="body1" sx={{ fontWeight: 700, color: 'text.primary' }}>
                   {blog.authorName}
                 </Typography>
-                <Typography variant="caption" color="text.secondary" sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mt: 0.2 }}>
-                  <CornerDownRight size={10} color="#14b8a6" /> Autor des Beitrags
+                <Typography variant="caption" color="text.secondary" sx={{ mt: 0.2 }}>
+                  @{blog.authorUsername}
                 </Typography>
               </Box>
             </Stack>
@@ -272,7 +273,7 @@ export const BlogDetails: React.FC = () => {
                 </Stack>
               </Stack>
               <Stack direction="row" spacing={1} sx={{ alignItems: 'center' }}>
-                {currentUser && (blog.authorId === currentUser.uid || userProfile?.role === 'admin') && (
+                {canManageBlogPost(blog, userProfile) && (
                   <Tooltip title="Beitrag bearbeiten">
                     <IconButton 
                       onClick={() => navigate(`/edit/${blog.id}`)} 

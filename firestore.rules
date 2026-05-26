@@ -145,6 +145,7 @@ service cloud.firestore {
         'tags',
         'authorId',
         'authorName',
+        'authorUsername',
         'createdAt',
         'readTime'
       ]) &&
@@ -155,13 +156,23 @@ service cloud.firestore {
         request.resource.data.readTime is int &&
         request.resource.data.readTime >= 1 &&
         request.resource.data.readTime <= 240 &&
-        request.resource.data.authorId is string &&
+        (
+          !request.resource.data.keys().hasAny(['authorId']) ||
+          request.resource.data.authorId is string
+        ) &&
         request.resource.data.authorName is string && request.resource.data.authorName.size() <= 100 &&
+        request.resource.data.authorUsername is string &&
+        validUsernameValue(request.resource.data.authorUsername) &&
         validCreatedAtValue();
     }
 
     function blogOwnershipIsImmutable() {
-      return request.resource.data.authorId == resource.data.authorId &&
+      return request.resource.data.keys().hasAny(['authorId']) == resource.data.keys().hasAny(['authorId']) &&
+        (
+          !resource.data.keys().hasAny(['authorId']) ||
+          request.resource.data.authorId == resource.data.authorId
+        ) &&
+        request.resource.data.authorUsername == resource.data.authorUsername &&
         request.resource.data.createdAt == resource.data.createdAt;
     }
 
@@ -229,8 +240,12 @@ service cloud.firestore {
       allow create: if isApproved() &&
         validBlogPost() &&
         request.resource.data.createdAt == request.time &&
-        request.resource.data.authorId == request.auth.uid &&
-        request.resource.data.authorName == currentUserFullName();
+        (
+          !request.resource.data.keys().hasAny(['authorId']) ||
+          request.resource.data.authorId == request.auth.uid
+        ) &&
+        request.resource.data.authorName == currentUserFullName() &&
+        request.resource.data.authorUsername == currentUserProfile().username;
       
       // Enforce immutable fields during update
       allow update: if isApproved() &&
@@ -238,7 +253,7 @@ service cloud.firestore {
         blogOwnershipIsImmutable() &&
         (
           (
-            resource.data.authorId == request.auth.uid &&
+            resource.data.authorUsername == currentUserProfile().username &&
             (
               (
                 request.resource.data.authorName == resource.data.authorName &&
@@ -257,7 +272,7 @@ service cloud.firestore {
           )
         );
       
-      allow delete: if isApproved() && (resource.data.authorId == request.auth.uid || isAdmin());
+      allow delete: if isApproved() && (resource.data.authorUsername == currentUserProfile().username || isAdmin());
     }
   }
 }

@@ -94,7 +94,8 @@ export const CreateBlog: React.FC = () => {
         content: content.trim(),
         tags,
         authorId: userProfile.uid,
-        authorName: `${userProfile.firstName} ${userProfile.lastName}`
+        authorName: `${userProfile.firstName} ${userProfile.lastName}`,
+        authorUsername: userProfile.username
       });
 
       navigate('/');

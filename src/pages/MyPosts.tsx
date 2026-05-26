@@ -15,7 +15,7 @@ import {
 } from '@mui/material';
 import { ArrowUpRight, Calendar, Clock, Edit3, FileText, PenTool, Plus } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
-import { getBlogsByAuthor } from '../services/blogService';
+import { getBlogsByAuthorUsername } from '../services/blogService';
 import type { BlogPost } from '../services/blogService';
 
 export const MyPosts: React.FC = () => {
@@ -28,7 +28,7 @@ export const MyPosts: React.FC = () => {
 
   useEffect(() => {
     const loadPosts = async () => {
-      if (!userProfile?.uid) {
+      if (!userProfile?.username) {
         setLoading(false);
         return;
       }
@@ -37,7 +37,7 @@ export const MyPosts: React.FC = () => {
       setError(null);
 
       try {
-        const authorPosts = await getBlogsByAuthor(userProfile.uid);
+        const authorPosts = await getBlogsByAuthorUsername(userProfile.username);
         setPosts(authorPosts);
       } catch (err) {
         console.error('Failed to load author posts:', err);
@@ -48,7 +48,7 @@ export const MyPosts: React.FC = () => {
     };
 
     loadPosts();
-  }, [userProfile?.uid]);
+  }, [userProfile?.username]);
 
   const totalReadTime = useMemo(() => {
     return posts.reduce((sum, post) => sum + post.readTime, 0);

@@ -669,6 +669,7 @@ export async function updateUserProfile(params: UpdateUserProfileParams): Promis
     }
     
     const user = users[userIndex];
+    const username = user.username;
     user.firstName = firstName;
     user.lastName = lastName;
     user.operatingSystem = params.operatingSystem;
@@ -676,7 +677,7 @@ export async function updateUserProfile(params: UpdateUserProfileParams): Promis
     
     users[userIndex] = user;
     setMockData(MOCK_USERS_KEY, users);
-    await updateAuthorNameForBlogs(params.uid, authorName);
+    await updateAuthorNameForBlogs(username, authorName);
     
     // 2. Update password if provided
     if (params.newPassword && params.newPassword.trim() !== '') {
@@ -701,6 +702,12 @@ export async function updateUserProfile(params: UpdateUserProfileParams): Promis
       }
     }
   } else {
+    const profileSnap = await getDoc(doc(db, 'users', params.uid));
+    const profile = profileSnap.exists() ? profileSnap.data() as UserProfile : null;
+    if (!profile) {
+      throw new Error('Benutzerprofil nicht gefunden.');
+    }
+
     // 1. Update Firestore document (profile settings; role/status are locked)
     const docRef = doc(db, 'users', params.uid);
     await updateDoc(docRef, {
@@ -709,7 +716,7 @@ export async function updateUserProfile(params: UpdateUserProfileParams): Promis
       operatingSystem: params.operatingSystem || null,
       themeMode: params.themeMode || 'system'
     });
-    await updateAuthorNameForBlogs(params.uid, authorName);
+    await updateAuthorNameForBlogs(profile.username, authorName);
     
     // 2. Update password in Firebase Auth if provided
     if (params.newPassword && params.newPassword.trim() !== '') {

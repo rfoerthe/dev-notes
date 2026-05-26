@@ -9,7 +9,7 @@ The app can run in two modes:
 
 ## Features
 
-- Public blog overview with title/summary search, dynamic tag filtering, tag counts, a searchable tag popover, featured articles, and paginated older articles.
+- Public blog overview with title/summary/content/author search, dynamic tag filtering, tag counts, a searchable tag popover, featured articles, and paginated older articles.
 - Article cards and detail pages with reading time, German date formatting, author metadata, share links, and a scroll progress indicator.
 - Markdown rendering for article content, including headings, blockquotes, lists, inline formatting, inline code, fenced code blocks, syntax highlighting, and parser tests.
 - User registration with username reservation, input validation, strong password rules, and pending approval status.
@@ -157,7 +157,7 @@ While mock mode is active in development, the navbar displays a visible `MOCK MO
 
 ## Authoring Workflow
 
-Approved users can create posts at `/write`. Authors and admins can edit posts from the article detail page, and can permanently delete posts after confirming the delete dialog.
+Approved users can create posts at `/write`. A post belongs to the user whose immutable `username` matches the post's `authorUsername`; that author and admins can edit posts from the article detail page, and can permanently delete posts after confirming the delete dialog.
 
 The editor supports:
 
@@ -294,7 +294,7 @@ New registrations are created with:
 - `role: "user"`
 - `status: "pending"`
 
-Pending users cannot access authoring tools until an admin approves them. Approved users can create and edit their own blog posts. Admin users can manage registrations and have elevated Firestore permissions.
+Pending users cannot access authoring tools until an admin approves them. Approved users can create and edit blog posts linked to their `authorUsername`. Admin users can manage registrations and have elevated Firestore permissions.
 
 In Firebase mode, users sign in with their email address and password. Username login is intentionally not used in production because a frontend-only username login would require exposing a public username-to-email mapping.
 
@@ -356,7 +356,7 @@ Firestore rules enforce role and status checks, immutable ownership fields, prof
 - Firebase Hosting sends a Content Security Policy, clickjacking protection, MIME-sniffing protection, referrer policy, and a restrictive permissions policy.
 - Usernames must be lowercase URL-safe identifiers and are transaction-coupled to the matching user profile.
 - Firebase user profiles must use the authenticated email address from the Firebase Auth token.
-- Blog posts created through the browser use a server timestamp; legacy string timestamps are still readable and editable for existing Admin SDK seeded content.
+- Blog posts created through the browser use a server timestamp and immutable `authorUsername` ownership; legacy string timestamps are still readable and editable for existing Admin SDK seeded content.
 - Password forms require at least 12 characters with uppercase, lowercase, numeric, and symbol characters.
 - Optional Firebase App Check can be enabled with `VITE_FIREBASE_APPCHECK_SITE_KEY`.
 

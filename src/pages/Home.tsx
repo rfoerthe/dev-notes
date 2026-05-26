@@ -27,6 +27,7 @@ import {
 import { Search, Calendar, Clock, ArrowUpRight, Code, ChevronDown } from 'lucide-react';
 import { getBlogs } from '../services/blogService';
 import type { BlogPost } from '../services/blogService';
+import { blogMatchesSearch } from '../services/blogSearch';
 
 const FEATURED_POST_LIMIT = 6;
 const OLDER_PAGE_SIZE_OPTIONS = [10, 20, 50, 100];
@@ -98,12 +99,7 @@ export const Home: React.FC = () => {
   }, []);
 
   const searchMatchedBlogs = useMemo(() => {
-    const normalizedSearchQuery = searchQuery.toLowerCase();
-
-    return blogs.filter(blog => (
-      blog.title.toLowerCase().includes(normalizedSearchQuery) ||
-      blog.summary.toLowerCase().includes(normalizedSearchQuery)
-    ));
+    return blogs.filter(blog => blogMatchesSearch(blog, searchQuery));
   }, [blogs, searchQuery]);
 
   const availableTagCounts = useMemo(() => {

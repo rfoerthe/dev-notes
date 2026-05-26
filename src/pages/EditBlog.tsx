@@ -24,11 +24,12 @@ import { useAuth } from '../context/AuthContext';
 import { getBlogById, updateBlog, deleteBlog, calculateReadTime } from '../services/blogService';
 import { renderMarkdown } from '../components/markdownParser';
 import { validateBlogContent } from '../services/securityValidation';
+import { canManageBlogPost } from '../services/blogOwnership';
 
 export const EditBlog: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { currentUser, userProfile } = useAuth();
+  const { userProfile } = useAuth();
 
   // Loading & Error states
   const [fetching, setFetching] = useState<boolean>(true);
@@ -41,7 +42,7 @@ export const EditBlog: React.FC = () => {
   const [content, setContent] = useState<string>('');
   const [tagInput, setTagInput] = useState<string>('');
   const [tags, setTags] = useState<string[]>([]);
-  const [authorId, setAuthorId] = useState<string>('');
+  const [loadedBlog, setLoadedBlog] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState<boolean>(false);
   
   // UI states
@@ -58,10 +59,7 @@ export const EditBlog: React.FC = () => {
           return;
         }
 
-        const isAdmin = userProfile?.role === 'admin';
-        const isAuthor = currentUser && blog.authorId === currentUser.uid;
-
-        if (!isAuthor && !isAdmin) {
+        if (!canManageBlogPost(blog, userProfile)) {
           setError('Zugriff verweigert. Du bist weder Autor noch Admin dieses Beitrags.');
           setFetching(false);
           // Redirect after 3 seconds
@@ -73,7 +71,7 @@ export const EditBlog: React.FC = () => {
         setSummary(blog.summary);
         setContent(blog.content);
         setTags(blog.tags);
-        setAuthorId(blog.authorId);
+        setLoadedBlog(true);
       } catch (err) {
         console.error('Failed to load blog for editing:', err);
         setError('Fehler beim Laden des Beitrags.');
@@ -83,9 +81,9 @@ export const EditBlog: React.FC = () => {
     };
 
     loadBlog();
-  }, [id, currentUser, userProfile, navigate]);
+  }, [id, userProfile, navigate]);
 
-  const canManageBlog = Boolean(authorId && currentUser && (authorId === currentUser.uid || userProfile?.role === 'admin'));
+  const canManageBlog = loadedBlog;
 
   const handleTabChange = (_event: React.SyntheticEvent, newValue: number) => {
     setActiveTab(newValue);

@@ -15,7 +15,7 @@ import {
 import { 
   createBlog, 
   getBlogs, 
-  getBlogsByAuthor,
+  getBlogsByAuthorUsername,
   calculateReadTime,
   updateBlog,
   deleteBlog
@@ -294,7 +294,8 @@ describe('Developer\'s Blog Service Layer (Mock Mode)', () => {
         content: 'This is a premium article about how to customize Material-UI with glassmorphism panels, gradients, and custom components.',
         tags: ['MUI', 'Design', 'React'],
         authorId: 'some-author-uid',
-        authorName: 'Creative Dev'
+        authorName: 'Creative Dev',
+        authorUsername: 'creativedev'
       });
 
       const blogs = await getBlogs();
@@ -302,17 +303,19 @@ describe('Developer\'s Blog Service Layer (Mock Mode)', () => {
       expect(blogs[0].title).toBe('Building Premium UIs with MUI');
       expect(blogs[0].readTime).toBe(1);
       expect(blogs[0].tags).toContain('MUI');
+      expect(blogs[0].authorUsername).toBe('creativedev');
     });
 
-    it('should retrieve only posts from the requested author in newest-first order', async () => {
+    it('should retrieve only posts from the requested author username in newest-first order', async () => {
       const olderPost = {
         id: 'older-author-post',
         title: 'Older Author Post',
         summary: 'This belongs to the selected author',
         content: 'A short author post.',
         tags: ['Author'],
-        authorId: 'author-a',
+        authorId: 'old-author-uid',
         authorName: 'Author A',
+        authorUsername: 'authora',
         createdAt: '2024-01-01T12:00:00.000Z',
         readTime: 1
       };
@@ -322,8 +325,9 @@ describe('Developer\'s Blog Service Layer (Mock Mode)', () => {
         summary: 'This belongs to someone else',
         content: 'A short unrelated post.',
         tags: ['Other'],
-        authorId: 'author-b',
+        authorId: 'author-a',
         authorName: 'Author B',
+        authorUsername: 'authorb',
         createdAt: '2024-01-03T12:00:00.000Z',
         readTime: 1
       };
@@ -333,14 +337,15 @@ describe('Developer\'s Blog Service Layer (Mock Mode)', () => {
         summary: 'This also belongs to the selected author',
         content: 'Another short author post.',
         tags: ['Author'],
-        authorId: 'author-a',
+        authorId: 'new-author-uid',
         authorName: 'Author A',
+        authorUsername: 'authora',
         createdAt: '2024-01-02T12:00:00.000Z',
         readTime: 1
       };
       setMockData(MOCK_BLOGS_KEY, [olderPost, otherPost, newestPost]);
 
-      const authorPosts = await getBlogsByAuthor('author-a');
+      const authorPosts = await getBlogsByAuthorUsername('authora');
 
       expect(authorPosts.map(blog => blog.id)).toEqual([newestPost.id, olderPost.id]);
       expect(authorPosts.some(blog => blog.id === otherPost.id)).toBe(false);
@@ -353,7 +358,8 @@ describe('Developer\'s Blog Service Layer (Mock Mode)', () => {
         content: 'Short content.',
         tags: ['OriginalTag'],
         authorId: 'some-author-uid',
-        authorName: 'Creative Dev'
+        authorName: 'Creative Dev',
+        authorUsername: 'creativedev'
       });
 
       expect(created.title).toBe('Original Title');
@@ -389,7 +395,8 @@ describe('Developer\'s Blog Service Layer (Mock Mode)', () => {
         content: 'Temporary content.',
         tags: ['Temporary'],
         authorId: 'some-author-uid',
-        authorName: 'Creative Dev'
+        authorName: 'Creative Dev',
+        authorUsername: 'creativedev'
       });
 
       expect((await getBlogs()).length).toBe(1);
@@ -415,7 +422,8 @@ describe('Developer\'s Blog Service Layer (Mock Mode)', () => {
         content: 'A short post.',
         tags: ['Profile'],
         authorId: profile.uid,
-        authorName: 'Old Author'
+        authorName: 'Old Author',
+        authorUsername: profile.username
       });
 
       await updateUserProfile({
@@ -546,7 +554,8 @@ describe('Developer\'s Blog Service Layer (Mock Mode)', () => {
           content: 'Content with an invalid tag.',
           tags: ['Security', 'bad<tag'],
           authorId: 'some-author-uid',
-          authorName: 'Creative Dev'
+          authorName: 'Creative Dev',
+          authorUsername: 'creativedev'
         })
       ).rejects.toThrow('bad<tag');
 

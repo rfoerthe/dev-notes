@@ -281,6 +281,7 @@ export const createExamplePosts = () => {
       tags: definition.tags,
       authorId: 'admin-uid',
       authorName: 'Blog Admin',
+      authorUsername: 'admin',
       createdAt,
       readTime: calculateReadTime(content)
     };
