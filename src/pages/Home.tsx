@@ -28,6 +28,7 @@ import { Search, Calendar, Clock, ArrowUpRight, Code, ChevronDown } from 'lucide
 import { getBlogs } from '../services/blogService';
 import type { BlogPost } from '../services/blogService';
 import { blogMatchesSearch } from '../services/blogSearch';
+import { blogMatchesFilterTag, getBlogFilterTags } from '../services/blogTagFilters';
 
 const FEATURED_POST_LIMIT = 6;
 const OLDER_PAGE_SIZE_OPTIONS = [10, 20, 50, 100];
@@ -105,11 +106,11 @@ export const Home: React.FC = () => {
   const availableTagCounts = useMemo(() => {
     const counts: Record<string, number> = {};
     const matchingBlogs = searchMatchedBlogs.filter(blog => (
-      selectedTags.every(tag => blog.tags.includes(tag))
+      selectedTags.every(tag => blogMatchesFilterTag(blog, tag))
     ));
 
     matchingBlogs.forEach(blog => {
-      blog.tags?.forEach(tag => {
+      getBlogFilterTags(blog).forEach(tag => {
         counts[tag] = (counts[tag] || 0) + 1;
       });
     });
@@ -141,7 +142,7 @@ export const Home: React.FC = () => {
 
   // Filter all blogs before applying the featured/archive presentation split.
   const filteredBlogs = searchMatchedBlogs.filter(blog => (
-    selectedTags.length === 0 || selectedTags.every(tag => blog.tags.includes(tag))
+    selectedTags.length === 0 || selectedTags.every(tag => blogMatchesFilterTag(blog, tag))
   ));
   const hasActiveFilters = searchQuery.trim().length > 0 || selectedTags.length > 0;
   const featuredBlogs = filteredBlogs.slice(0, FEATURED_POST_LIMIT);
