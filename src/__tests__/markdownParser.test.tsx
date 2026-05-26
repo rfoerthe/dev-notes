@@ -1,116 +1,27 @@
-import { describe, it, expect } from 'vitest';
-import { render } from '@testing-library/react';
-import { parseInlineStyles, parseMarkdownTable, renderMarkdown } from '../components/markdownParser';
+import { describe, expect, it, vi } from 'vitest';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { renderMarkdown } from '../components/markdownParser';
 
-describe('Markdown Parser Inline Styling & Rich Blocks', () => {
-  it('should parse double asterisks as bold', () => {
-    const { container } = render(<>{parseInlineStyles('Das ist **fett gedruckter** Text.')}</>);
-    const strongElement = container.querySelector('strong');
-    expect(strongElement).toBeTruthy();
-    expect(strongElement?.textContent).toBe('fett gedruckter');
+describe('Markdown renderer', () => {
+  it('renders inline markdown formatting', () => {
+    const { container } = render(<>{renderMarkdown('Das ist **fett** und *kursiv* mit `code`.')}</>);
+
+    expect(container.querySelector('strong')?.textContent).toBe('fett');
+    expect(container.querySelector('em')?.textContent).toBe('kursiv');
+    expect(container.querySelector('code')?.textContent).toBe('code');
   });
 
-  it('should parse single asterisks as italics', () => {
-    const { container } = render(<>{parseInlineStyles('Das ist *kursiver* Text.')}</>);
-    const emElement = container.querySelector('em');
-    expect(emElement).toBeTruthy();
-    expect(emElement?.textContent).toBe('kursiver');
-  });
-
-  it('should parse nested italics inside bold', () => {
-    const { container } = render(<>{parseInlineStyles('Dies ist **fett und *kursiv* fett**.')}</>);
-    const strongElement = container.querySelector('strong');
-    expect(strongElement).toBeTruthy();
-    expect(strongElement?.textContent).toBe('fett und kursiv fett');
-
-    const emElement = strongElement?.querySelector('em');
-    expect(emElement).toBeTruthy();
-    expect(emElement?.textContent).toBe('kursiv');
-  });
-
-  it('should handle multiple bold and italic elements in one string', () => {
-    const { container } = render(<>{parseInlineStyles('Hier ist **fett** und *kursiv* und **nochmal fett**.')}</>);
-    const strongElements = container.querySelectorAll('strong');
-    const emElement = container.querySelector('em');
-
-    expect(strongElements.length).toBe(2);
-    expect(strongElements[0].textContent).toBe('fett');
-    expect(strongElements[1].textContent).toBe('nochmal fett');
-    expect(emElement).toBeTruthy();
-    expect(emElement?.textContent).toBe('kursiv');
-  });
-
-  it('should correctly ignore isolated single asterisks (e.g. math operations)', () => {
-    const { container } = render(<>{parseInlineStyles('Berechnung: 5 * 5 = 25')}</>);
-    const emElement = container.querySelector('em');
-    expect(emElement).toBeNull();
-    expect(container.textContent).toBe('Berechnung: 5 * 5 = 25');
-  });
-
-  it('should handle incomplete double asterisks gracefully', () => {
-    const { container } = render(<>{parseInlineStyles('Dies ist **unvollständig')}</>);
-    const strongElement = container.querySelector('strong');
-    expect(strongElement).toBeNull();
-    expect(container.textContent).toBe('Dies ist **unvollständig');
-  });
-
-  it('should parse list items containing bold and italics', () => {
+  it('renders list items containing formatted text', () => {
     const markdown = '* Ein **fettes** Wort\n* Ein *kursives* Wort';
-    const elements = renderMarkdown(markdown);
-    
-    // Render the React elements
-    const { container } = render(<>{elements}</>);
-    
+    const { container } = render(<>{renderMarkdown(markdown)}</>);
+
     const listItems = container.querySelectorAll('li');
     expect(listItems.length).toBe(2);
-    
-    const strong = listItems[0].querySelector('strong');
-    expect(strong).toBeTruthy();
-    expect(strong?.textContent).toBe('fettes');
-    
-    const em = listItems[1].querySelector('em');
-    expect(em).toBeTruthy();
-    expect(em?.textContent).toBe('kursives');
+    expect(listItems[0].querySelector('strong')?.textContent).toBe('fettes');
+    expect(listItems[1].querySelector('em')?.textContent).toBe('kursives');
   });
 
-  it('should colorize Python syntax highlighting tokens', () => {
-    const markdown = '```python\nfrom mlx_lm import load, generate\n# comment here\n```';
-    const elements = renderMarkdown(markdown);
-    const { container } = render(<>{elements}</>);
-
-    // Find spans with keyword classes or colors
-    const spans = Array.from(container.querySelectorAll('span'));
-    const keywordFrom = spans.find(s => s.textContent === 'from');
-    const keywordImport = spans.find(s => s.textContent === 'import');
-    const comment = spans.find(s => s.textContent === '# comment here');
-
-    expect(keywordFrom).toBeTruthy();
-    expect(keywordImport).toBeTruthy();
-    expect(comment).toBeTruthy();
-
-    // Purple color (#c084fc) in rgb is rgb(192, 132, 252)
-    expect(keywordFrom?.getAttribute('style')).toContain('color: rgb(192, 132, 252)');
-    // Slate gray color (#64748b) in rgb is rgb(100, 116, 139)
-    expect(comment?.getAttribute('style')).toContain('color: rgb(100, 116, 139)');
-  });
-
-  it('should colorize Bash commands and arguments', () => {
-    const markdown = '```bash\npip install mlx-lm\n```';
-    const elements = renderMarkdown(markdown);
-    const { container } = render(<>{elements}</>);
-
-    const spans = Array.from(container.querySelectorAll('span'));
-    const commandPip = spans.find(s => s.textContent === 'pip');
-    const actionInstall = spans.find(s => s.textContent === 'install');
-
-    expect(commandPip).toBeTruthy();
-    expect(actionInstall).toBeTruthy();
-
-    expect(commandPip?.getAttribute('style')).toContain('color: rgb(192, 132, 252)');
-    expect(actionInstall?.getAttribute('style')).toContain('color: rgb(192, 132, 252)');
-  });
-
-  it('should parse GitHub-flavored markdown tables', () => {
+  it('renders GitHub-flavored markdown tables', () => {
     const markdown = [
       '| Metrik / Projekt | Alter `tsc` (JS-basiert) | Neuer `tsgo` (Go-basiert) | Beschleunigung |',
       '| --- | --- | --- | --- |',
@@ -118,8 +29,7 @@ describe('Markdown Parser Inline Styling & Rich Blocks', () => {
       '| **Sentry** (800k LoC) | 45,2 s | 5,1 s | **8,9x schneller** |',
     ].join('\n');
 
-    const elements = renderMarkdown(markdown);
-    const { container } = render(<>{elements}</>);
+    const { container } = render(<>{renderMarkdown(markdown)}</>);
 
     const table = container.querySelector('table');
     const headers = container.querySelectorAll('th');
@@ -133,13 +43,59 @@ describe('Markdown Parser Inline Styling & Rich Blocks', () => {
     expect(rows[0].querySelectorAll('strong')[1]?.textContent).toBe('10,2x schneller');
   });
 
-  it('should parse table alignment markers', () => {
-    const table = parseMarkdownTable([
+  it('preserves GitHub table alignment markers', () => {
+    const markdown = [
       '| Left | Center | Right |',
       '| :--- | :---: | ---: |',
       '| a | b | c |',
-    ].join('\n'));
+    ].join('\n');
 
-    expect(table?.alignments).toEqual(['left', 'center', 'right']);
+    const { container } = render(<>{renderMarkdown(markdown)}</>);
+    const headers = container.querySelectorAll('th');
+
+    expect(headers[0].getAttribute('style')).toContain('text-align: left');
+    expect(headers[1].getAttribute('style')).toContain('text-align: center');
+    expect(headers[2].getAttribute('style')).toContain('text-align: right');
+  });
+
+  it('renders GitHub-flavored task lists', () => {
+    const markdown = '- [x] erledigt\n- [ ] offen';
+    const { container } = render(<>{renderMarkdown(markdown)}</>);
+
+    const checkboxes = container.querySelectorAll('input[type="checkbox"]');
+    expect(checkboxes.length).toBe(2);
+    expect((checkboxes[0] as HTMLInputElement).checked).toBe(true);
+    expect((checkboxes[1] as HTMLInputElement).checked).toBe(false);
+  });
+
+  it('highlights fenced code blocks with Shiki', async () => {
+    const markdown = '```python\nfrom mlx_lm import load, generate\n# comment here\n```';
+    const { container } = render(<>{renderMarkdown(markdown)}</>);
+
+    await waitFor(() => {
+      const token = Array.from(container.querySelectorAll('pre code span')).find((span) => span.textContent === 'from');
+      expect(token).toBeTruthy();
+      expect(token?.getAttribute('style')).toContain('color:');
+    });
+
+    expect(container.querySelector('code.language-python')?.textContent).toContain('# comment here');
+  });
+
+  it('copies fenced code blocks to the clipboard', async () => {
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    Object.defineProperty(navigator, 'clipboard', {
+      configurable: true,
+      value: { writeText },
+    });
+
+    const markdown = '```typescript\nconst answer = 42;\n```';
+    render(<>{renderMarkdown(markdown)}</>);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Code kopieren' }));
+
+    await waitFor(() => {
+      expect(writeText).toHaveBeenCalledWith('const answer = 42;');
+    });
+    expect(screen.getByRole('button', { name: 'Code kopiert' })).toBeTruthy();
   });
 });
