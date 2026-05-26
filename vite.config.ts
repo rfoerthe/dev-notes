@@ -5,6 +5,7 @@ import react from '@vitejs/plugin-react'
 export default defineConfig({
   plugins: [react()],
   build: {
+    chunkSizeWarningLimit: 900,
     rolldownOptions: {
       output: {
         codeSplitting: {
@@ -35,13 +36,18 @@ export default defineConfig({
               priority: 15,
             },
             {
+              name: 'vendor-shiki-core',
+              test: /node_modules[\\/](?:shiki|@shikijs[\\/](?:core|engine-javascript|primitive|themes|types|vscode-textmate))[\\/]/,
+              priority: 12,
+            },
+            {
               name: 'vendor-react',
               test: /node_modules[\\/](?:react|react-dom|react-router|react-router-dom|scheduler)[\\/]/,
               priority: 10,
             },
             {
               name: 'vendor',
-              test: /node_modules[\\/]/,
+              test: /node_modules[\\/](?!@shikijs[\\/]langs[\\/])/,
             },
           ],
         },

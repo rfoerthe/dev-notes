@@ -176,7 +176,7 @@ Article content is rendered with `react-markdown`, `remark-gfm`, and `rehype-san
 
 Fenced code blocks are highlighted with Shiki. The renderer:
 
-- Uses the full Shiki language bundle and gracefully falls back to plain text for unknown language labels.
+- Supports all Shiki language exports through lazy-loaded language chunks and gracefully falls back to plain text for unknown language labels.
 - Uses Shiki's JavaScript regex engine in the browser to remain compatible with the Firebase Hosting Content Security Policy.
 - Renders each code block as an editor-style window with a language title bar and scrollable body.
 - Includes a copy button that copies the raw fenced code to the clipboard.

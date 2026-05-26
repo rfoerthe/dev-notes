@@ -49,7 +49,7 @@ if (isFirebaseConfigured) {
     auth = getAuth(app);
     try {
       db = initializeFirestore(app, {
-        experimentalForceLongPolling: true
+        experimentalAutoDetectLongPolling: true
       });
     } catch {
       db = getFirestore(app);

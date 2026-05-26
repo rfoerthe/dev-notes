@@ -4,8 +4,12 @@ import rehypeSanitize from 'rehype-sanitize';
 import remarkGfm from 'remark-gfm';
 import { Box, IconButton, Link as MuiLink, Tooltip, Typography, useTheme } from '@mui/material';
 import { Check, Copy } from 'lucide-react';
-import type { BundledLanguage } from 'shiki';
-import type { TokensResult } from '@shikijs/types';
+import { createHighlighterCore } from '@shikijs/core';
+import { createJavaScriptRegexEngine } from '@shikijs/engine-javascript';
+import githubDarkDefault from '@shikijs/themes/github-dark-default';
+import githubLightDefault from '@shikijs/themes/github-light-default';
+import type { HighlighterCore, LanguageRegistration, TokensResult } from '@shikijs/types';
+import { shikiLanguageLoaders } from './shikiLanguageLoaders';
 
 const LANGUAGE_CLASS_REGEX = /language-([^\s]+)/;
 const DEFAULT_LANGUAGE = 'text';
@@ -15,28 +19,59 @@ const themeByMode = {
   light: 'github-light-default',
 } as const;
 
-type ShikiModule = typeof import('shiki');
-type ShikiHighlighter = Awaited<ReturnType<ShikiModule['getSingletonHighlighter']>>;
+const themeRegistrations = [githubDarkDefault, githubLightDefault];
 
 const highlightedCodeCache = new Map<string, Promise<TokensResult>>();
-let shikiImport: Promise<typeof import('shiki')> | null = null;
-let shikiHighlighter: Promise<ShikiHighlighter> | null = null;
+let shikiHighlighter: Promise<HighlighterCore> | null = null;
+const loadedLanguages = new Set<string>();
+
+const languageAliases: Record<string, string> = {
+  cjs: 'javascript',
+  dockerfile: 'docker',
+  js: 'javascript',
+  jsx: 'jsx',
+  mjs: 'javascript',
+  py: 'python',
+  python3: 'python',
+  rs: 'rust',
+  sh: 'shellscript',
+  shell: 'shellscript',
+  ts: 'typescript',
+  tsx: 'tsx',
+  yml: 'yaml',
+  zsh: 'shellscript',
+};
 
 const normalizeLanguageLabel = (language?: string) => language?.trim().toLowerCase() || DEFAULT_LANGUAGE;
 
-const getShikiModule = () => {
-  shikiImport ??= import('shiki');
-  return shikiImport;
-};
-
-const getShikiHighlighter = async (shiki: ShikiModule): Promise<ShikiHighlighter> => {
-  shikiHighlighter ??= shiki.getSingletonHighlighter({
-    engine: shiki.createJavaScriptRegexEngine(),
+const getShikiHighlighter = (): Promise<HighlighterCore> => {
+  shikiHighlighter ??= createHighlighterCore({
+    engine: createJavaScriptRegexEngine(),
     langs: [],
-    themes: Object.values(themeByMode),
+    themes: themeRegistrations,
   });
 
   return shikiHighlighter;
+};
+
+const importLanguage = async (languageLabel: string): Promise<LanguageRegistration[] | null> => {
+  if (languageLabel === DEFAULT_LANGUAGE) {
+    return null;
+  }
+
+  const language = languageAliases[languageLabel] ?? languageLabel;
+  const loadLanguage = shikiLanguageLoaders[language];
+
+  if (!loadLanguage) {
+    return null;
+  }
+
+  try {
+    const languageModule = await loadLanguage();
+    return languageModule.default;
+  } catch {
+    return null;
+  }
 };
 
 const loadHighlightedCode = (
@@ -51,22 +86,17 @@ const loadHighlightedCode = (
     return cachedResult;
   }
 
-  const result = getShikiModule().then(async (shiki) => {
-    const language = languageLabel in shiki.bundledLanguages || languageLabel in shiki.bundledLanguagesAlias
-      ? languageLabel as BundledLanguage
-      : DEFAULT_LANGUAGE;
-    const highlighter = await getShikiHighlighter(shiki);
+  const result = getShikiHighlighter().then(async (highlighter) => {
+    const languageRegistration = await importLanguage(languageLabel);
+    const resolvedLanguage = languageRegistration?.[0]?.name ?? DEFAULT_LANGUAGE;
 
-    if (language !== DEFAULT_LANGUAGE) {
-      const resolvedLanguage = highlighter.resolveLangAlias(language);
-
-      if (!highlighter.getLoadedLanguages().includes(resolvedLanguage)) {
-        await highlighter.loadLanguage(language);
-      }
+    if (languageRegistration && !loadedLanguages.has(resolvedLanguage)) {
+      await highlighter.loadLanguage(languageRegistration);
+      loadedLanguages.add(resolvedLanguage);
     }
 
     return highlighter.codeToTokens(code, {
-      lang: language,
+      lang: resolvedLanguage,
       theme: themeByMode[mode],
       tokenizeTimeLimit: 500,
     });
