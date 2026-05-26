@@ -1,6 +1,6 @@
 # DevNotes
 
-DevNotes is a developer-focused blog application built with React, TypeScript, Vite, Material UI, Firebase, and React Router. It provides a public article feed, Markdown-based article pages, user registration with approval workflows, protected authoring tools, profile and theme settings, optional analytics consent, and an admin dashboard for managing developer accounts.
+DevNotes is a developer-focused blog application built with React, TypeScript, Vite, Material UI, Firebase, React Router, and a production Markdown rendering pipeline. It provides a public article feed, GitHub-flavored Markdown article pages, user registration with approval workflows, protected authoring tools, profile and theme settings, optional analytics consent, and an admin dashboard for managing developer accounts.
 
 The app can run in two modes:
 
@@ -10,13 +10,14 @@ The app can run in two modes:
 ## Features
 
 - Public blog overview with title/summary/content/author search, dynamic tag filtering, tag counts, a searchable tag popover, featured articles, and paginated older articles.
-- Article cards and detail pages with reading time, German date formatting, author metadata, share links, and a scroll progress indicator.
-- Markdown rendering for article content, including headings, blockquotes, lists, inline formatting, inline code, fenced code blocks, syntax highlighting, and parser tests.
+- Article cards and detail pages with reading time, German date formatting, author metadata, share links, a 1024px article reading width, and a scroll progress indicator.
+- GitHub-flavored Markdown rendering with `react-markdown`, `remark-gfm`, and `rehype-sanitize`, including headings, blockquotes, lists, tables, task lists, inline formatting, inline code, and renderer tests.
+- Shiki-powered syntax highlighting for fenced code blocks, rendered as compact editor-style code windows with a title bar, language label, horizontal scrolling, and a copy-to-clipboard button.
 - User registration with username reservation, input validation, strong password rules, and pending approval status.
 - Protected login flow that blocks pending or rejected users and supports username-or-email login in local mock mode.
 - Admin dashboard for reviewing pending, approved, and rejected users, approving or rejecting registrations, and deleting mock-mode registrations.
 - Approved-user routes for creating, editing, deleting, and managing blog posts, including a personal "My Posts" overview with total reading time.
-- Blog editor with comma/semicolon tag entry, tag sanitization, content length limits, live Markdown preview, and live reading-time estimation.
+- Blog editor with comma/semicolon tag entry, tag sanitization, content length limits, live Markdown preview, live reading-time estimation, and visible bottom-of-screen validation errors on submit.
 - Profile page for account details, operating-system preference, password updates, and author-name propagation across existing posts.
 - Light, dark, and system theme selection from the navbar and profile settings.
 - Development mock mode with localStorage-backed users, sessions, posts, starter content, PBKDF2-hashed local passwords, mock admin setup, and a visible mock-mode indicator.
@@ -24,7 +25,7 @@ The app can run in two modes:
 - German legal pages for Impressum, Datenschutz, and Nutzungsbedingungen.
 - Firestore security rules for users, username reservations, blog posts, immutable ownership fields, and Admin SDK-only cleanup operations.
 - Admin SDK maintenance scripts for admin bootstrap and repair, user cleanup, blog post seeding/deletion, and Firestore backup/restore with dry-run and confirmation safeguards.
-- Firebase Hosting configuration with SPA rewrites.
+- Firebase Hosting configuration with SPA rewrites, security headers, and a strict Content Security Policy. Shiki uses its JavaScript regex engine in the browser so syntax highlighting works under this CSP without enabling `wasm-unsafe-eval`.
 
 ## Tech Stack
 
@@ -34,6 +35,8 @@ The app can run in two modes:
 - React Router 7
 - Material UI 9 with Emotion
 - Lucide React icons
+- React Markdown, Remark GFM, Rehype Sanitize
+- Shiki syntax highlighting
 - Firebase Authentication and Cloud Firestore
 - Vitest and Testing Library
 - ESLint
@@ -42,12 +45,12 @@ The app can run in two modes:
 
 ```text
 src/
-  components/        Navigation, route guards, analytics consent/tracking, and Markdown renderer
+  components/        Navigation, route guards, analytics consent/tracking, and Markdown rendering
   context/           Authentication and theme context providers
   pages/             Route-level pages for blog, auth, admin, profile, mock setup, and legal views
   services/          Firebase setup, analytics consent, auth workflow, and blog data access
   theme/             Material UI theme configuration
-  __tests__/         Service and Markdown parser tests
+  __tests__/         Service, search/filter, analytics, and Markdown renderer tests
 scripts/             Admin bootstrap, user cleanup, post maintenance, and Firebase CLI helpers
 public/              Static icons and favicon
 firestore.rules      Cloud Firestore security rules
@@ -163,8 +166,22 @@ The editor supports:
 
 - Title, summary, Markdown content, and at least one tag.
 - Adding multiple tags at once with commas or semicolons.
-- Editor and preview tabs using the same Markdown renderer as the public article page.
+- Editor and preview tabs using the same GitHub-flavored Markdown renderer as the public article page.
 - Live word count and estimated reading time.
+- Immediate validation feedback in a snackbar near the submit action, while keeping the persistent alert at the top of the form.
+
+## Markdown and Code Blocks
+
+Article content is rendered with `react-markdown`, `remark-gfm`, and `rehype-sanitize` instead of a custom Markdown parser. This gives DevNotes CommonMark-compatible parsing plus GitHub-flavored Markdown features such as tables, task lists, strikethrough, and autolinks.
+
+Fenced code blocks are highlighted with Shiki. The renderer:
+
+- Uses the full Shiki language bundle and gracefully falls back to plain text for unknown language labels.
+- Uses Shiki's JavaScript regex engine in the browser to remain compatible with the Firebase Hosting Content Security Policy.
+- Renders each code block as an editor-style window with a language title bar and scrollable body.
+- Includes a copy button that copies the raw fenced code to the clipboard.
+
+Inline code is styled separately from fenced code blocks and remains safe React output rather than injected HTML.
 
 When a user updates their first or last name on the profile page, existing posts by that user are updated with the new author display name in mock mode and Firebase mode.
 
