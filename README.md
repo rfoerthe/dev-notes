@@ -12,17 +12,18 @@ The app can run in two modes:
 - Public blog overview with title/summary search, dynamic tag filtering, tag counts, a searchable tag popover, featured articles, and paginated older articles.
 - Article cards and detail pages with reading time, German date formatting, author metadata, share links, and a scroll progress indicator.
 - Markdown rendering for article content, including headings, blockquotes, lists, inline formatting, inline code, fenced code blocks, syntax highlighting, and parser tests.
-- User registration with pending approval status.
-- Protected login flow that blocks pending or rejected users.
-- Admin dashboard for approving, rejecting, blocking, and, in mock mode, deleting user registrations.
-- Approved-user routes for creating, editing, deleting, and managing blog posts.
-- Blog editor with comma/semicolon tag entry, live Markdown preview, and live reading-time estimation.
+- User registration with username reservation, input validation, strong password rules, and pending approval status.
+- Protected login flow that blocks pending or rejected users and supports username-or-email login in local mock mode.
+- Admin dashboard for reviewing pending, approved, and rejected users, approving or rejecting registrations, and deleting mock-mode registrations.
+- Approved-user routes for creating, editing, deleting, and managing blog posts, including a personal "My Posts" overview with total reading time.
+- Blog editor with comma/semicolon tag entry, tag sanitization, content length limits, live Markdown preview, and live reading-time estimation.
 - Profile page for account details, operating-system preference, password updates, and author-name propagation across existing posts.
 - Light, dark, and system theme selection from the navbar and profile settings.
-- Development mock-mode indicator when the app is running against local browser storage.
+- Development mock mode with localStorage-backed users, sessions, posts, starter content, PBKDF2-hashed local passwords, mock admin setup, and a visible mock-mode indicator.
 - Optional Firebase Analytics page tracking that starts only after explicit browser consent.
 - German legal pages for Impressum, Datenschutz, and Nutzungsbedingungen.
 - Firestore security rules for users, username reservations, blog posts, immutable ownership fields, and Admin SDK-only cleanup operations.
+- Admin SDK maintenance scripts for admin bootstrap and repair, user cleanup, blog post seeding/deletion, and Firestore backup/restore with dry-run and confirmation safeguards.
 - Firebase Hosting configuration with SPA rewrites.
 
 ## Tech Stack

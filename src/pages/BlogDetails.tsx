@@ -20,6 +20,8 @@ import { renderMarkdown } from '../components/markdownParser';
 import { useAuth } from '../context/AuthContext';
 import { Edit3 } from 'lucide-react';
 
+const SCROLL_PROGRESS_VISIBLE_OFFSET = 160;
+
 export const BlogDetails: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -48,16 +50,41 @@ export const BlogDetails: React.FC = () => {
 
   // Scroll event listener for progress bar
   useEffect(() => {
-    const handleScroll = () => {
+    let animationFrameId: number | null = null;
+
+    const updateScrollProgress = () => {
       const totalScroll = document.documentElement.scrollHeight - window.innerHeight;
-      if (totalScroll > 0) {
-        const currentProgress = (window.pageYOffset / totalScroll) * 100;
-        setScrollProgress(currentProgress);
+
+      if (totalScroll <= SCROLL_PROGRESS_VISIBLE_OFFSET || window.scrollY <= SCROLL_PROGRESS_VISIBLE_OFFSET) {
+        setScrollProgress(0);
+        return;
       }
+
+      const currentProgress = ((window.scrollY - SCROLL_PROGRESS_VISIBLE_OFFSET) / (totalScroll - SCROLL_PROGRESS_VISIBLE_OFFSET)) * 100;
+      setScrollProgress(Math.min(100, Math.max(0, currentProgress)));
     };
 
-    window.addEventListener('scroll', handleScroll);
-    return () => window.removeEventListener('scroll', handleScroll);
+    const handleScroll = () => {
+      if (animationFrameId !== null) {
+        return;
+      }
+
+      animationFrameId = window.requestAnimationFrame(() => {
+        updateScrollProgress();
+        animationFrameId = null;
+      });
+    };
+
+    handleScroll();
+    window.addEventListener('scroll', handleScroll, { passive: true });
+    window.addEventListener('resize', handleScroll);
+    return () => {
+      window.removeEventListener('scroll', handleScroll);
+      window.removeEventListener('resize', handleScroll);
+      if (animationFrameId !== null) {
+        window.cancelAnimationFrame(animationFrameId);
+      }
+    };
   }, []);
 
   const formatDate = (isoString: string) => {
@@ -105,22 +132,28 @@ export const BlogDetails: React.FC = () => {
   }
 
   return (
-    <Box sx={{ flexGrow: 1 }} className="animate-fade-in">
+    <>
       {/* SCROLL PROGRESS INDICATOR */}
-      <Box 
-        sx={{ 
-          position: 'fixed', 
-          top: 70, // navbar height
-          left: 0, 
-          height: '3px', 
-          width: `${scrollProgress}%`, 
-          background: 'linear-gradient(90deg, #8b5cf6 0%, #14b8a6 100%)', 
-          zIndex: 1100,
-          transition: 'width 0.1s ease-out',
-          boxShadow: '0 0 8px rgba(139, 92, 246, 0.5)'
-        }}
-      />
+      {scrollProgress > 0 && (
+        <Box 
+          sx={{ 
+            position: 'fixed', 
+            top: 0,
+            left: 0, 
+            height: '3px', 
+            width: '100%', 
+            background: 'linear-gradient(90deg, #8b5cf6 0%, #14b8a6 100%)', 
+            zIndex: 1100,
+            pointerEvents: 'none',
+            transform: `scaleX(${scrollProgress / 100})`,
+            transformOrigin: 'left center',
+            boxShadow: '0 0 8px rgba(139, 92, 246, 0.5)',
+            willChange: 'transform'
+          }}
+        />
+      )}
 
+      <Box sx={{ flexGrow: 1 }} className="animate-fade-in">
       <Container maxWidth="md" sx={{ py: 6, display: 'flex', flexDirection: 'column', alignItems: 'flex-start' }}>
         {/* Navigation Action */}
         <Button
@@ -290,6 +323,7 @@ export const BlogDetails: React.FC = () => {
           </Box>
         </Paper>
       </Container>
-    </Box>
+      </Box>
+    </>
   );
 };
