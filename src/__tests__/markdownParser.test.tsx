@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { render } from '@testing-library/react';
-import { parseInlineStyles, renderMarkdown } from '../components/markdownParser';
+import { parseInlineStyles, parseMarkdownTable, renderMarkdown } from '../components/markdownParser';
 
 describe('Markdown Parser Inline Styling & Rich Blocks', () => {
   it('should parse double asterisks as bold', () => {
@@ -108,5 +108,38 @@ describe('Markdown Parser Inline Styling & Rich Blocks', () => {
 
     expect(commandPip?.getAttribute('style')).toContain('color: rgb(192, 132, 252)');
     expect(actionInstall?.getAttribute('style')).toContain('color: rgb(192, 132, 252)');
+  });
+
+  it('should parse GitHub-flavored markdown tables', () => {
+    const markdown = [
+      '| Metrik / Projekt | Alter `tsc` (JS-basiert) | Neuer `tsgo` (Go-basiert) | Beschleunigung |',
+      '| --- | --- | --- | --- |',
+      '| **VS Code Build** (1.5M LoC) | 77,8 s | 7,5 s | **10,2x schneller** |',
+      '| **Sentry** (800k LoC) | 45,2 s | 5,1 s | **8,9x schneller** |',
+    ].join('\n');
+
+    const elements = renderMarkdown(markdown);
+    const { container } = render(<>{elements}</>);
+
+    const table = container.querySelector('table');
+    const headers = container.querySelectorAll('th');
+    const rows = container.querySelectorAll('tbody tr');
+
+    expect(table).toBeTruthy();
+    expect(headers.length).toBe(4);
+    expect(rows.length).toBe(2);
+    expect(headers[1].textContent).toBe('Alter tsc (JS-basiert)');
+    expect(rows[0].querySelector('strong')?.textContent).toBe('VS Code Build');
+    expect(rows[0].querySelectorAll('strong')[1]?.textContent).toBe('10,2x schneller');
+  });
+
+  it('should parse table alignment markers', () => {
+    const table = parseMarkdownTable([
+      '| Left | Center | Right |',
+      '| :--- | :---: | ---: |',
+      '| a | b | c |',
+    ].join('\n'));
+
+    expect(table?.alignments).toEqual(['left', 'center', 'right']);
   });
 });

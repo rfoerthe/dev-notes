@@ -1,6 +1,14 @@
 import React from 'react';
 import { Box, Typography } from '@mui/material';
 
+type TableAlignment = 'left' | 'center' | 'right';
+
+interface MarkdownTable {
+  headers: string[];
+  alignments: TableAlignment[];
+  rows: string[][];
+}
+
 /**
  * A highly resilient markdown block parser that prevents breaking
  * code blocks on blank lines (double newlines).
@@ -36,6 +44,88 @@ export const parseMarkdownBlocks = (text: string): string[] => {
     blocks.push(currentBlock.join('\n'));
   }
   return blocks;
+};
+
+const splitMarkdownTableRow = (row: string): string[] => {
+  const cells: string[] = [];
+  let trimmedRow = row.trim();
+
+  if (trimmedRow.startsWith('|')) {
+    trimmedRow = trimmedRow.slice(1);
+  }
+
+  if (trimmedRow.endsWith('|') && !trimmedRow.endsWith('\\|')) {
+    trimmedRow = trimmedRow.slice(0, -1);
+  }
+
+  let currentCell = '';
+  let escaped = false;
+
+  for (const char of trimmedRow) {
+    if (escaped) {
+      currentCell += char;
+      escaped = false;
+    } else if (char === '\\') {
+      escaped = true;
+    } else if (char === '|') {
+      cells.push(currentCell.trim());
+      currentCell = '';
+    } else {
+      currentCell += char;
+    }
+  }
+
+  if (escaped) {
+    currentCell += '\\';
+  }
+
+  cells.push(currentCell.trim());
+  return cells;
+};
+
+const getTableAlignment = (separatorCell: string): TableAlignment => {
+  const cell = separatorCell.trim();
+  const leftAligned = cell.startsWith(':');
+  const rightAligned = cell.endsWith(':');
+
+  if (leftAligned && rightAligned) {
+    return 'center';
+  }
+
+  if (rightAligned) {
+    return 'right';
+  }
+
+  return 'left';
+};
+
+export const parseMarkdownTable = (block: string): MarkdownTable | null => {
+  const lines = block
+    .split('\n')
+    .map((line) => line.trim())
+    .filter(Boolean);
+
+  if (lines.length < 2 || !lines[0].includes('|')) {
+    return null;
+  }
+
+  const headers = splitMarkdownTableRow(lines[0]);
+  const separatorCells = splitMarkdownTableRow(lines[1]);
+  const isValidSeparator = separatorCells.length === headers.length
+    && separatorCells.every((cell) => /^:?-{3,}:?$/.test(cell.trim()));
+
+  if (headers.length < 2 || !isValidSeparator) {
+    return null;
+  }
+
+  return {
+    headers,
+    alignments: separatorCells.map(getTableAlignment),
+    rows: lines.slice(2).map((line) => {
+      const cells = splitMarkdownTableRow(line);
+      return headers.map((_, cellIndex) => cells[cellIndex] ?? '');
+    }),
+  };
 };
 
 /**
@@ -325,6 +415,90 @@ export const renderMarkdown = (markdown: string): React.ReactNode[] => {
             }}
           >
             {highlightCode(codeString, lang)}
+          </Box>
+        </Box>
+      );
+    }
+
+    const table = parseMarkdownTable(cleanBlock);
+    if (table) {
+      return (
+        <Box key={idx} sx={{ overflowX: 'auto', my: 4 }}>
+          <Box
+            component="table"
+            sx={{
+              width: '100%',
+              minWidth: { xs: 640, sm: '100%' },
+              borderCollapse: 'collapse',
+              border: (theme) => theme.palette.mode === 'dark'
+                ? '1px solid rgba(255, 255, 255, 0.08)'
+                : '1px solid rgba(15, 23, 42, 0.08)',
+              borderRadius: 2,
+              overflow: 'hidden',
+              fontSize: 16,
+            }}
+          >
+            <Box component="thead">
+              <Box component="tr">
+                {table.headers.map((header, hIdx) => (
+                  <Box
+                    component="th"
+                    key={hIdx}
+                    sx={{
+                      px: 2,
+                      py: 1.5,
+                      textAlign: table.alignments[hIdx],
+                      bgcolor: (theme) => theme.palette.mode === 'dark'
+                        ? 'rgba(255, 255, 255, 0.05)'
+                        : 'rgba(15, 23, 42, 0.04)',
+                      color: 'text.primary',
+                      fontWeight: 800,
+                      lineHeight: 1.45,
+                      borderBottom: (theme) => theme.palette.mode === 'dark'
+                        ? '1px solid rgba(255, 255, 255, 0.1)'
+                        : '1px solid rgba(15, 23, 42, 0.1)',
+                    }}
+                  >
+                    {parseInlineStyles(header)}
+                  </Box>
+                ))}
+              </Box>
+            </Box>
+            <Box component="tbody">
+              {table.rows.map((row, rIdx) => (
+                <Box
+                  component="tr"
+                  key={rIdx}
+                  sx={{
+                    '&:nth-of-type(even)': {
+                      bgcolor: (theme) => theme.palette.mode === 'dark'
+                        ? 'rgba(255, 255, 255, 0.025)'
+                        : 'rgba(15, 23, 42, 0.02)',
+                    },
+                  }}
+                >
+                  {row.map((cell, cIdx) => (
+                    <Box
+                      component="td"
+                      key={cIdx}
+                      sx={{
+                        px: 2,
+                        py: 1.5,
+                        textAlign: table.alignments[cIdx],
+                        color: 'text.primary',
+                        lineHeight: 1.55,
+                        verticalAlign: 'top',
+                        borderBottom: (theme) => theme.palette.mode === 'dark'
+                          ? '1px solid rgba(255, 255, 255, 0.06)'
+                          : '1px solid rgba(15, 23, 42, 0.06)',
+                      }}
+                    >
+                      {parseInlineStyles(cell)}
+                    </Box>
+                  ))}
+                </Box>
+              ))}
+            </Box>
           </Box>
         </Box>
       );
