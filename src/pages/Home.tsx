@@ -25,7 +25,7 @@ import {
   Pagination
 } from '@mui/material';
 import { Search, Calendar, Clock, ArrowUpRight, Code, ChevronDown } from 'lucide-react';
-import { getBlogs } from '../services/blogService';
+import { getBlogs, sortBlogPostsNewestFirst } from '../services/blogService';
 import type { BlogPost } from '../services/blogService';
 import { blogMatchesSearch } from '../services/blogSearch';
 import { blogMatchesFilterTag, getBlogFilterTags } from '../services/blogTagFilters';
@@ -141,9 +141,11 @@ export const Home: React.FC = () => {
   }, [availableTagsSorted, popoverSearchQuery, selectedTags]);
 
   // Filter all blogs before applying the featured/archive presentation split.
-  const filteredBlogs = searchMatchedBlogs.filter(blog => (
-    selectedTags.length === 0 || selectedTags.every(tag => blogMatchesFilterTag(blog, tag))
-  ));
+  const filteredBlogs = sortBlogPostsNewestFirst(
+    searchMatchedBlogs.filter(blog => (
+      selectedTags.length === 0 || selectedTags.every(tag => blogMatchesFilterTag(blog, tag))
+    ))
+  );
   const hasActiveFilters = searchQuery.trim().length > 0 || selectedTags.length > 0;
   const featuredBlogs = filteredBlogs.slice(0, FEATURED_POST_LIMIT);
   const olderBlogs = filteredBlogs.slice(FEATURED_POST_LIMIT);

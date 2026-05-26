@@ -89,6 +89,13 @@ export function calculateReadTime(text: string): number {
   return Math.max(1, time);
 }
 
+export function sortBlogPostsNewestFirst(blogs: BlogPost[]): BlogPost[] {
+  return [...blogs].sort((a, b) => {
+    const createdAtDifference = new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+    return createdAtDifference || a.id.localeCompare(b.id);
+  });
+}
+
 // Seed Mock Blogs
 export const MOCK_SEED_BLOGS: BlogPost[] = [
   {
@@ -211,7 +218,7 @@ export async function getBlogs(): Promise<BlogPost[]> {
     seedMockBlogs(); // ensure mock blogs exist
     const blogs = getMockData<BlogPost[]>(MOCK_BLOGS_KEY, []);
     // Sort by createdAt descending
-    return [...blogs].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+    return sortBlogPostsNewestFirst(blogs);
   } else {
     try {
       const blogsRef = collection(db, 'blogs');
@@ -221,7 +228,7 @@ export async function getBlogs(): Promise<BlogPost[]> {
       snapshot.forEach(docSnap => {
         results.push(normalizeBlogPost(docSnap.id, docSnap.data()));
       });
-      return results;
+      return sortBlogPostsNewestFirst(results);
     } catch (err) {
       console.error('Failed to fetch blogs from Firestore, falling back to empty list:', err);
       return [];
@@ -235,9 +242,9 @@ export async function getBlogsByAuthorUsername(authorUsername: string): Promise<
   if (isMockEnabled) {
     seedMockBlogs();
     const blogs = getMockData<BlogPost[]>(MOCK_BLOGS_KEY, []);
-    return blogs
-      .filter(blog => blog.authorUsername === normalizedAuthorUsername)
-      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+    return sortBlogPostsNewestFirst(
+      blogs.filter(blog => blog.authorUsername === normalizedAuthorUsername)
+    );
   }
 
   try {
@@ -249,7 +256,7 @@ export async function getBlogsByAuthorUsername(authorUsername: string): Promise<
       results.push(normalizeBlogPost(docSnap.id, docSnap.data()));
     });
 
-    return results.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+    return sortBlogPostsNewestFirst(results);
   } catch (err) {
     console.error(`Failed to fetch blogs for author username ${normalizedAuthorUsername}:`, err);
     return [];

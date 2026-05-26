@@ -18,7 +18,8 @@ import {
   getBlogsByAuthorUsername,
   calculateReadTime,
   updateBlog,
-  deleteBlog
+  deleteBlog,
+  sortBlogPostsNewestFirst
 } from '../services/blogService';
 import { MOCK_USERS_KEY, MOCK_BLOGS_KEY, setMockData } from '../services/firebase';
 import { MIN_PASSWORD_LENGTH } from '../services/securityValidation';
@@ -285,6 +286,38 @@ describe('Developer\'s Blog Service Layer (Mock Mode)', () => {
       // Create a text with ~300 words
       const words = Array(300).fill('word').join(' ');
       expect(calculateReadTime(words)).toBe(2); // 300 / 200 = 1.5 -> rounded up is 2 minutes
+    });
+
+    it('should sort blog posts strictly newest first with a stable tie-breaker', () => {
+      const oldest = {
+        id: 'post-c',
+        title: 'Oldest',
+        summary: 'Oldest post',
+        content: 'Old content',
+        tags: ['Sort'],
+        authorName: 'Sort Author',
+        authorUsername: 'sortauthor',
+        createdAt: '2024-01-01T12:00:00.000Z',
+        readTime: 1
+      };
+      const newest = {
+        ...oldest,
+        id: 'post-a',
+        title: 'Newest',
+        createdAt: '2024-01-03T12:00:00.000Z'
+      };
+      const sameTimestamp = {
+        ...oldest,
+        id: 'post-b',
+        title: 'Same timestamp as newest',
+        createdAt: '2024-01-03T12:00:00.000Z'
+      };
+
+      expect(sortBlogPostsNewestFirst([oldest, sameTimestamp, newest]).map(blog => blog.id)).toEqual([
+        'post-a',
+        'post-b',
+        'post-c'
+      ]);
     });
 
     it('should successfully create and retrieve blog posts', async () => {
