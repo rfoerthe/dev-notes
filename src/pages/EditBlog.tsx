@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useCallback, useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import {
   Box,
@@ -17,7 +17,8 @@ import {
   DialogActions,
   DialogContent,
   DialogContentText,
-  DialogTitle
+  DialogTitle,
+  Snackbar
 } from '@mui/material';
 import { BookOpen, Eye, Edit3, Save, Plus, ArrowLeft, Trash2 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
@@ -35,6 +36,7 @@ export const EditBlog: React.FC = () => {
   const [fetching, setFetching] = useState<boolean>(true);
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
+  const [errorSnackbarOpen, setErrorSnackbarOpen] = useState<boolean>(false);
 
   // Input states
   const [title, setTitle] = useState<string>('');
@@ -48,19 +50,32 @@ export const EditBlog: React.FC = () => {
   // UI states
   const [activeTab, setActiveTab] = useState<number>(0);
 
+  const showError = useCallback((message: string) => {
+    setError(message);
+    setErrorSnackbarOpen(true);
+  }, []);
+
+  const handleErrorSnackbarClose = (_event?: React.SyntheticEvent | Event, reason?: string) => {
+    if (reason === 'clickaway') {
+      return;
+    }
+
+    setErrorSnackbarOpen(false);
+  };
+
   useEffect(() => {
     const loadBlog = async () => {
       if (!id) return;
       try {
         const blog = await getBlogById(id);
         if (!blog) {
-          setError('Der Beitrag wurde nicht gefunden.');
+          showError('Der Beitrag wurde nicht gefunden.');
           setFetching(false);
           return;
         }
 
         if (!canManageBlogPost(blog, userProfile)) {
-          setError('Zugriff verweigert. Du bist weder Autor noch Admin dieses Beitrags.');
+          showError('Zugriff verweigert. Du bist weder Autor noch Admin dieses Beitrags.');
           setFetching(false);
           // Redirect after 3 seconds
           setTimeout(() => navigate('/'), 3000);
@@ -74,14 +89,14 @@ export const EditBlog: React.FC = () => {
         setLoadedBlog(true);
       } catch (err) {
         console.error('Failed to load blog for editing:', err);
-        setError('Fehler beim Laden des Beitrags.');
+        showError('Fehler beim Laden des Beitrags.');
       } finally {
         setFetching(false);
       }
     };
 
     loadBlog();
-  }, [id, userProfile, navigate]);
+  }, [id, userProfile, navigate, showError]);
 
   const canManageBlog = loadedBlog;
 
@@ -123,12 +138,13 @@ export const EditBlog: React.FC = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
+    setErrorSnackbarOpen(false);
 
     if (!id) return;
 
     const validationErrors = validateBlogContent(title, summary, content, tags);
     if (validationErrors.length > 0) {
-      setError(validationErrors[0]);
+      showError(validationErrors[0]);
       return;
     }
 
@@ -144,7 +160,7 @@ export const EditBlog: React.FC = () => {
 
       navigate(`/blog/${id}`);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Speichern fehlgeschlagen.');
+      showError(err instanceof Error ? err.message : 'Speichern fehlgeschlagen.');
     } finally {
       setLoading(false);
     }
@@ -155,11 +171,12 @@ export const EditBlog: React.FC = () => {
 
     setLoading(true);
     setError(null);
+    setErrorSnackbarOpen(false);
     try {
       await deleteBlog(id);
       navigate('/');
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Löschen fehlgeschlagen.');
+      showError(err instanceof Error ? err.message : 'Löschen fehlgeschlagen.');
     } finally {
       setLoading(false);
       setDeleteDialogOpen(false);
@@ -429,6 +446,21 @@ export const EditBlog: React.FC = () => {
           </Button>
         </DialogActions>
       </Dialog>
+      <Snackbar
+        open={errorSnackbarOpen && Boolean(error)}
+        autoHideDuration={7000}
+        onClose={handleErrorSnackbarClose}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+      >
+        <Alert
+          severity="error"
+          variant="filled"
+          onClose={handleErrorSnackbarClose}
+          sx={{ borderRadius: 2, boxShadow: '0 16px 40px rgba(0, 0, 0, 0.28)' }}
+        >
+          {error}
+        </Alert>
+      </Snackbar>
     </Container>
   );
 };

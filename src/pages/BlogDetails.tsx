@@ -155,7 +155,7 @@ export const BlogDetails: React.FC = () => {
       )}
 
       <Box sx={{ flexGrow: 1 }} className="animate-fade-in">
-      <Container maxWidth="md" sx={{ py: 6, display: 'flex', flexDirection: 'column', alignItems: 'flex-start' }}>
+      <Container maxWidth={false} sx={{ maxWidth: 1024, py: 6, display: 'flex', flexDirection: 'column', alignItems: 'flex-start' }}>
         {/* Navigation Action */}
         <Button
           variant="text"
