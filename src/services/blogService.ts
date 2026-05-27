@@ -437,6 +437,36 @@ export async function deleteBlog(id: string): Promise<void> {
   await deleteDoc(docRef);
 }
 
+export async function deleteBlogs(ids: string[]): Promise<void> {
+  const uniqueIds = Array.from(new Set(ids.filter(Boolean)));
+
+  if (uniqueIds.length === 0) {
+    return;
+  }
+
+  if (isMockEnabled) {
+    const blogs = getMockData<BlogPost[]>(MOCK_BLOGS_KEY, []);
+    const idsToDelete = new Set(uniqueIds);
+    const updatedBlogs = blogs.filter(blog => !idsToDelete.has(blog.id));
+
+    if (updatedBlogs.length === blogs.length) {
+      throw new Error('Keine Beiträge gefunden.');
+    }
+
+    setMockData(MOCK_BLOGS_KEY, updatedBlogs);
+    return;
+  }
+
+  for (let i = 0; i < uniqueIds.length; i += 500) {
+    const batch = writeBatch(db);
+    uniqueIds.slice(i, i + 500).forEach(id => {
+      batch.delete(doc(db, 'blogs', id));
+    });
+
+    await batch.commit();
+  }
+}
+
 export async function updateAuthorNameForBlogs(authorUsername: string, authorName: string): Promise<void> {
   const normalizedAuthorUsername = normalizeUsername(authorUsername);
   const trimmedAuthorName = authorName.trim();

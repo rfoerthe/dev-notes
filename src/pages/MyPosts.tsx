@@ -4,8 +4,15 @@ import {
   Box,
   Button,
   Chip,
+  Alert,
+  Checkbox,
   CircularProgress,
   Container,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogContentText,
+  DialogTitle,
   Divider,
   IconButton,
   Paper,
@@ -13,9 +20,9 @@ import {
   Tooltip,
   Typography
 } from '@mui/material';
-import { ArrowUpRight, Calendar, Clock, Edit3, FileText, PenTool, Plus } from 'lucide-react';
+import { ArrowUpRight, Calendar, Clock, Edit3, FileText, PenTool, Plus, Trash2 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
-import { getBlogsByAuthorUsername } from '../services/blogService';
+import { deleteBlogs, getBlogsByAuthorUsername } from '../services/blogService';
 import type { BlogPost } from '../services/blogService';
 
 export const MyPosts: React.FC = () => {
@@ -24,7 +31,11 @@ export const MyPosts: React.FC = () => {
 
   const [posts, setPosts] = useState<BlogPost[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
+  const [deleting, setDeleting] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
+  const [message, setMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null);
+  const [selectedPostIds, setSelectedPostIds] = useState<string[]>([]);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState<boolean>(false);
 
   useEffect(() => {
     const loadPosts = async () => {
@@ -39,6 +50,7 @@ export const MyPosts: React.FC = () => {
       try {
         const authorPosts = await getBlogsByAuthorUsername(userProfile.username);
         setPosts(authorPosts);
+        setSelectedPostIds([]);
       } catch (err) {
         console.error('Failed to load author posts:', err);
         setError('Deine Beiträge konnten nicht geladen werden.');
@@ -53,6 +65,56 @@ export const MyPosts: React.FC = () => {
   const totalReadTime = useMemo(() => {
     return posts.reduce((sum, post) => sum + post.readTime, 0);
   }, [posts]);
+
+  const selectedPosts = useMemo(() => {
+    const selectedIds = new Set(selectedPostIds);
+    return posts.filter(post => selectedIds.has(post.id));
+  }, [posts, selectedPostIds]);
+
+  const selectedCount = selectedPosts.length;
+  const allPostsSelected = posts.length > 0 && selectedCount === posts.length;
+  const somePostsSelected = selectedCount > 0 && !allPostsSelected;
+
+  const handleTogglePost = (postId: string) => {
+    setSelectedPostIds(previousSelectedPostIds => (
+      previousSelectedPostIds.includes(postId)
+        ? previousSelectedPostIds.filter(id => id !== postId)
+        : [...previousSelectedPostIds, postId]
+    ));
+  };
+
+  const handleToggleAllPosts = () => {
+    setSelectedPostIds(allPostsSelected ? [] : posts.map(post => post.id));
+  };
+
+  const handleDeleteSelectedPosts = async () => {
+    if (selectedCount === 0) {
+      return;
+    }
+
+    const idsToDelete = selectedPosts.map(post => post.id);
+
+    setDeleting(true);
+    setMessage(null);
+    try {
+      await deleteBlogs(idsToDelete);
+      setPosts(currentPosts => currentPosts.filter(post => !idsToDelete.includes(post.id)));
+      setSelectedPostIds([]);
+      setDeleteDialogOpen(false);
+      setMessage({
+        type: 'success',
+        text: `${idsToDelete.length} ${idsToDelete.length === 1 ? 'Beitrag wurde' : 'Beiträge wurden'} gelöscht.`
+      });
+    } catch (err) {
+      console.error('Failed to delete selected posts:', err);
+      setMessage({
+        type: 'error',
+        text: err instanceof Error ? err.message : 'Die gewählten Beiträge konnten nicht gelöscht werden.'
+      });
+    } finally {
+      setDeleting(false);
+    }
+  };
 
   const formatDate = (isoString: string) => {
     return new Date(isoString).toLocaleDateString('de-DE', {
@@ -101,6 +163,16 @@ export const MyPosts: React.FC = () => {
           Beitrag schreiben
         </Button>
       </Stack>
+
+      {message && (
+        <Alert
+          severity={message.type}
+          sx={{ mb: 3, borderRadius: 3 }}
+          onClose={() => setMessage(null)}
+        >
+          {message.text}
+        </Alert>
+      )}
 
       {loading ? (
         <Box sx={{ display: 'flex', justifyContent: 'center', py: 12 }}>
@@ -173,6 +245,17 @@ export const MyPosts: React.FC = () => {
                 {totalReadTime} min Lesezeit insgesamt
               </Typography>
             </Stack>
+            <Box sx={{ flexGrow: 1 }} />
+            <Button
+              variant="outlined"
+              color="error"
+              startIcon={<Trash2 size={16} />}
+              disabled={selectedCount === 0 || deleting}
+              onClick={() => setDeleteDialogOpen(true)}
+              sx={{ borderRadius: 3 }}
+            >
+              Gewählte löschen
+            </Button>
           </Stack>
 
           <Paper
@@ -184,19 +267,50 @@ export const MyPosts: React.FC = () => {
               border: (theme) => theme.palette.mode === 'dark' ? '1px solid rgba(255, 255, 255, 0.06)' : '1px solid rgba(15, 23, 42, 0.08)'
             }}
           >
+            <Box
+              sx={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 1,
+                px: { xs: 1.25, md: 2.25 },
+                py: 1.25,
+                bgcolor: (theme) => theme.palette.mode === 'dark' ? 'rgba(255, 255, 255, 0.025)' : 'rgba(15, 23, 42, 0.025)'
+              }}
+            >
+              <Checkbox
+                checked={allPostsSelected}
+                indeterminate={somePostsSelected}
+                onChange={handleToggleAllPosts}
+                disabled={deleting}
+                slotProps={{ input: { 'aria-label': 'Alle Beiträge auswählen oder abwählen' } }}
+              />
+              <Typography variant="body2" sx={{ fontWeight: 750, color: 'text.secondary' }}>
+                {selectedCount > 0
+                  ? `${selectedCount} von ${posts.length} ${posts.length === 1 ? 'Beitrag' : 'Beiträgen'} ausgewählt`
+                  : 'Alle Beiträge auswählen'}
+              </Typography>
+            </Box>
+            <Divider />
             {posts.map((post, index) => (
               <Box component="article" key={post.id}>
                 {index > 0 && <Divider />}
                 <Box
                   sx={{
                     display: 'grid',
-                    gridTemplateColumns: { xs: '1fr', md: 'minmax(0, 1fr) auto' },
-                    gap: { xs: 2, md: 3 },
-                    px: { xs: 2, md: 3 },
+                    gridTemplateColumns: { xs: 'auto minmax(0, 1fr)', md: 'auto minmax(0, 1fr) auto' },
+                    gap: { xs: 1.25, md: 2 },
+                    px: { xs: 1.25, md: 2.25 },
                     py: 2.5,
                     alignItems: 'center'
                   }}
                 >
+                  <Checkbox
+                    checked={selectedPostIds.includes(post.id)}
+                    onChange={() => handleTogglePost(post.id)}
+                    disabled={deleting}
+                    slotProps={{ input: { 'aria-label': `"${post.title}" auswählen` } }}
+                    sx={{ alignSelf: { xs: 'flex-start', md: 'center' } }}
+                  />
                   <Box sx={{ minWidth: 0 }}>
                     <Stack direction="row" spacing={1} sx={{ alignItems: 'center', flexWrap: 'wrap', rowGap: 0.75, mb: 1 }}>
                       <Stack direction="row" spacing={0.5} sx={{ alignItems: 'center', color: 'text.secondary' }}>
@@ -263,6 +377,7 @@ export const MyPosts: React.FC = () => {
                     direction="row"
                     spacing={1}
                     sx={{
+                      gridColumn: { xs: '2', md: 'auto' },
                       alignItems: 'center',
                       justifyContent: { xs: 'space-between', md: 'flex-end' },
                       minWidth: { md: 190 }
@@ -305,6 +420,42 @@ export const MyPosts: React.FC = () => {
           </Paper>
         </Stack>
       )}
+
+      <Dialog
+        open={deleteDialogOpen}
+        onClose={() => {
+          if (!deleting) {
+            setDeleteDialogOpen(false);
+          }
+        }}
+      >
+        <DialogTitle>
+          {selectedCount === 1 ? 'Beitrag löschen?' : 'Beiträge löschen?'}
+        </DialogTitle>
+        <DialogContent>
+          <DialogContentText>
+            {selectedCount === 1
+              ? `Möchtest du "${selectedPosts[0]?.title ?? 'diesen Beitrag'}" endgültig löschen?`
+              : `Möchtest du ${selectedCount} gewählte Beiträge endgültig löschen?`}
+            {' '}Dieser Schritt kann nicht rückgängig gemacht werden.
+          </DialogContentText>
+        </DialogContent>
+        <DialogActions sx={{ px: 3, pb: 2 }}>
+          <Button onClick={() => setDeleteDialogOpen(false)} disabled={deleting} sx={{ borderRadius: 3 }}>
+            Abbrechen
+          </Button>
+          <Button
+            variant="contained"
+            color="error"
+            startIcon={deleting ? <CircularProgress size={16} color="inherit" /> : <Trash2 size={16} />}
+            onClick={handleDeleteSelectedPosts}
+            disabled={deleting || selectedCount === 0}
+            sx={{ borderRadius: 3 }}
+          >
+            Löschen
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Container>
   );
 };

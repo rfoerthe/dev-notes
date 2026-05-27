@@ -19,6 +19,7 @@ import {
   calculateReadTime,
   updateBlog,
   deleteBlog,
+  deleteBlogs,
   sortBlogPostsNewestFirst
 } from '../services/blogService';
 import { MOCK_USERS_KEY, MOCK_BLOGS_KEY, setMockData } from '../services/firebase';
@@ -438,6 +439,41 @@ describe('Developer\'s Blog Service Layer (Mock Mode)', () => {
 
       const remainingBlogs = await getBlogs();
       expect(remainingBlogs.some(blog => blog.id === created.id)).toBe(false);
+    });
+
+    it('should successfully delete multiple existing blog posts', async () => {
+      const first = await createBlog({
+        title: 'Bulk Delete Me',
+        summary: 'This post should be deleted in a group',
+        content: 'Temporary content.',
+        tags: ['Temporary'],
+        authorId: 'some-author-uid',
+        authorName: 'Creative Dev',
+        authorUsername: 'creativedev'
+      });
+      const second = await createBlog({
+        title: 'Bulk Delete Me Too',
+        summary: 'This post should also be deleted in a group',
+        content: 'More temporary content.',
+        tags: ['Temporary'],
+        authorId: 'some-author-uid',
+        authorName: 'Creative Dev',
+        authorUsername: 'creativedev'
+      });
+      const keep = await createBlog({
+        title: 'Keep Me',
+        summary: 'This post should remain',
+        content: 'Persistent content.',
+        tags: ['Persistent'],
+        authorId: 'some-author-uid',
+        authorName: 'Creative Dev',
+        authorUsername: 'creativedev'
+      });
+
+      await deleteBlogs([first.id, second.id]);
+
+      const remainingBlogs = await getBlogs();
+      expect(remainingBlogs.map(blog => blog.id)).toEqual([keep.id]);
     });
 
     it('should update author names on existing blog posts when the profile name changes', async () => {
