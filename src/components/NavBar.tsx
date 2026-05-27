@@ -97,6 +97,7 @@ export const NavBar: React.FC = () => {
   };
 
   const isActive = (path: string) => location.pathname === path;
+  const appVersionLabel = `Installierte Version: ${__APP_VERSION__}`;
 
   // Render navigation links based on user status
   const navLinks = [
@@ -112,12 +113,14 @@ export const NavBar: React.FC = () => {
 
   const drawer = (
     <Box onClick={handleDrawerToggle} sx={{ textAlign: 'center', p: 2, bgcolor: 'background.default', height: '100%' }}>
-      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 1, mb: 3 }}>
-        <Terminal color="#8b5cf6" size={24} />
-        <Typography variant="h6" sx={{ fontFamily: 'Outfit, sans-serif', fontWeight: 800 }}>
-          Dev<span style={{ color: '#14b8a6' }}>Notes</span>
-        </Typography>
-      </Box>
+      <Tooltip title={appVersionLabel} arrow>
+        <Box sx={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 1, mb: 3 }}>
+          <Terminal color="#8b5cf6" size={24} />
+          <Typography variant="h6" sx={{ fontFamily: 'Outfit, sans-serif', fontWeight: 800 }}>
+            Dev<span style={{ color: '#14b8a6' }}>Notes</span>
+          </Typography>
+        </Box>
+      </Tooltip>
       {showMockModeIndicator && (
         <Box
           sx={{
@@ -217,38 +220,40 @@ export const NavBar: React.FC = () => {
         <Container maxWidth="lg">
           <Toolbar disableGutters sx={{ justifyContent: 'space-between', height: 70 }}>
             {/* BRAND LOGO */}
-            <Box 
-              sx={{ display: 'flex', alignItems: 'center', gap: 1, cursor: 'pointer' }}
-              onClick={() => navigate('/')}
-            >
-              <Box 
-                sx={{ 
-                  p: 1, 
-                  borderRadius: 3, 
-                  background: 'linear-gradient(135deg, rgba(139, 92, 246, 0.2) 0%, rgba(20, 184, 166, 0.1) 100%)',
-                  border: '1px solid rgba(139, 92, 246, 0.3)'
-                }}
+            <Tooltip title={appVersionLabel} arrow>
+              <Box
+                sx={{ display: 'flex', alignItems: 'center', gap: 1, cursor: 'pointer' }}
+                onClick={() => navigate('/')}
               >
-                <Terminal color="#8b5cf6" size={22} className="text-glow-primary" />
+                <Box
+                  sx={{
+                    p: 1,
+                    borderRadius: 3,
+                    background: 'linear-gradient(135deg, rgba(139, 92, 246, 0.2) 0%, rgba(20, 184, 166, 0.1) 100%)',
+                    border: '1px solid rgba(139, 92, 246, 0.3)'
+                  }}
+                >
+                  <Terminal color="#8b5cf6" size={22} className="text-glow-primary" />
+                </Box>
+                <Typography
+                  variant="h5"
+                  noWrap
+                  sx={{
+                    fontFamily: 'Outfit, sans-serif',
+                    fontWeight: 800,
+                    background: (theme) => theme.palette.mode === 'dark'
+                      ? 'linear-gradient(135deg, #ffffff 0%, #cbd5e1 100%)'
+                      : 'linear-gradient(135deg, #0f172a 0%, #334155 100%)',
+                    WebkitBackgroundClip: 'text',
+                    WebkitTextFillColor: 'transparent',
+                    display: 'flex',
+                    alignItems: 'center'
+                  }}
+                >
+                  Dev<span style={{ color: '#14b8a6' }}>Notes</span>
+                </Typography>
               </Box>
-              <Typography 
-                variant="h5" 
-                noWrap 
-                sx={{ 
-                  fontFamily: 'Outfit, sans-serif', 
-                  fontWeight: 800,
-                  background: (theme) => theme.palette.mode === 'dark' 
-                    ? 'linear-gradient(135deg, #ffffff 0%, #cbd5e1 100%)' 
-                    : 'linear-gradient(135deg, #0f172a 0%, #334155 100%)',
-                  WebkitBackgroundClip: 'text',
-                  WebkitTextFillColor: 'transparent',
-                  display: 'flex',
-                  alignItems: 'center'
-                }}
-              >
-                Dev<span style={{ color: '#14b8a6' }}>Notes</span>
-              </Typography>
-            </Box>
+            </Tooltip>
 
             {/* DESKTOP NAV */}
             {isMdUp && (

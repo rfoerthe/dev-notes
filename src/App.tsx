@@ -117,6 +117,10 @@ const App: React.FC = () => {
                   <Link component={RouterLink} to="/nutzungsbedingungen" color="inherit" sx={{ textDecoration: 'none', '&:hover': { color: 'primary.main', textDecoration: 'underline' } }}>
                     Nutzungsbedingungen
                   </Link>
+                  {' | '}
+                  <Box component="span" sx={{ whiteSpace: 'nowrap' }}>
+                    Version {__APP_VERSION__}
+                  </Box>
                 </Typography>
               </Container>
             </Box>
