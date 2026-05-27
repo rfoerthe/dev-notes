@@ -1,6 +1,7 @@
 import { DocumentReference, GeoPoint, Timestamp } from 'firebase-admin/firestore';
 
 const TYPE_KEY = '__devNotesFirestoreType';
+const USERNAME_PATTERN = /^[a-z0-9][a-z0-9_-]{2,29}$/;
 
 export class FirestoreBackupInputError extends Error {
   constructor(message, details = []) {
@@ -236,6 +237,161 @@ export const writeDocumentsInBatches = async ({ db, documents, dryRun = false })
   await commit();
 
   return writtenCount;
+};
+
+const isRestorableDocument = (document, collectionName) => {
+  const pathSegments = typeof document.path === 'string' ? document.path.split('/') : [];
+
+  return document.exists &&
+    pathSegments.length === 2 &&
+    pathSegments[0] === collectionName &&
+    document.data &&
+    typeof document.data === 'object' &&
+    !Array.isArray(document.data);
+};
+
+const normalizeRestoredUsername = (value) => {
+  if (typeof value !== 'string') return null;
+
+  const username = value.trim().toLowerCase();
+  return USERNAME_PATTERN.test(username) ? username : null;
+};
+
+const getFullName = (data) => {
+  const firstName = typeof data.firstName === 'string' ? data.firstName.trim() : '';
+  const lastName = typeof data.lastName === 'string' ? data.lastName.trim() : '';
+  const fullName = `${firstName} ${lastName}`.trim();
+  return fullName || null;
+};
+
+const addUniqueMapping = (map, key, value) => {
+  if (!key || !value) return;
+
+  if (!map.has(key)) {
+    map.set(key, value);
+    return;
+  }
+
+  if (map.get(key) !== value) {
+    map.set(key, null);
+  }
+};
+
+const createUserLookup = (documents) => {
+  const usernameByUid = new Map();
+  const usernameByFullName = new Map();
+  const adminUsernames = new Set();
+
+  for (const document of documents) {
+    if (!isRestorableDocument(document, 'users')) continue;
+
+    const username = normalizeRestoredUsername(document.data.username);
+    if (!username) continue;
+
+    const pathUid = document.path.split('/')[1];
+    const dataUid = typeof document.data.uid === 'string' ? document.data.uid : null;
+    addUniqueMapping(usernameByUid, pathUid, username);
+    addUniqueMapping(usernameByUid, dataUid, username);
+    addUniqueMapping(usernameByFullName, getFullName(document.data), username);
+
+    if (document.data.role === 'admin') {
+      adminUsernames.add(username);
+    }
+  }
+
+  return {
+    usernameByUid,
+    usernameByFullName,
+    singleAdminUsername: adminUsernames.size === 1 ? [...adminUsernames][0] : null
+  };
+};
+
+const inferBlogAuthorUsername = (data, userLookup) => {
+  const authorId = typeof data.authorId === 'string' ? data.authorId : null;
+  const authorName = typeof data.authorName === 'string' ? data.authorName.trim() : null;
+
+  if (authorId) {
+    const username = userLookup.usernameByUid.get(authorId);
+    if (username) {
+      return { username, reason: 'authorId' };
+    }
+  }
+
+  if (authorName) {
+    const username = userLookup.usernameByFullName.get(authorName);
+    if (username) {
+      return { username, reason: 'authorName' };
+    }
+  }
+
+  if (authorId === 'admin-uid' && userLookup.singleAdminUsername) {
+    return { username: userLookup.singleAdminUsername, reason: 'legacy admin authorId' };
+  }
+
+  return null;
+};
+
+export const prepareDocumentsForRestore = (documents) => {
+  const userLookup = createUserLookup(documents);
+  const report = {
+    addedBlogAuthorUsernames: 0,
+    inferredFromAuthorId: 0,
+    inferredFromAuthorName: 0,
+    inferredFromLegacyAdminAuthorId: 0
+  };
+  const unresolvedBlogPaths = [];
+
+  const preparedDocuments = documents.map((document) => {
+    if (!isRestorableDocument(document, 'blogs')) {
+      return document;
+    }
+
+    const existingUsername = normalizeRestoredUsername(document.data.authorUsername);
+    if (existingUsername) {
+      return existingUsername === document.data.authorUsername
+        ? document
+        : { ...document, data: { ...document.data, authorUsername: existingUsername } };
+    }
+
+    const inferred = inferBlogAuthorUsername(document.data, userLookup);
+    if (!inferred) {
+      unresolvedBlogPaths.push(document.path);
+      return document;
+    }
+
+    report.addedBlogAuthorUsernames += 1;
+    if (inferred.reason === 'authorId') {
+      report.inferredFromAuthorId += 1;
+    } else if (inferred.reason === 'authorName') {
+      report.inferredFromAuthorName += 1;
+    } else if (inferred.reason === 'legacy admin authorId') {
+      report.inferredFromLegacyAdminAuthorId += 1;
+    }
+
+    return {
+      ...document,
+      data: {
+        ...document.data,
+        authorUsername: inferred.username
+      }
+    };
+  });
+
+  if (unresolvedBlogPaths.length > 0) {
+    throw new FirestoreBackupInputError(
+      'Backup contains blog posts without a restorable authorUsername.',
+      [
+        'The current app uses authorUsername for blog ownership and author filtering.',
+        'Create a newer backup, or add authorUsername to the listed blog documents before restoring.',
+        `Affected blog documents: ${unresolvedBlogPaths.slice(0, 10).join(', ')}${unresolvedBlogPaths.length > 10 ? ', ...' : ''}`
+      ]
+    );
+  }
+
+  return {
+    documents: preparedDocuments,
+    report
+  };
 };
 
 export const deleteAllFirestoreDocuments = async ({ db, dryRun = false }) => {

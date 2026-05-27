@@ -6,6 +6,7 @@ import {
   deleteAllFirestoreDocuments,
   FirestoreBackupInputError,
   parseArgs,
+  prepareDocumentsForRestore,
   printInputError,
   validateBackup,
   writeDocumentsInBatches
@@ -94,6 +95,7 @@ const main = async () => {
 
   const inputPath = resolveInputPath(options);
   const backup = readBackup(inputPath);
+  const restorePreparation = prepareDocumentsForRestore(backup.documents);
 
   if (!options.dryRun && options.yes !== true) {
     throw new FirestoreBackupInputError('Refusing to write to Firestore without explicit confirmation.', [
@@ -106,7 +108,7 @@ const main = async () => {
 
   const db = getFirestore();
   const projectId = getProjectId();
-  const restorableDocuments = backup.documents.filter((document) => document.exists);
+  const restorableDocuments = restorePreparation.documents.filter((document) => document.exists);
 
   console.log('');
   console.log(options.dryRun ? 'Firestore restore dry run.' : 'Firestore restore starting.');
@@ -114,6 +116,18 @@ const main = async () => {
   console.log(`Backup project: ${backup.projectId || 'unknown'}`);
   console.log(`Backup file: ${inputPath}`);
   console.log(`Documents in backup: ${restorableDocuments.length}`);
+  if (restorePreparation.report.addedBlogAuthorUsernames > 0) {
+    console.log(`Legacy blog ownership fields repaired: ${restorePreparation.report.addedBlogAuthorUsernames}`);
+    if (restorePreparation.report.inferredFromAuthorId > 0) {
+      console.log(`- inferred from authorId: ${restorePreparation.report.inferredFromAuthorId}`);
+    }
+    if (restorePreparation.report.inferredFromAuthorName > 0) {
+      console.log(`- inferred from authorName: ${restorePreparation.report.inferredFromAuthorName}`);
+    }
+    if (restorePreparation.report.inferredFromLegacyAdminAuthorId > 0) {
+      console.log(`- inferred from legacy admin authorId: ${restorePreparation.report.inferredFromLegacyAdminAuthorId}`);
+    }
+  }
 
   if (backup.projectId && projectId && backup.projectId !== projectId) {
     console.log('');
@@ -127,7 +141,7 @@ const main = async () => {
 
   const writtenCount = await writeDocumentsInBatches({
     db,
-    documents: backup.documents,
+    documents: restorePreparation.documents,
     dryRun: options.dryRun
   });
 

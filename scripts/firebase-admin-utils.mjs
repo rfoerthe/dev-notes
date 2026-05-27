@@ -1,6 +1,7 @@
 import { applicationDefault, cert, getApps, initializeApp } from 'firebase-admin/app';
 import { existsSync, readFileSync } from 'node:fs';
-import { resolve } from 'node:path';
+import { homedir } from 'node:os';
+import { isAbsolute, join, resolve } from 'node:path';
 
 export const loadEnvFile = () => {
   const envPath = resolve(process.cwd(), '.env');
@@ -35,14 +36,52 @@ const markCredentialSetupError = (error) => {
   return setupError;
 };
 
+const createCredentialSetupError = (message) => markCredentialSetupError(new Error(message));
+
+const resolveCredentialPath = (path) => {
+  return isAbsolute(path) ? path : resolve(process.cwd(), path);
+};
+
+export const getApplicationDefaultCredentialsPath = () => {
+  const cloudSdkConfigDirectory = process.env.CLOUDSDK_CONFIG
+    ? resolveCredentialPath(process.env.CLOUDSDK_CONFIG)
+    : join(homedir(), '.config', 'gcloud');
+
+  return join(cloudSdkConfigDirectory, 'application_default_credentials.json');
+};
+
+export const assertAdminCredentialsAvailable = () => {
+  if (process.env.FIREBASE_SERVICE_ACCOUNT_JSON) {
+    return;
+  }
+
+  if (process.env.GOOGLE_APPLICATION_CREDENTIALS) {
+    const credentialPath = resolveCredentialPath(process.env.GOOGLE_APPLICATION_CREDENTIALS);
+    if (!existsSync(credentialPath)) {
+      throw createCredentialSetupError(`GOOGLE_APPLICATION_CREDENTIALS points to a missing file: ${credentialPath}`);
+    }
+    return;
+  }
+
+  const defaultCredentialsPath = getApplicationDefaultCredentialsPath();
+  if (!existsSync(defaultCredentialsPath)) {
+    throw createCredentialSetupError(
+      'No Firebase Admin credentials found. Set GOOGLE_APPLICATION_CREDENTIALS, set FIREBASE_SERVICE_ACCOUNT_JSON, or run gcloud auth application-default login.'
+    );
+  }
+};
+
 export const initializeAdminApp = () => {
   loadEnvFile();
 
   let credential;
   try {
-    credential = process.env.FIREBASE_SERVICE_ACCOUNT_JSON
-      ? cert(JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT_JSON))
-      : applicationDefault();
+    if (process.env.FIREBASE_SERVICE_ACCOUNT_JSON) {
+      credential = cert(JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT_JSON));
+    } else {
+      assertAdminCredentialsAvailable();
+      credential = applicationDefault();
+    }
   } catch (error) {
     throw markCredentialSetupError(error);
   }

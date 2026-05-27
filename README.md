@@ -261,6 +261,8 @@ Preview the restore plan without writing:
 npm run firestore:restore -- --input backups/pre-release.json --dry-run
 ```
 
+During restore, legacy blog documents without `authorUsername` are repaired in memory when the username can be inferred from restored user profiles. If ownership cannot be inferred unambiguously, the restore stops before writing because the current app uses `authorUsername` for author filtering and edit/delete permissions.
+
 After restoring into a new or repaired Firebase project, run the admin repair script so the Firebase Auth account and Firestore admin profile use the same UID:
 
 ```bash
