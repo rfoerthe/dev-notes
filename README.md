@@ -275,6 +275,29 @@ The script creates or re-enables the Firebase Auth user, moves a restored admin 
 ADMIN_EMAIL=admin@example.com PRINT_ADMIN_RESET_LINK=1 npm run restore:admin
 ```
 
+Regular restored users need matching Firebase Auth accounts too. Use the user repair script to create or re-enable the Auth account, move the restored Firestore profile to the current Auth UID, and repair `usernames/<username>`.
+
+Preview one user:
+
+```bash
+USER_EMAIL=user@example.com npm run restore:user -- --dry-run
+```
+
+Repair one user:
+
+```bash
+USER_EMAIL=user@example.com npm run restore:user -- --yes
+```
+
+Repair all non-admin restored profiles:
+
+```bash
+npm run restore:user -- --all --dry-run
+npm run restore:user -- --all --yes
+```
+
+The script does not print password reset links by default. For a single trusted local repair, add `--print-reset-link` or `PRINT_USER_RESET_LINK=1` and send the generated Firebase reset link to that user.
+
 Keep backup files secure. They can contain user profiles, email addresses, and unpublished blog content.
 
 ## Firebase Configuration
