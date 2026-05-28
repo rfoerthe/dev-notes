@@ -604,6 +604,29 @@ export async function fetchUsersByStatus(status: 'pending' | 'approved' | 'rejec
   }
 }
 
+export async function fetchActiveAuthorProfiles(): Promise<UserProfile[]> {
+  const sortProfiles = (profiles: UserProfile[]) => [...profiles].sort((left, right) => {
+    const leftName = `${left.firstName} ${left.lastName}`.trim();
+    const rightName = `${right.firstName} ${right.lastName}`.trim();
+    return leftName.localeCompare(rightName) || left.username.localeCompare(right.username);
+  });
+
+  if (isMockEnabled) {
+    const users = getMockData<UserProfile[]>(MOCK_USERS_KEY, []);
+    return sortProfiles(users.filter(user => user.status === 'approved'));
+  }
+
+  const usersRef = collection(db, 'users');
+  const q = query(usersRef, where('status', '==', 'approved'));
+  const snapshot = await getDocs(q);
+  const results: UserProfile[] = [];
+  snapshot.forEach(docSnap => {
+    results.push(docSnap.data() as UserProfile);
+  });
+
+  return sortProfiles(results);
+}
+
 export async function updateUserStatus(uid: string, status: 'approved' | 'rejected'): Promise<void> {
   if (isMockEnabled) {
     const users = getMockData<UserProfile[]>(MOCK_USERS_KEY, []);

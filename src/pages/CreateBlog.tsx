@@ -109,7 +109,6 @@ export const CreateBlog: React.FC = () => {
         summary: summary.trim(),
         content: content.trim(),
         tags,
-        authorId: userProfile.uid,
         authorName: `${userProfile.firstName} ${userProfile.lastName}`,
         authorUsername: userProfile.username
       });

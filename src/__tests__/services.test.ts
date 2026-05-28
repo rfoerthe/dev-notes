@@ -10,7 +10,8 @@ import {
   resetMockAdmin,
   updateUserProfile,
   deleteUserRegistration,
-  getUserProfile
+  getUserProfile,
+  fetchActiveAuthorProfiles
 } from '../services/authService';
 import { 
   createBlog, 
@@ -229,6 +230,42 @@ describe('Developer\'s Blog Service Layer (Mock Mode)', () => {
       expect((await getUserProfile(secondUser.uid))?.themeMode).toBe('system');
     });
 
+    it('should return approved author profiles including admins', async () => {
+      const admin = {
+        uid: 'admin-user-uid',
+        firstName: 'Admin',
+        lastName: 'User',
+        username: 'adminuser',
+        email: 'admin@example.com',
+        role: 'admin' as const,
+        status: 'approved' as const,
+        createdAt: new Date().toISOString()
+      };
+      const approvedUser = {
+        uid: 'approved-author-uid',
+        firstName: 'Approved',
+        lastName: 'Author',
+        username: 'approvedauthor',
+        email: 'author@example.com',
+        role: 'user' as const,
+        status: 'approved' as const,
+        createdAt: new Date().toISOString()
+      };
+      const pendingUser = {
+        ...approvedUser,
+        uid: 'pending-author-uid',
+        username: 'pendingauthor',
+        email: 'pending@example.com',
+        status: 'pending' as const
+      };
+
+      setMockData(MOCK_USERS_KEY, [pendingUser, approvedUser, admin]);
+
+      const authors = await fetchActiveAuthorProfiles();
+
+      expect(authors.map(author => author.username)).toEqual(['adminuser', 'approvedauthor']);
+    });
+
     it('should prevent pending users from logging in', async () => {
       await registerUser({
         firstName: 'Max',
@@ -327,7 +364,6 @@ describe('Developer\'s Blog Service Layer (Mock Mode)', () => {
         summary: 'Learn glassmorphism styling in MUI',
         content: 'This is a premium article about how to customize Material-UI with glassmorphism panels, gradients, and custom components.',
         tags: ['MUI', 'Design', 'React'],
-        authorId: 'some-author-uid',
         authorName: 'Creative Dev',
         authorUsername: 'creativedev'
       });
@@ -338,6 +374,7 @@ describe('Developer\'s Blog Service Layer (Mock Mode)', () => {
       expect(blogs[0].readTime).toBe(1);
       expect(blogs[0].tags).toContain('MUI');
       expect(blogs[0].authorUsername).toBe('creativedev');
+      expect(blogs[0].authorId).toBeUndefined();
     });
 
     it('should retrieve only posts from the requested author username in newest-first order', async () => {
@@ -391,7 +428,6 @@ describe('Developer\'s Blog Service Layer (Mock Mode)', () => {
         summary: 'Original Summary',
         content: 'Short content.',
         tags: ['OriginalTag'],
-        authorId: 'some-author-uid',
         authorName: 'Creative Dev',
         authorUsername: 'creativedev'
       });
@@ -422,13 +458,37 @@ describe('Developer\'s Blog Service Layer (Mock Mode)', () => {
       expect(blogs[0].readTime).toBe(3);
     });
 
+    it('should allow updating a blog post author assignment', async () => {
+      const created = await createBlog({
+        title: 'Reassign Me',
+        summary: 'This post should move to another author',
+        content: 'Short content.',
+        tags: ['Author'],
+        authorName: 'Original Author',
+        authorUsername: 'originalauthor'
+      });
+
+      const updated = await updateBlog({
+        id: created.id,
+        title: created.title,
+        summary: created.summary,
+        content: created.content,
+        tags: created.tags,
+        authorName: 'Next Author',
+        authorUsername: 'nextauthor'
+      });
+
+      expect(updated.authorName).toBe('Next Author');
+      expect(updated.authorUsername).toBe('nextauthor');
+      expect(updated.authorId).toBeUndefined();
+    });
+
     it('should successfully delete an existing blog post', async () => {
       const created = await createBlog({
         title: 'Delete Me',
         summary: 'This post should be deleted',
         content: 'Temporary content.',
         tags: ['Temporary'],
-        authorId: 'some-author-uid',
         authorName: 'Creative Dev',
         authorUsername: 'creativedev'
       });
@@ -447,7 +507,6 @@ describe('Developer\'s Blog Service Layer (Mock Mode)', () => {
         summary: 'This post should be deleted in a group',
         content: 'Temporary content.',
         tags: ['Temporary'],
-        authorId: 'some-author-uid',
         authorName: 'Creative Dev',
         authorUsername: 'creativedev'
       });
@@ -456,7 +515,6 @@ describe('Developer\'s Blog Service Layer (Mock Mode)', () => {
         summary: 'This post should also be deleted in a group',
         content: 'More temporary content.',
         tags: ['Temporary'],
-        authorId: 'some-author-uid',
         authorName: 'Creative Dev',
         authorUsername: 'creativedev'
       });
@@ -465,7 +523,6 @@ describe('Developer\'s Blog Service Layer (Mock Mode)', () => {
         summary: 'This post should remain',
         content: 'Persistent content.',
         tags: ['Persistent'],
-        authorId: 'some-author-uid',
         authorName: 'Creative Dev',
         authorUsername: 'creativedev'
       });
@@ -490,7 +547,6 @@ describe('Developer\'s Blog Service Layer (Mock Mode)', () => {
         summary: 'The author name should follow profile changes',
         content: 'A short post.',
         tags: ['Profile'],
-        authorId: profile.uid,
         authorName: 'Old Author',
         authorUsername: profile.username
       });
@@ -622,7 +678,6 @@ describe('Developer\'s Blog Service Layer (Mock Mode)', () => {
           summary: 'This post should not be stored',
           content: 'Content with an invalid tag.',
           tags: ['Security', 'bad<tag'],
-          authorId: 'some-author-uid',
           authorName: 'Creative Dev',
           authorUsername: 'creativedev'
         })

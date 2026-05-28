@@ -35,6 +35,7 @@ export interface BlogPost {
   summary: string;
   content: string;
   tags: string[];
+  // Legacy Firestore Auth UID. Kept readable for older backups, but new posts use authorUsername as owner key.
   authorId?: string;
   authorName: string;
   authorUsername: string;
@@ -131,7 +132,6 @@ Um den Ladezustand und Fehler von Formularen einfacher zu handhaben, gibt es neu
 ### Fazit
 React 19 fokussiert sich stark darauf, die Entwicklererfahrung zu verbessern und lästige Boilerplate-Codes zu eliminieren. Die Integration von Server-Funktionen und automatische Optimierung heben die React-Entwicklung auf das nächste Level!`,
     tags: ['React 19', 'Frontend', 'JavaScript'],
-    authorId: 'admin-uid',
     authorName: 'Blog Admin',
     authorUsername: 'admin',
     createdAt: new Date(Date.now() - 3600000 * 24 * 3).toISOString(), // 3 days ago
@@ -156,7 +156,6 @@ Vite 8 bietet erstklassige Out-of-the-Box-Unterstützung für die neuen Features
 ### Fazit
 Der Umstieg auf Vite 8 lohnt sich für jedes React-Projekt. Die Zeitersparnis im täglichen Entwicklungsalltag ist sofort spürbar.`,
     tags: ['Vite 8', 'Build-Tools', 'Performance'],
-    authorId: 'admin-uid',
     authorName: 'Blog Admin',
     authorUsername: 'admin',
     createdAt: new Date(Date.now() - 3600000 * 24).toISOString(), // 1 day ago
@@ -188,7 +187,6 @@ TypeScript 6 verbessert die Handhabung von Rest-Elementen in Arrays und Tuples, 
 
 Typsicherheit schützt uns vor Fehlern zur Laufzeit. Nutze diese neuen Features, um deine Codebase wartbarer zu gestalten!`,
     tags: ['TypeScript 6', 'Programming', 'WebDev'],
-    authorId: 'admin-uid',
     authorName: 'Blog Admin',
     authorUsername: 'admin',
     createdAt: new Date().toISOString(), // today
@@ -290,7 +288,6 @@ interface CreateBlogParams {
   summary: string;
   content: string;
   tags: string[];
-  authorId?: string;
   authorName: string;
   authorUsername: string;
 }
@@ -319,7 +316,6 @@ export async function createBlog(params: CreateBlogParams): Promise<BlogPost> {
       summary: params.summary.trim(),
       content: params.content,
       tags,
-      authorId: params.authorId,
       authorName: params.authorName,
       authorUsername,
       createdAt,
@@ -336,7 +332,6 @@ export async function createBlog(params: CreateBlogParams): Promise<BlogPost> {
       summary: params.summary.trim(),
       content: params.content,
       tags,
-      ...(params.authorId ? { authorId: params.authorId } : {}),
       authorName: params.authorName,
       authorUsername,
       createdAt: serverTimestamp(),
@@ -355,7 +350,6 @@ export async function createBlog(params: CreateBlogParams): Promise<BlogPost> {
           summary: params.summary.trim(),
           content: params.content,
           tags,
-          authorId: params.authorId,
           authorName: params.authorName,
           authorUsername,
           createdAt,
@@ -370,6 +364,8 @@ interface UpdateBlogParams {
   summary: string;
   content: string;
   tags: string[];
+  authorName?: string;
+  authorUsername?: string;
 }
 
 export async function updateBlog(params: UpdateBlogParams): Promise<BlogPost> {
@@ -378,8 +374,27 @@ export async function updateBlog(params: UpdateBlogParams): Promise<BlogPost> {
     throw new Error(validationErrors[0]);
   }
 
+  const hasAuthorUpdate = params.authorName !== undefined || params.authorUsername !== undefined;
+  if (hasAuthorUpdate && (!params.authorName || !params.authorUsername)) {
+    throw new Error('Autorname und Benutzername müssen gemeinsam aktualisiert werden.');
+  }
+
+  const authorUsername = params.authorUsername ? normalizeUsername(params.authorUsername) : undefined;
+  if (authorUsername) {
+    const authorUsernameError = validateUsername(authorUsername);
+    if (authorUsernameError) {
+      throw new Error(authorUsernameError);
+    }
+  }
+
   const readTime = calculateReadTime(params.content);
   const tags = sanitizeTags(params.tags);
+  const authorUpdate = hasAuthorUpdate
+    ? {
+        authorName: params.authorName!.trim(),
+        authorUsername: authorUsername!
+      }
+    : {};
 
   if (isMockEnabled) {
     const blogs = getMockData<BlogPost[]>(MOCK_BLOGS_KEY, []);
@@ -394,7 +409,8 @@ export async function updateBlog(params: UpdateBlogParams): Promise<BlogPost> {
       summary: params.summary.trim(),
       content: params.content,
       tags,
-      readTime
+      readTime,
+      ...authorUpdate
     };
 
     blogs[blogIndex] = updatedBlog;
@@ -407,7 +423,8 @@ export async function updateBlog(params: UpdateBlogParams): Promise<BlogPost> {
       summary: params.summary.trim(),
       content: params.content,
       tags,
-      readTime
+      readTime,
+      ...authorUpdate
     };
 
     await updateDoc(docRef, updatedData);

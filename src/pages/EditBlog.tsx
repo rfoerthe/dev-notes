@@ -18,11 +18,19 @@ import {
   DialogContent,
   DialogContentText,
   DialogTitle,
-  Snackbar
+  Snackbar,
+  FormControl,
+  InputLabel,
+  Select,
+  MenuItem,
+  FormHelperText
 } from '@mui/material';
+import type { SelectChangeEvent } from '@mui/material/Select';
 import { BookOpen, Eye, Edit3, Save, Plus, ArrowLeft, Trash2 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { getBlogById, updateBlog, deleteBlog, calculateReadTime } from '../services/blogService';
+import { fetchActiveAuthorProfiles } from '../services/authService';
+import type { UserProfile } from '../services/authService';
 import { renderMarkdown } from '../components/markdownParser';
 import { validateBlogContent } from '../services/securityValidation';
 import { canManageBlogPost } from '../services/blogOwnership';
@@ -44,8 +52,13 @@ export const EditBlog: React.FC = () => {
   const [content, setContent] = useState<string>('');
   const [tagInput, setTagInput] = useState<string>('');
   const [tags, setTags] = useState<string[]>([]);
+  const [authorProfiles, setAuthorProfiles] = useState<UserProfile[]>([]);
+  const [selectedAuthorUsername, setSelectedAuthorUsername] = useState<string>('');
+  const [originalAuthorName, setOriginalAuthorName] = useState<string>('');
+  const [originalAuthorUsername, setOriginalAuthorUsername] = useState<string>('');
   const [loadedBlog, setLoadedBlog] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState<boolean>(false);
+  const [authorsLoading, setAuthorsLoading] = useState<boolean>(false);
   
   // UI states
   const [activeTab, setActiveTab] = useState<number>(0);
@@ -86,7 +99,22 @@ export const EditBlog: React.FC = () => {
         setSummary(blog.summary);
         setContent(blog.content);
         setTags(blog.tags);
+        setOriginalAuthorName(blog.authorName);
+        setOriginalAuthorUsername(blog.authorUsername);
+        setSelectedAuthorUsername(blog.authorUsername);
         setLoadedBlog(true);
+
+        if (userProfile?.role === 'admin') {
+          setAuthorsLoading(true);
+          try {
+            setAuthorProfiles(await fetchActiveAuthorProfiles());
+          } catch (authorErr) {
+            console.error('Failed to load author profiles:', authorErr);
+            showError('Fehler beim Laden der Autorenliste.');
+          } finally {
+            setAuthorsLoading(false);
+          }
+        }
       } catch (err) {
         console.error('Failed to load blog for editing:', err);
         showError('Fehler beim Laden des Beitrags.');
@@ -99,9 +127,23 @@ export const EditBlog: React.FC = () => {
   }, [id, userProfile, navigate, showError]);
 
   const canManageBlog = loadedBlog;
+  const isAdmin = userProfile?.role === 'admin';
+  const selectedAuthorProfile = authorProfiles.find(user => user.username === selectedAuthorUsername);
+  const originalAuthorProfile = authorProfiles.find(user => user.username === originalAuthorUsername);
+  const hasOrphanedOriginalAuthor = Boolean(originalAuthorUsername && !originalAuthorProfile);
+
+  const getAuthorFullName = (profile: UserProfile) => `${profile.firstName} ${profile.lastName}`;
+
+  const getAuthorDisplayName = (profile: UserProfile) => (
+    getAuthorFullName(profile).trim() || profile.username
+  );
 
   const handleTabChange = (_event: React.SyntheticEvent, newValue: number) => {
     setActiveTab(newValue);
+  };
+
+  const handleAuthorChange = (event: SelectChangeEvent) => {
+    setSelectedAuthorUsername(event.target.value);
   };
 
   const handleAddTag = () => {
@@ -148,6 +190,19 @@ export const EditBlog: React.FC = () => {
       return;
     }
 
+    let nextAuthorName = originalAuthorName;
+    let nextAuthorUsername = originalAuthorUsername;
+
+    if (isAdmin) {
+      if (selectedAuthorProfile) {
+        nextAuthorName = getAuthorFullName(selectedAuthorProfile);
+        nextAuthorUsername = selectedAuthorProfile.username;
+      } else if (selectedAuthorUsername !== originalAuthorUsername) {
+        showError('Bitte wähle einen aktiven Autor aus.');
+        return;
+      }
+    }
+
     setLoading(true);
     try {
       await updateBlog({
@@ -155,7 +210,11 @@ export const EditBlog: React.FC = () => {
         title: title.trim(),
         summary: summary.trim(),
         content: content.trim(),
-        tags
+        tags,
+        ...(isAdmin ? {
+          authorName: nextAuthorName,
+          authorUsername: nextAuthorUsername
+        } : {})
       });
 
       navigate(`/blog/${id}`);
@@ -260,6 +319,35 @@ export const EditBlog: React.FC = () => {
                   disabled={loading}
                   placeholder="Schreibe einen kurzen Teaser, der das Interesse der Leser weckt."
                 />
+
+                {isAdmin && (
+                  <FormControl fullWidth disabled={loading || authorsLoading}>
+                    <InputLabel id="post-author-select-label">Autor</InputLabel>
+                    <Select
+                      labelId="post-author-select-label"
+                      id="post-author-select"
+                      value={selectedAuthorUsername}
+                      label="Autor"
+                      onChange={handleAuthorChange}
+                    >
+                      {hasOrphanedOriginalAuthor && (
+                        <MenuItem value={originalAuthorUsername}>
+                          <em>Nicht mehr aktiver User (@{originalAuthorUsername})</em>
+                        </MenuItem>
+                      )}
+                      {authorProfiles.map(profile => (
+                        <MenuItem key={profile.uid} value={profile.username}>
+                          {getAuthorDisplayName(profile)} (@{profile.username})
+                        </MenuItem>
+                      ))}
+                    </Select>
+                    {hasOrphanedOriginalAuthor && selectedAuthorUsername === originalAuthorUsername && (
+                      <FormHelperText>
+                        Aktuelle Zuordnung verweist nur noch auf @{originalAuthorUsername}.
+                      </FormHelperText>
+                    )}
+                  </FormControl>
+                )}
 
                 {/* Tags section */}
                 <Box>

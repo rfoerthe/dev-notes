@@ -47,6 +47,19 @@ try {
 }
 
 const username = profile?.username?.trim().toLowerCase();
+let hasAuthoredPosts = false;
+
+if (username) {
+  try {
+    const authoredPostsSnapshot = await db.collection('blogs')
+      .where('authorUsername', '==', username)
+      .limit(1)
+      .get();
+    hasAuthoredPosts = !authoredPostsSnapshot.empty;
+  } catch (error) {
+    exitWithKnownSetupError(error);
+  }
+}
 
 if (profile?.role === 'admin') {
   console.error('Refusing to delete an admin user with this regular-user cleanup script.');
@@ -57,7 +70,17 @@ try {
   await db.runTransaction(async (transaction) => {
     transaction.delete(db.collection('users').doc(uid));
     if (username) {
-      transaction.delete(db.collection('usernames').doc(username));
+      const usernameRef = db.collection('usernames').doc(username);
+      if (hasAuthoredPosts) {
+        transaction.set(usernameRef, {
+          reserved: true,
+          reservedBecause: 'authored-posts',
+          previousUid: uid,
+          deletedAt: new Date().toISOString()
+        }, { merge: false });
+      } else {
+        transaction.delete(usernameRef);
+      }
     }
   });
 } catch (error) {
@@ -76,3 +99,6 @@ console.log('Regular user deleted completely.');
 console.log(`UID: ${uid}`);
 console.log(`Email: ${email || 'unknown'}`);
 console.log(`Username: ${username || 'unknown'}`);
+if (username) {
+  console.log(`Username reservation: ${hasAuthoredPosts ? 'kept because authored posts exist' : 'deleted'}`);
+}

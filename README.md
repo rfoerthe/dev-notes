@@ -20,11 +20,12 @@ The app can run in two modes:
 - Blog editor with comma/semicolon tag entry, tag sanitization, content length limits, live Markdown preview, live reading-time estimation, and visible bottom-of-screen validation errors on submit.
 - Profile page for account details, operating-system preference, password updates, and author-name propagation across existing posts.
 - Light, dark, and system theme selection from the navbar and profile settings.
+- Installed app version display in the footer and in the navbar title tooltip.
 - Development mock mode with localStorage-backed users, sessions, posts, starter content, PBKDF2-hashed local passwords, mock admin setup, and a visible mock-mode indicator.
 - Optional Firebase Analytics page tracking that starts only after explicit browser consent.
 - German legal pages for Impressum, Datenschutz, and Nutzungsbedingungen.
 - Firestore security rules for users, username reservations, blog posts, immutable ownership fields, and Admin SDK-only cleanup operations.
-- Admin SDK maintenance scripts for admin bootstrap and repair, user cleanup, blog post seeding/deletion, and Firestore backup/restore with dry-run and confirmation safeguards.
+- Admin SDK maintenance scripts for admin bootstrap, admin/user restore repair, user cleanup, blog post seeding/deletion, and Firestore backup/restore with dry-run and confirmation safeguards.
 - Firebase Hosting configuration with SPA rewrites, security headers, and a strict Content Security Policy. Shiki uses its JavaScript regex engine in the browser so syntax highlighting works under this CSP without enabling `wasm-unsafe-eval`.
 
 ## Tech Stack
@@ -50,8 +51,8 @@ src/
   pages/             Route-level pages for blog, auth, admin, profile, mock setup, and legal views
   services/          Firebase setup, analytics consent, auth workflow, and blog data access
   theme/             Material UI theme configuration
-  __tests__/         Service, search/filter, analytics, and Markdown renderer tests
-scripts/             Admin bootstrap, user cleanup, post maintenance, and Firebase CLI helpers
+  __tests__/         Service, restore utility, search/filter, analytics, and Markdown renderer tests
+scripts/             Admin/user repair, backup/restore, user cleanup, post maintenance, and Firebase CLI helpers
 public/              Static icons and favicon
 firestore.rules      Cloud Firestore security rules
 firebase.json        Firebase Hosting and Firestore configuration
@@ -111,7 +112,7 @@ npm run deploy:rules
 
 Do not create or seed admin credentials in the browser client. A public first-run setup screen would let the first visitor claim the administrator account, so DevNotes uses a local Firebase Admin SDK bootstrap script instead.
 
-The script creates or updates the admin profile in Firebase Auth and Firestore without storing a password. It prints a Firebase password reset link that the admin uses to set the initial password.
+The script creates or updates the admin profile in Firebase Auth and Firestore without storing a password. It generates a Firebase password reset link that the admin uses to set the initial password; the link is only printed when explicitly requested.
 
 Prerequisites:
 
@@ -160,7 +161,7 @@ While mock mode is active in development, the navbar displays a visible `MOCK MO
 
 ## Authoring Workflow
 
-Approved users can create posts at `/write`. A post belongs to the user whose immutable `username` matches the post's `authorUsername`; that author and admins can edit posts from the article detail page, and can permanently delete posts after confirming the delete dialog.
+Approved users can create posts at `/write`. A post belongs to the user whose immutable `username` matches the post's `authorUsername`; new posts do not store the Firebase Auth UID as ownership data. That author and admins can edit posts from the article detail page, and can permanently delete posts after confirming the delete dialog. Admins can also reassign a post to another active author from the edit form; orphaned author usernames remain visible until reassigned.
 
 The editor supports:
 
@@ -261,7 +262,7 @@ Preview the restore plan without writing:
 npm run firestore:restore -- --input backups/pre-release.json --dry-run
 ```
 
-During restore, legacy blog documents without `authorUsername` are repaired in memory when the username can be inferred from restored user profiles. If ownership cannot be inferred unambiguously, the restore stops before writing because the current app uses `authorUsername` for author filtering and edit/delete permissions.
+During restore, legacy blog documents without `authorUsername` are repaired in memory when the username can be inferred from restored user profiles or an old `authorId`. If ownership cannot be inferred unambiguously, the restore stops before writing because the current app uses `authorUsername` for author filtering and edit/delete permissions.
 
 After restoring into a new or repaired Firebase project, run the admin repair script so the Firebase Auth account and Firestore admin profile use the same UID:
 
@@ -298,11 +299,31 @@ npm run restore:user -- --all --yes
 
 The script does not print password reset links by default. For a single trusted local repair, add `--print-reset-link` or `PRINT_USER_RESET_LINK=1` and send the generated Firebase reset link to that user.
 
+For a single-user repair such as:
+
+```bash
+USER_EMAIL=user@example.com npm run restore:user -- --yes
+```
+
+the script performs these steps:
+
+1. Loads local environment variables and initializes the Firebase Admin SDK.
+2. Finds exactly one restored non-admin Firestore profile by `USER_EMAIL`. You can also select by `USER_USERNAME` or `USER_UID`.
+3. Validates the restored profile's email, username, first name, and last name.
+4. Looks up the Firebase Auth account by email.
+5. Creates the Auth account when it does not exist, or re-enables and updates its display name when it already exists.
+6. Verifies that the target Auth UID is not attached to a different Firestore profile and that `usernames/<username>` is not owned by another user.
+7. Writes the profile to `users/<auth-uid>`, updates the profile's `uid`, keeps the restored account data, and forces `role: "user"`.
+8. Writes `usernames/<username> = { uid: "<auth-uid>" }`.
+9. Deletes the old restored `users/<old-uid>` profile when the new Auth UID differs from the restored UID.
+
+The script does not set a password. Users receive access through Firebase password reset links. Blog ownership does not need to be rewritten because posts are owned by immutable `authorUsername`, not by Firebase Auth UID. Existing `authorId` values in old blog documents are treated as legacy restore hints only.
+
 Keep backup files secure. They can contain user profiles, email addresses, and unpublished blog content.
 
 ## Firebase Configuration
 
-Create a local `.env` file when you want to connect the app to a real Firebase project:
+Create a local `.env` file when you want to connect the app to a real Firebase project. The minimum browser config is API key, auth domain, project ID, and app ID; storage bucket and sender ID can be copied from the Firebase web app config when available:
 
 ```bash
 VITE_FIREBASE_API_KEY=your-api-key
@@ -318,7 +339,7 @@ Optional Firebase integrations can be enabled with additional variables:
 ```bash
 VITE_FIREBASE_ANALYTICS_ENABLED=false
 VITE_FIREBASE_MEASUREMENT_ID=G-XXXXXXXXXX
-VITE_FIREBASE_APPCHECK_SITE_KEY=your-recaptcha-v3-site-key
+VITE_FIREBASE_APPCHECK_SITE_KEY=your-recaptcha-enterprise-site-key
 ```
 
 If the required Firebase values are not present, DevNotes falls back to local mock mode during development. Production builds require Firebase credentials and refuse to start in mock mode.
@@ -327,7 +348,7 @@ Firebase Analytics is disabled by default, even when `VITE_FIREBASE_MEASUREMENT_
 
 Firebase Analytics loads Google Tag Manager under the hood. Browsers, ad blockers, Pi-hole, or corporate networks can block `https://www.googletagmanager.com`; keeping `VITE_FIREBASE_ANALYTICS_ENABLED=false` avoids that request entirely. The app suppresses Firebase's automatic page view event and logs route changes itself after consent. Consent is persisted in `localStorage` under `devnotes_analytics_consent`.
 
-When `VITE_FIREBASE_APPCHECK_SITE_KEY` is present, DevNotes initializes Firebase App Check with reCAPTCHA v3. Enable App Check enforcement for Firebase services in the Firebase Console before relying on it for abuse protection.
+When `VITE_FIREBASE_APPCHECK_SITE_KEY` is present, DevNotes initializes Firebase App Check with reCAPTCHA Enterprise. Enable App Check enforcement for Firebase services in the Firebase Console before relying on it for abuse protection.
 
 ## Authentication Flow
 
@@ -350,7 +371,7 @@ Use the Admin SDK cleanup script to delete a regular user completely from:
 
 - Firebase Authentication
 - `users/{uid}`
-- `usernames/{username}`
+- `usernames/{username}`, unless the user has authored posts
 
 Prerequisites:
 
@@ -381,7 +402,7 @@ USER_UID=firebase-auth-uid \
 npm run user:delete
 ```
 
-The script refuses to delete admin accounts. It is intended only for regular user cleanup.
+The script refuses to delete admin accounts. It is intended only for regular user cleanup. If the deleted user has authored posts, `usernames/{username}` is kept as a reserved tombstone so future accounts cannot take over those posts by reusing the same username. Tombstones are marked with `reserved: true`, `reservedBecause: "authored-posts"`, `previousUid`, and `deletedAt`; they intentionally do not contain an active `uid`.
 
 ## Data Model
 
@@ -398,9 +419,9 @@ Firestore rules enforce role and status checks, immutable ownership fields, prof
 - Firebase Hosting sends a Content Security Policy, clickjacking protection, MIME-sniffing protection, referrer policy, and a restrictive permissions policy.
 - Usernames must be lowercase URL-safe identifiers and are transaction-coupled to the matching user profile.
 - Firebase user profiles must use the authenticated email address from the Firebase Auth token.
-- Blog posts created through the browser use a server timestamp and immutable `authorUsername` ownership; legacy string timestamps are still readable and editable for existing Admin SDK seeded content.
+- Blog posts created through the browser use a server timestamp and immutable `authorUsername` ownership; new browser-created posts cannot include legacy `authorId`, while older documents remain readable and editable. Admin-only reassignment must target an approved profile behind a non-tombstoned username reservation.
 - Password forms require at least 12 characters with uppercase, lowercase, numeric, and symbol characters.
-- Optional Firebase App Check can be enabled with `VITE_FIREBASE_APPCHECK_SITE_KEY`.
+- Optional Firebase App Check with reCAPTCHA Enterprise can be enabled with `VITE_FIREBASE_APPCHECK_SITE_KEY`.
 
 ## Routes
 
@@ -414,10 +435,12 @@ Public routes:
 - `/impressum`
 - `/datenschutz`
 - `/nutzungsbedingungen`
+- `/mock-admin-setup` (development-only mock admin setup when mock mode is active)
 
 Approved developer routes:
 
 - `/write`
+- `/my-posts`
 - `/edit/:id`
 - `/profile`
 

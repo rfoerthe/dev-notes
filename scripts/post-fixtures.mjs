@@ -279,7 +279,6 @@ export const createExamplePosts = () => {
       summary: summaries[definition.topic],
       content,
       tags: definition.tags,
-      authorId: 'admin-uid',
       authorName: 'Blog Admin',
       authorUsername: 'admin',
       createdAt,

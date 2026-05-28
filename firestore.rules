@@ -166,14 +166,24 @@ service cloud.firestore {
         validCreatedAtValue();
     }
 
-    function blogOwnershipIsImmutable() {
+    function blogIdentityIsImmutable() {
       return request.resource.data.keys().hasAny(['authorId']) == resource.data.keys().hasAny(['authorId']) &&
         (
           !resource.data.keys().hasAny(['authorId']) ||
           request.resource.data.authorId == resource.data.authorId
         ) &&
-        request.resource.data.authorUsername == resource.data.authorUsername &&
         request.resource.data.createdAt == resource.data.createdAt;
+    }
+
+    function validApprovedAuthorTarget(authorUsername, authorName) {
+      return exists(/databases/$(database)/documents/usernames/$(authorUsername)) &&
+        get(/databases/$(database)/documents/usernames/$(authorUsername)).data.uid is string &&
+        exists(/databases/$(database)/documents/users/$(get(/databases/$(database)/documents/usernames/$(authorUsername)).data.uid)) &&
+        get(/databases/$(database)/documents/users/$(get(/databases/$(database)/documents/usernames/$(authorUsername)).data.uid)).data.status == 'approved' &&
+        get(/databases/$(database)/documents/users/$(get(/databases/$(database)/documents/usernames/$(authorUsername)).data.uid)).data.username == authorUsername &&
+        get(/databases/$(database)/documents/users/$(get(/databases/$(database)/documents/usernames/$(authorUsername)).data.uid)).data.firstName +
+          ' ' +
+          get(/databases/$(database)/documents/users/$(get(/databases/$(database)/documents/usernames/$(authorUsername)).data.uid)).data.lastName == authorName;
     }
 
     // --- Users Collection Rules ---
@@ -239,21 +249,19 @@ service cloud.firestore {
       // Enforce strict field-level type safety and size constraints on creation
       allow create: if isApproved() &&
         validBlogPost() &&
+        !request.resource.data.keys().hasAny(['authorId']) &&
         request.resource.data.createdAt == request.time &&
-        (
-          !request.resource.data.keys().hasAny(['authorId']) ||
-          request.resource.data.authorId == request.auth.uid
-        ) &&
         request.resource.data.authorName == currentUserFullName() &&
         request.resource.data.authorUsername == currentUserProfile().username;
       
       // Enforce immutable fields during update
       allow update: if isApproved() &&
         validBlogPost() &&
-        blogOwnershipIsImmutable() &&
+        blogIdentityIsImmutable() &&
         (
           (
             resource.data.authorUsername == currentUserProfile().username &&
+            request.resource.data.authorUsername == resource.data.authorUsername &&
             (
               (
                 request.resource.data.authorName == resource.data.authorName &&
@@ -267,8 +275,14 @@ service cloud.firestore {
           ) ||
           (
             isAdmin() &&
-            request.resource.data.authorName == resource.data.authorName &&
-            request.resource.data.diff(resource.data).affectedKeys().hasOnly(['title', 'summary', 'content', 'tags', 'readTime'])
+            request.resource.data.diff(resource.data).affectedKeys().hasOnly(['title', 'summary', 'content', 'tags', 'readTime', 'authorName', 'authorUsername']) &&
+            (
+              (
+                request.resource.data.authorUsername == resource.data.authorUsername &&
+                request.resource.data.authorName == resource.data.authorName
+              ) ||
+              validApprovedAuthorTarget(request.resource.data.authorUsername, request.resource.data.authorName)
+            )
           )
         );
       
