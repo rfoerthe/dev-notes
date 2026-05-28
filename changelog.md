@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.0.3] - 2026-05-28
+
+### Changed
+
+- The home page now renders recent blog posts first and loads the complete post index in the background.
+- Firestore now uses a persistent browser cache so repeat visits can reuse cached data.
+- Blog list filtering now memoizes the final sorted result to avoid extra sorting work during re-renders.
+
 ## [1.0.2] - 2026-05-28
 
 ### Added

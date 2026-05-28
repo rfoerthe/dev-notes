@@ -6,12 +6,14 @@ import {
   doc,
   query,
   orderBy,
+  limit as firestoreLimit,
   updateDoc,
   deleteDoc,
   where,
   writeBatch,
   serverTimestamp,
-  Timestamp
+  Timestamp,
+  type QuerySnapshot
 } from 'firebase/firestore';
 import { db } from './firebase';
 import {
@@ -75,6 +77,14 @@ function normalizeBlogPost(id: string, data: Record<string, unknown>): BlogPost 
   };
 }
 
+function snapshotToBlogPosts(snapshot: QuerySnapshot): BlogPost[] {
+  const results: BlogPost[] = [];
+  snapshot.forEach(docSnap => {
+    results.push(normalizeBlogPost(docSnap.id, docSnap.data()));
+  });
+  return sortBlogPostsNewestFirst(results);
+}
+
 // Calculate read time (roughly 200 words per minute)
 export function calculateReadTime(text: string): number {
   const words = text.trim().split(/\s+/).filter(Boolean).length;
@@ -95,11 +105,19 @@ export async function getBlogs(): Promise<BlogPost[]> {
     const blogsRef = collection(db, 'blogs');
     const q = query(blogsRef, orderBy('createdAt', 'desc'));
     const snapshot = await getDocs(q);
-    const results: BlogPost[] = [];
-    snapshot.forEach(docSnap => {
-      results.push(normalizeBlogPost(docSnap.id, docSnap.data()));
-    });
-    return sortBlogPostsNewestFirst(results);
+    return snapshotToBlogPosts(snapshot);
+  } catch (err) {
+    console.error('Failed to fetch blogs from Firestore, falling back to empty list:', err);
+    return [];
+  }
+}
+
+export async function getRecentBlogs(count: number): Promise<BlogPost[]> {
+  try {
+    const blogsRef = collection(db, 'blogs');
+    const q = query(blogsRef, orderBy('createdAt', 'desc'), firestoreLimit(count));
+    const snapshot = await getDocs(q);
+    return snapshotToBlogPosts(snapshot);
   } catch (err) {
     console.error('Failed to fetch blogs from Firestore, falling back to empty list:', err);
     return [];

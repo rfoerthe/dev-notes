@@ -1,6 +1,13 @@
 import { initializeApp, getApps, getApp, type FirebaseApp } from 'firebase/app';
 import { connectAuthEmulator, getAuth, type Auth } from 'firebase/auth';
-import { connectFirestoreEmulator, getFirestore, initializeFirestore, type Firestore } from 'firebase/firestore';
+import {
+  connectFirestoreEmulator,
+  getFirestore,
+  initializeFirestore,
+  persistentLocalCache,
+  persistentMultipleTabManager,
+  type Firestore
+} from 'firebase/firestore';
 import { initializeAnalytics, isSupported, type Analytics } from 'firebase/analytics';
 import { initializeAppCheck, ReCaptchaEnterpriseProvider } from 'firebase/app-check';
 
@@ -68,7 +75,10 @@ if (!useFirebaseEmulator && firebaseConfig.appCheckSiteKey) {
 
 try {
   db = initializeFirestore(app, {
-    experimentalAutoDetectLongPolling: true
+    experimentalAutoDetectLongPolling: true,
+    localCache: persistentLocalCache({
+      tabManager: persistentMultipleTabManager()
+    })
   });
 } catch {
   db = getFirestore(app);

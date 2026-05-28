@@ -25,12 +25,14 @@ import {
   Pagination
 } from '@mui/material';
 import { Search, Calendar, Clock, ArrowUpRight, Code, ChevronDown } from 'lucide-react';
-import { getBlogs, sortBlogPostsNewestFirst } from '../services/blogService';
+import { getBlogs, getRecentBlogs, sortBlogPostsNewestFirst } from '../services/blogService';
 import type { BlogPost } from '../services/blogService';
 import { blogMatchesSearch } from '../services/blogSearch';
 import { blogMatchesFilterTag, getBlogFilterTags } from '../services/blogTagFilters';
 
 const FEATURED_POST_LIMIT = 6;
+const INITIAL_OLDER_POST_LIMIT = 20;
+const INITIAL_BLOG_LOAD_LIMIT = FEATURED_POST_LIMIT + INITIAL_OLDER_POST_LIMIT;
 const OLDER_PAGE_SIZE_OPTIONS = [10, 20, 50, 100];
 
 export const Home: React.FC = () => {
@@ -86,17 +88,39 @@ export const Home: React.FC = () => {
   const navigate = useNavigate();
 
   useEffect(() => {
+    let isMounted = true;
+
     const fetchBlogs = async () => {
       try {
-        const data = await getBlogs();
-        setBlogs(data);
+        const initialBlogs = await getRecentBlogs(INITIAL_BLOG_LOAD_LIMIT);
+        if (!isMounted) {
+          return;
+        }
+
+        setBlogs(initialBlogs);
+        setLoading(false);
+
+        if (initialBlogs.length < INITIAL_BLOG_LOAD_LIMIT) {
+          return;
+        }
+
+        const allBlogs = await getBlogs();
+        if (isMounted) {
+          setBlogs(allBlogs);
+        }
       } catch (err) {
         console.error("Failed to load blogs:", err);
-      } finally {
-        setLoading(false);
+        if (isMounted) {
+          setLoading(false);
+        }
       }
     };
+
     fetchBlogs();
+
+    return () => {
+      isMounted = false;
+    };
   }, []);
 
   const searchMatchedBlogs = useMemo(() => {
@@ -141,11 +165,13 @@ export const Home: React.FC = () => {
   }, [availableTagsSorted, popoverSearchQuery, selectedTags]);
 
   // Filter all blogs before applying the featured/archive presentation split.
-  const filteredBlogs = sortBlogPostsNewestFirst(
-    searchMatchedBlogs.filter(blog => (
-      selectedTags.length === 0 || selectedTags.every(tag => blogMatchesFilterTag(blog, tag))
-    ))
-  );
+  const filteredBlogs = useMemo(() => (
+    sortBlogPostsNewestFirst(
+      searchMatchedBlogs.filter(blog => (
+        selectedTags.length === 0 || selectedTags.every(tag => blogMatchesFilterTag(blog, tag))
+      ))
+    )
+  ), [searchMatchedBlogs, selectedTags]);
   const hasActiveFilters = searchQuery.trim().length > 0 || selectedTags.length > 0;
   const featuredBlogs = filteredBlogs.slice(0, FEATURED_POST_LIMIT);
   const olderBlogs = filteredBlogs.slice(FEATURED_POST_LIMIT);
