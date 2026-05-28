@@ -25,7 +25,7 @@ import { Terminal, PenTool, ShieldAlert, LogOut, Menu as MenuIcon, Settings, Sun
 import { useAuth } from '../context/AuthContext';
 import { fetchUsersByStatus } from '../services/authService';
 import { useCustomTheme } from '../context/CustomThemeContext';
-import { isMockEnabled } from '../services/firebase';
+import { useFirebaseEmulator } from '../services/firebase';
 
 export const NavBar: React.FC = () => {
   const { currentUser, userProfile, logout } = useAuth();
@@ -37,7 +37,7 @@ export const NavBar: React.FC = () => {
   const [pendingCount, setPendingCount] = useState<number>(0);
 
   const isMdUp = useMediaQuery('(min-width:900px)');
-  const showMockModeIndicator = isMockEnabled && import.meta.env.DEV;
+  const showEmulatorIndicator = useFirebaseEmulator && import.meta.env.DEV;
 
   // Poll or check for pending user registration requests to show in admin badge
   useEffect(() => {
@@ -121,7 +121,7 @@ export const NavBar: React.FC = () => {
           </Typography>
         </Box>
       </Tooltip>
-      {showMockModeIndicator && (
+      {showEmulatorIndicator && (
         <Box
           sx={{
             mx: 1,
@@ -139,7 +139,7 @@ export const NavBar: React.FC = () => {
             textTransform: 'uppercase'
           }}
         >
-          MOCK MODE
+          FIREBASE EMULATOR
         </Box>
       )}
       <Divider sx={{ mb: 2 }} />
@@ -516,7 +516,7 @@ export const NavBar: React.FC = () => {
             </Box>
           </Toolbar>
         </Container>
-        {showMockModeIndicator && (
+        {showEmulatorIndicator && (
           <Box
             sx={{
               borderTop: (theme) => theme.palette.mode === 'dark' ? '1px solid rgba(251, 191, 36, 0.12)' : '1px solid rgba(217, 119, 6, 0.12)',
@@ -542,7 +542,7 @@ export const NavBar: React.FC = () => {
                 }}
               >
                 <Terminal size={14} />
-                <Box component="span">MOCK MODE</Box>
+                <Box component="span">FIREBASE EMULATOR</Box>
                 <Box
                   component="span"
                   sx={{
@@ -551,7 +551,7 @@ export const NavBar: React.FC = () => {
                     textTransform: 'none'
                   }}
                 >
-                  Lokaler Browser-Store aktiv
+                  Auth und Firestore laufen lokal
                 </Box>
               </Box>
             </Container>

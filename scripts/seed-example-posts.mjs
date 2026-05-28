@@ -2,10 +2,8 @@ import { getFirestore } from 'firebase-admin/firestore';
 import { exitWithKnownSetupError, initializeAdminApp } from './firebase-admin-utils.mjs';
 import {
   createExamplePosts,
-  createMockSeedSnippet,
   normalizeTarget,
   parseArgs,
-  printMockSnippet,
   printTargetHelp,
   withoutDocumentId
 } from './post-fixtures.mjs';
@@ -41,16 +39,7 @@ const main = async () => {
 
   const posts = createExamplePosts();
 
-  if (target === 'firestore' || target === 'all') {
-    await seedFirestorePosts(posts);
-  }
-
-  if (target === 'mock' || target === 'all') {
-    printMockSnippet({
-      title: 'Mock browser store seed snippet',
-      snippet: createMockSeedSnippet(posts)
-    });
-  }
+  await seedFirestorePosts(posts);
 };
 
 try {

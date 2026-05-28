@@ -1,6 +1,11 @@
 import { getAuth } from 'firebase-admin/auth';
 import { getFirestore, FieldValue } from 'firebase-admin/firestore';
-import { exitWithKnownSetupError, initializeAdminApp, loadEnvFile } from './firebase-admin-utils.mjs';
+import {
+  exitWithKnownSetupError,
+  initializeAdminApp,
+  isUsingFirebaseEmulators,
+  loadEnvFile
+} from './firebase-admin-utils.mjs';
 
 class BootstrapInputError extends Error {
   constructor(message, details = []) {
@@ -22,7 +27,7 @@ const required = (name) => {
 };
 
 const normalizeAdminEmail = () => {
-  const email = required('ADMIN_EMAIL').toLowerCase();
+  const email = (process.env.ADMIN_EMAIL?.trim() || (isUsingFirebaseEmulators() ? 'admin@example.local' : '') || required('ADMIN_EMAIL')).toLowerCase();
   const isEmailLike = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
 
   if (!isEmailLike) {
@@ -83,6 +88,8 @@ const main = async () => {
   const lastName = (process.env.ADMIN_LAST_NAME || 'Admin').trim();
   const appUrl = process.env.APP_URL?.trim();
   const shouldPrintResetLink = process.env.PRINT_ADMIN_RESET_LINK === '1';
+  const usingEmulators = isUsingFirebaseEmulators();
+  const emulatorPassword = (process.env.ADMIN_PASSWORD || 'LocalAdmin123!').trim();
 
   if (!adminUsername) {
     throw new BootstrapInputError('ADMIN_USERNAME must not be empty.', [
@@ -93,6 +100,12 @@ const main = async () => {
   if (!firstName || !lastName) {
     throw new BootstrapInputError('ADMIN_FIRST_NAME and ADMIN_LAST_NAME must not be empty.', [
       'Remove the empty value to use the defaults, or set both names explicitly.'
+    ]);
+  }
+
+  if (usingEmulators && emulatorPassword.length < 8) {
+    throw new BootstrapInputError('ADMIN_PASSWORD must contain at least 8 characters in emulator mode.', [
+      'Set ADMIN_PASSWORD to the local admin password you want to use.'
     ]);
   }
 
@@ -123,6 +136,19 @@ const main = async () => {
     }
   }
 
+  if (usingEmulators) {
+    try {
+      authUser = await auth.updateUser(authUser.uid, {
+        password: emulatorPassword,
+        displayName: `${firstName} ${lastName}`,
+        emailVerified: true,
+        disabled: false
+      });
+    } catch (error) {
+      exitWithKnownSetupError(error);
+    }
+  }
+
   const usernameRef = db.collection('usernames').doc(adminUsername);
   let usernameSnap;
   try {
@@ -131,7 +157,11 @@ const main = async () => {
     exitWithKnownSetupError(error);
   }
 
-  if (usernameSnap.exists && usernameSnap.data()?.uid !== authUser.uid) {
+  const staleUsernameUid = usernameSnap.exists && usernameSnap.data()?.uid !== authUser.uid
+    ? usernameSnap.data()?.uid
+    : null;
+
+  if (staleUsernameUid && !usingEmulators) {
     throw new BootstrapInputError(`Username "${adminUsername}" is already reserved by another user.`, [
       'Set ADMIN_USERNAME to a different value, or remove the existing username reservation intentionally.'
     ]);
@@ -144,10 +174,22 @@ const main = async () => {
   } catch (error) {
     exitWithKnownSetupError(error);
   }
-  const existingCreatedAt = existingProfile.exists ? existingProfile.data()?.createdAt : undefined;
+  let existingCreatedAt = existingProfile.exists ? existingProfile.data()?.createdAt : undefined;
+  let staleProfileRef = null;
+
+  if (staleUsernameUid) {
+    staleProfileRef = db.collection('users').doc(staleUsernameUid);
+    const staleProfileSnap = await staleProfileRef.get();
+    existingCreatedAt = existingCreatedAt || staleProfileSnap.data()?.createdAt;
+    console.log(`Repairing stale local username reservation for "${adminUsername}".`);
+  }
 
   try {
     await db.runTransaction(async (transaction) => {
+      if (staleProfileRef) {
+        transaction.delete(staleProfileRef);
+      }
+
       transaction.set(userRef, {
         uid: authUser.uid,
         firstName,
@@ -164,6 +206,15 @@ const main = async () => {
     });
   } catch (error) {
     exitWithKnownSetupError(error);
+  }
+
+  if (usingEmulators) {
+    console.log('');
+    console.log('Local emulator admin bootstrap completed.');
+    console.log(`Email: ${adminEmail}`);
+    console.log(`Username reservation: ${adminUsername}`);
+    console.log(`Password: ${emulatorPassword}`);
+    return;
   }
 
   const actionCodeSettings = appUrl

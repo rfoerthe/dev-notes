@@ -25,6 +25,11 @@ export const loadEnvFile = () => {
 
 export const getProjectId = () => process.env.FIREBASE_PROJECT_ID || process.env.VITE_FIREBASE_PROJECT_ID;
 
+export const isUsingFirebaseEmulators = () => Boolean(
+  process.env.FIRESTORE_EMULATOR_HOST ||
+  process.env.FIREBASE_AUTH_EMULATOR_HOST
+);
+
 const markCredentialSetupError = (error) => {
   if (error && typeof error === 'object') {
     error.devNotesCredentialSetupError = true;
@@ -73,6 +78,15 @@ export const assertAdminCredentialsAvailable = () => {
 
 export const initializeAdminApp = () => {
   loadEnvFile();
+
+  if (isUsingFirebaseEmulators()) {
+    if (getApps().length === 0) {
+      initializeApp({
+        projectId: getProjectId() || 'devnotes-local'
+      });
+    }
+    return;
+  }
 
   let credential;
   try {

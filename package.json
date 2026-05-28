@@ -1,12 +1,16 @@
 {
   "name": "dev-notes",
   "private": true,
-  "version": "1.0.1",
+  "version": "1.0.2",
   "license": "MIT",
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "dev:mock": "VITE_FORCE_MOCK_MODE=true vite",
+    "dev:emulator": "VITE_USE_FIREBASE_EMULATOR=true VITE_FIREBASE_PROJECT_ID=devnotes-local VITE_FIREBASE_AUTH_EMULATOR_URL=http://127.0.0.1:9099 VITE_FIRESTORE_EMULATOR_HOST=127.0.0.1 VITE_FIRESTORE_EMULATOR_PORT=8080 vite",
+    "emulators": "firebase emulators:start --only auth,firestore --project devnotes-local --import .firebase/emulator-data --export-on-exit .firebase/emulator-data",
+    "emulator:bootstrap-admin": "FIREBASE_AUTH_EMULATOR_HOST=127.0.0.1:9099 FIRESTORE_EMULATOR_HOST=127.0.0.1:8080 FIREBASE_PROJECT_ID=devnotes-local node scripts/bootstrap-admin.mjs",
+    "emulator:seed": "FIREBASE_AUTH_EMULATOR_HOST=127.0.0.1:9099 FIRESTORE_EMULATOR_HOST=127.0.0.1:8080 FIREBASE_PROJECT_ID=devnotes-local npm run posts:seed -- --target firestore",
+    "emulator:delete-posts": "FIREBASE_AUTH_EMULATOR_HOST=127.0.0.1:9099 FIRESTORE_EMULATOR_HOST=127.0.0.1:8080 FIREBASE_PROJECT_ID=devnotes-local npm run posts:delete -- --target firestore --yes",
     "build": "tsc -b && vite build",
     "lint": "eslint .",
     "test": "vitest run",

@@ -73,7 +73,7 @@ export default defineConfig({
     environment: 'jsdom',
     setupFiles: './src/setupTests.ts',
     env: {
-      VITE_FORCE_MOCK_MODE: 'true',
+      VITE_USE_FIREBASE_EMULATOR: 'false',
     },
   },
 })

@@ -23,7 +23,7 @@ export const Login: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState<boolean>(false);
 
-  const { login, isMock } = useAuth();
+  const { login } = useAuth();
   const navigate = useNavigate();
 
   const handleTogglePassword = () => {
@@ -116,7 +116,7 @@ export const Login: React.FC = () => {
             <Stack spacing={2.5}>
               {/* Login Input */}
               <TextField
-                label={isMock ? 'E-Mail-Adresse oder Benutzername' : 'E-Mail-Adresse'}
+                label="E-Mail-Adresse"
                 variant="outlined"
                 fullWidth
                 value={username}
@@ -193,24 +193,6 @@ export const Login: React.FC = () => {
               Registrieren
             </Typography>
           </Stack>
-
-          {isMock && import.meta.env.DEV && (
-            <Box sx={{ textAlign: 'center', mt: 2 }}>
-              <Typography
-                component={RouterLink}
-                to="/mock-admin-setup"
-                variant="body2"
-                sx={{
-                  color: 'secondary.main',
-                  textDecoration: 'none',
-                  fontWeight: 700,
-                  '&:hover': { textDecoration: 'underline' }
-                }}
-              >
-                Lokalen Admin einrichten
-              </Typography>
-            </Box>
-          )}
         </Box>
       </Paper>
     </Container>

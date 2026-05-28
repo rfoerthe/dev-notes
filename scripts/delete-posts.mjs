@@ -1,10 +1,8 @@
 import { getFirestore } from 'firebase-admin/firestore';
 import { exitWithKnownSetupError, initializeAdminApp } from './firebase-admin-utils.mjs';
 import {
-  createMockDeleteSnippet,
   normalizeTarget,
   parseArgs,
-  printMockSnippet,
   printTargetHelp
 } from './post-fixtures.mjs';
 
@@ -37,7 +35,7 @@ const main = async () => {
     process.exit(1);
   }
 
-  if ((target === 'firestore' || target === 'all') && options.yes !== true) {
+  if (target === 'firestore' && options.yes !== true) {
     console.error('');
     console.error('Refusing to delete Firestore posts without explicit confirmation.');
     console.error('Run again with --yes when you really want to remove all documents from the blogs collection.');
@@ -45,16 +43,7 @@ const main = async () => {
     process.exit(1);
   }
 
-  if (target === 'firestore' || target === 'all') {
-    await deleteFirestorePosts();
-  }
-
-  if (target === 'mock' || target === 'all') {
-    printMockSnippet({
-      title: 'Mock browser store delete snippet',
-      snippet: createMockDeleteSnippet()
-    });
-  }
+  await deleteFirestorePosts();
 };
 
 try {

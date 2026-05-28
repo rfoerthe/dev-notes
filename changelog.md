@@ -1,5 +1,26 @@
 # Changelog
 
+## [1.0.2] - 2026-05-28
+
+### Added
+
+- Local Firebase Emulator Suite workflow for Firebase Authentication and Firestore development.
+- Emulator scripts for starting local services, bootstrapping the local admin, seeding posts, and deleting local emulator posts.
+- Visible `FIREBASE EMULATOR` development indicator in the navigation.
+
+### Changed
+
+- Replaced the browser `localStorage` mock mode with Firebase Auth and Firestore emulator support.
+- Authentication, blog, and admin service paths now use the Firebase-backed implementation in both production and local emulator development.
+- Removed the development-only mock admin setup page and route.
+- Local and production sign-in now consistently use Firebase email/password authentication.
+- Post maintenance scripts now target Firestore directly, including the local emulator when emulator environment variables are set.
+- README and privacy copy now describe the Firebase emulator workflow, local admin credentials, script overview, and email-based sign-in instead of the old local mock store.
+
+### Fixed
+
+- Local admin bootstrap now repairs stale emulator username reservations when Auth and Firestore emulator data get out of sync.
+
 ## [1.0.1] - 2026-05-28
 
 ### Added

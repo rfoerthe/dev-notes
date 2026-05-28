@@ -130,10 +130,10 @@ export const Datenschutz: React.FC = () => {
               Wenn unsere Website im Firebase-Echtdatenmodus betrieben wird, werden Ihre Registrierungsdaten (Vorname, Nachname, E-Mail-Adresse, verschlüsseltes Passwort und Benutzername) in den Cloud-Datenbanken von Google Firebase gehostet. Firebase Authentication verwaltet die sichere Benutzeranmeldung und Session-Tokens unter Verwendung von zustandslosen JWT-Tokens (Cookies oder Web Storage). Firestore dient als strukturierte Datenbank zur Verwaltung von Autoren-Profilen und Blog-Artikeln. Alle Datenübertragungen sind über SSL/TLS-Verschlüsselung abgesichert. Die Serverstandorte befinden sich in der Europäischen Union (bzw. entsprechen den EU-Standardvertragsklauseln).
             </Typography>
             <Typography variant="subtitle1" sx={{ fontWeight: 600, mb: 1, color: 'text.primary' }}>
-              Lokaler Mock-Modus (Sicherer Testbetrieb)
+              Lokaler Firebase-Emulator (Entwicklungsbetrieb)
             </Typography>
             <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-              Standardmäßig wird diese Anwendung ohne aktive Firebase-Anbindung in einem lokalen Sandbox-Modus („Mock Mode“) betrieben. Hierbei werden alle erhobenen Profildaten (einschließlich sicherer, lokaler SHA-256-Passworthashes) und erstellten Blog-Beiträge ausschließlich in Ihrem lokalen Webbrowser-Speicher (`localStorage`) abgelegt. Es findet zu keinem Zeitpunkt eine Übertragung dieser Daten an externe Server statt. Ihre Daten verbleiben vollständig unter Ihrer Kontrolle auf Ihrem Endgerät und können durch Leeren des Browser-Caches gelöscht werden.
+              Im lokalen Entwicklungsbetrieb kann diese Anwendung mit der Firebase Local Emulator Suite betrieben werden. Dabei laufen Firebase Authentication und Firestore ausschließlich auf dem lokalen Entwicklungsrechner. Es findet keine Übertragung dieser lokalen Testdaten an externe Firebase-Cloud-Dienste statt.
             </Typography>
             <Typography variant="subtitle1" sx={{ fontWeight: 600, mb: 1, color: 'text.primary' }}>
               Anti-Robot Honeypot Schutz

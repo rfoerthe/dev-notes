@@ -19,7 +19,6 @@ import { Profile } from './pages/Profile';
 import { Impressum } from './pages/Impressum';
 import { Datenschutz } from './pages/Datenschutz';
 import { Nutzungsbedingungen } from './pages/Nutzungsbedingungen';
-import { MockAdminSetup } from './pages/MockAdminSetup';
 import { ProtectedRoute, AdminRoute } from './components/RouteGuards';
 import { Link as RouterLink } from 'react-router-dom';
 
@@ -60,7 +59,6 @@ const App: React.FC = () => {
                 <Route path="/impressum" element={<Impressum />} />
                 <Route path="/datenschutz" element={<Datenschutz />} />
                 <Route path="/nutzungsbedingungen" element={<Nutzungsbedingungen />} />
-                <Route path="/mock-admin-setup" element={<MockAdminSetup />} />
 
                 {/* Approved developer routes */}
                 <Route element={<ProtectedRoute />}>

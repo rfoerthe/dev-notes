@@ -1,6 +1,3 @@
-export const MOCK_BLOGS_KEY = 'devblog_mock_blogs';
-export const MOCK_BLOGS_SEEDED_KEY = 'devblog_mock_blogs_seeded';
-
 const EXAMPLE_POST_COUNT = 100;
 
 const topics = [
@@ -313,7 +310,7 @@ export const parseArgs = () => {
 };
 
 export const normalizeTarget = (target) => {
-  if (target === 'mock' || target === 'firestore' || target === 'all') {
+  if (target === 'firestore') {
     return target;
   }
   return null;
@@ -324,36 +321,8 @@ export const printTargetHelp = (scriptName, description) => {
   console.error(description);
   console.error('');
   console.error('Usage:');
-  console.error(`  npm run ${scriptName} -- --target mock`);
   console.error(`  npm run ${scriptName} -- --target firestore`);
-  console.error(`  npm run ${scriptName} -- --target all`);
   console.error('');
   console.error('Targets:');
-  console.error('- mock: prints a browser-console snippet for the localStorage mock store');
   console.error('- firestore: applies the change directly with the Firebase Admin SDK');
-  console.error('- all: applies Firestore directly and prints the mock browser snippet');
 };
-
-export const printMockSnippet = ({ snippet }) => {
-  console.log(snippet);
-};
-
-export const createMockDeleteSnippet = () => `(() => {
-  localStorage.setItem('${MOCK_BLOGS_KEY}', JSON.stringify([]));
-  localStorage.setItem('${MOCK_BLOGS_SEEDED_KEY}', 'true');
-  console.log('Deleted all DevNotes mock blog posts.');
-  location.reload();
-})();`;
-
-export const createMockSeedSnippet = (posts) => `(() => {
-  const key = '${MOCK_BLOGS_KEY}';
-  const seededKey = '${MOCK_BLOGS_SEEDED_KEY}';
-  const posts = ${JSON.stringify(posts, null, 2)};
-  const existing = JSON.parse(localStorage.getItem(key) || '[]');
-  const seededIds = new Set(posts.map((post) => post.id));
-  const preserved = existing.filter((post) => !seededIds.has(post.id));
-  localStorage.setItem(key, JSON.stringify([...posts, ...preserved]));
-  localStorage.setItem(seededKey, 'true');
-  console.log(\`Seeded \${posts.length} DevNotes mock example posts.\`);
-  location.reload();
-})();`;

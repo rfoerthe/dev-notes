@@ -5,7 +5,7 @@ DevNotes is a developer-focused blog application built with React, TypeScript, V
 The app can run in two modes:
 
 - Firebase mode, when the required `VITE_FIREBASE_*` environment variables are configured.
-- Local mock mode, when Firebase credentials are missing. Mock mode stores users, sessions, and posts in `localStorage`, which makes local development easy without a backend.
+- Local emulator mode, when Firebase Authentication and Firestore run through the Firebase Local Emulator Suite.
 
 ## Features
 
@@ -14,14 +14,14 @@ The app can run in two modes:
 - GitHub-flavored Markdown rendering with `react-markdown`, `remark-gfm`, and `rehype-sanitize`, including headings, blockquotes, lists, tables, task lists, inline formatting, inline code, and renderer tests.
 - Shiki-powered syntax highlighting for fenced code blocks, rendered as compact editor-style code windows with a title bar, language label, horizontal scrolling, and a copy-to-clipboard button.
 - User registration with username reservation, input validation, strong password rules, and pending approval status.
-- Protected login flow that blocks pending or rejected users and supports username-or-email login in local mock mode.
-- Admin dashboard for reviewing pending, approved, and rejected users, approving or rejecting registrations, and deleting mock-mode registrations.
+- Protected login flow that blocks pending or rejected users.
+- Admin dashboard for reviewing pending, approved, and rejected users and approving or rejecting registrations.
 - Approved-user routes for creating, editing, deleting, and managing blog posts, including a personal "My Posts" overview with total reading time.
 - Blog editor with comma/semicolon tag entry, tag sanitization, content length limits, live Markdown preview, live reading-time estimation, and visible bottom-of-screen validation errors on submit.
 - Profile page for account details, operating-system preference, password updates, and author-name propagation across existing posts.
 - Light, dark, and system theme selection from the navbar and profile settings.
 - Installed app version display in the footer and in the navbar title tooltip.
-- Development mock mode with localStorage-backed users, sessions, posts, starter content, PBKDF2-hashed local passwords, mock admin setup, and a visible mock-mode indicator.
+- Local Firebase emulator mode with Auth and Firestore emulators, Admin SDK bootstrap, post seeding, and a visible emulator indicator.
 - Optional Firebase Analytics page tracking that starts only after explicit browser consent.
 - German legal pages for Impressum, Datenschutz, and Nutzungsbedingungen.
 - Firestore security rules for users, username reservations, blog posts, immutable ownership fields, and Admin SDK-only cleanup operations.
@@ -48,7 +48,7 @@ The app can run in two modes:
 src/
   components/        Navigation, route guards, analytics consent/tracking, and Markdown rendering
   context/           Authentication and theme context providers
-  pages/             Route-level pages for blog, auth, admin, profile, mock setup, and legal views
+  pages/             Route-level pages for blog, auth, admin, profile, and legal views
   services/          Firebase setup, analytics consent, auth workflow, and blog data access
   theme/             Material UI theme configuration
   __tests__/         Service, restore utility, search/filter, analytics, and Markdown renderer tests
@@ -66,16 +66,47 @@ Install dependencies:
 npm install
 ```
 
-Start the development server:
+For local development, start the Firebase emulators first:
 
 ```bash
-npm run dev
+npm run emulators
+```
+
+Then start Vite in emulator mode from a second terminal:
+
+```bash
+npm run dev:emulator
+```
+
+Bootstrap the local admin account once:
+
+```bash
+npm run emulator:bootstrap-admin
+```
+
+The default local admin credentials are:
+
+```text
+Email: admin@example.local
+Password: LocalAdmin123!
 ```
 
 The app is served by Vite, usually at:
 
 ```text
 http://localhost:5173/
+```
+
+The Firebase Emulator UI is available at:
+
+```text
+http://localhost:4000/
+```
+
+Use the regular development server only when `.env` contains a real Firebase web app configuration:
+
+```bash
+npm run dev
 ```
 
 Build for production:
@@ -108,6 +139,44 @@ Deploy only Firestore rules:
 npm run deploy:rules
 ```
 
+## Scripts
+
+Common local development commands:
+
+```bash
+npm run emulators                 # Start Firebase Auth and Firestore emulators
+npm run dev:emulator              # Start Vite connected to the local emulators
+npm run emulator:bootstrap-admin  # Create or repair the local admin account
+npm run emulator:seed             # Seed example posts into the Firestore emulator
+npm run emulator:delete-posts     # Delete all posts from the Firestore emulator
+```
+
+Common Firebase project maintenance commands:
+
+```bash
+npm run bootstrap:admin
+npm run restore:admin
+npm run restore:user
+npm run user:delete
+npm run posts:seed -- --target firestore
+npm run posts:delete -- --target firestore --yes
+npm run firestore:backup
+npm run firestore:restore
+```
+
+Quality and release commands:
+
+```bash
+npm run lint
+npm run test
+npm run build
+npm run preview
+```
+
+## Running Against Firebase
+
+`npm run dev` connects to the Firebase project described by `.env`. `npm run dev:emulator` ignores the cloud project endpoints and connects the browser SDK to local emulator hosts instead. Production builds must not enable `VITE_USE_FIREBASE_EMULATOR`.
+
 ## Initial Admin Bootstrap
 
 Do not create or seed admin credentials in the browser client. A public first-run setup screen would let the first visitor claim the administrator account, so DevNotes uses a local Firebase Admin SDK bootstrap script instead.
@@ -137,27 +206,43 @@ The generated reset link is sensitive. By default the script creates the link bu
 
 If admin credentials are missing, the script prints a setup checklist instead of a stack trace. For local development, the recommended setup is a service account file referenced through `GOOGLE_APPLICATION_CREDENTIALS`.
 
-### Local Mock Admin
+### Local Firebase Emulator
 
-In local mock mode, the browser uses `localStorage` instead of Firebase. To force this mode even when `.env` contains Firebase credentials, run:
+For local development without touching a cloud Firebase project, run Firebase Auth and Firestore through the Local Emulator Suite:
 
 ```bash
-npm run dev:mock
+npm run emulators
 ```
 
-Then open:
+In a second terminal, start Vite in emulator mode:
+
+```bash
+npm run dev:emulator
+```
+
+The app uses project ID `devnotes-local`, Auth at `127.0.0.1:9099`, Firestore at `127.0.0.1:8080`, and the Firebase Emulator UI at:
 
 ```text
-http://localhost:5173/mock-admin-setup
+http://localhost:4000/
 ```
 
-This development-only page appears only when mock mode is active, the app is running through the Vite dev server, and no local mock admin exists yet. It lets you choose the local admin password yourself, stores only the local password hash, signs you in, and then redirects to `/admin`.
+Bootstrap a local admin account into the emulators:
 
-For an existing local mock admin, use the normal login page. In mock mode you can log in with either username or email.
+```bash
+npm run emulator:bootstrap-admin
+```
 
-If you want to recreate the local mock admin, open `/mock-admin-setup` while `npm run dev:mock` is running and use the reset button. This deletes only the admin profile, username reservation, password hash, and active mock admin session from this browser's `localStorage`.
+By default this creates or updates:
 
-While mock mode is active in development, the navbar displays a visible `MOCK MODE` indicator so local browser storage is not confused with a Firebase-backed environment.
+- Email: `admin@example.local`
+- Username: `admin`
+- Password: `LocalAdmin123!`
+
+Override those values with `ADMIN_EMAIL`, `ADMIN_USERNAME`, `ADMIN_PASSWORD`, `ADMIN_FIRST_NAME`, and `ADMIN_LAST_NAME`.
+
+Use the email address to sign in. Username login is not supported in the Firebase-backed app path; the username is used for author identity, URLs, and ownership checks.
+
+While emulator mode is active in development, the navbar displays a visible `FIREBASE EMULATOR` indicator so local emulator data is not confused with production Firebase data. Emulator data is imported from and exported to `.firebase/emulator-data`, which is ignored by git.
 
 ## Authoring Workflow
 
@@ -184,41 +269,27 @@ Fenced code blocks are highlighted with Shiki. The renderer:
 
 Inline code is styled separately from fenced code blocks and remains safe React output rather than injected HTML.
 
-When a user updates their first or last name on the profile page, existing posts by that user are updated with the new author display name in mock mode and Firebase mode.
+When a user updates their first or last name on the profile page, existing posts by that user are updated with the new author display name.
 
 ## Blog Post Maintenance Scripts
 
 DevNotes includes scripts for clearing all blog posts and for seeding 100 realistic example posts about Frontendentwicklung, KI, Rust, and Python. Half of the generated articles include Markdown code examples.
 
-Firestore mode is applied directly through the Firebase Admin SDK and uses the same credential setup as `npm run bootstrap:admin`. Deleting Firestore posts requires `--yes` because it removes every document in the `blogs` collection.
+Firestore mode is applied directly through the Firebase Admin SDK and uses the same credential setup as `npm run bootstrap:admin`. When `FIRESTORE_EMULATOR_HOST` is set, the same scripts target the local Firestore emulator without service-account credentials. Deleting Firestore posts requires `--yes` because it removes every document in the `blogs` collection.
 
 ```bash
 npm run posts:delete -- --target firestore --yes
 npm run posts:seed -- --target firestore
 ```
 
-Mock mode stores posts in the browser's `localStorage`, so the scripts print a browser-console snippet for the currently opened DevNotes origin. Start the mock app, open DevTools in that browser tab, paste the snippet, and press Enter.
+Convenience wrappers for the local emulator:
 
 ```bash
-npm run dev:mock
-npm run posts:delete -- --target mock
-npm run posts:seed -- --target mock
+npm run emulator:delete-posts
+npm run emulator:seed
 ```
 
-On macOS, copy only the generated snippet to the clipboard with npm's silent mode:
-
-```bash
-npm run posts:delete -s -- --target mock | pbcopy
-npm run posts:seed -s -- --target mock | pbcopy
-```
-
-Use `--target all` to apply Firestore directly and print the mock browser snippet in one run:
-
-```bash
-npm run posts:seed -- --target all
-```
-
-The normal mock service also seeds a small starter set of local posts the first time the local blog store is empty.
+`npm run posts:seed -- --target firestore` also works against the emulator when `FIRESTORE_EMULATOR_HOST` and `FIREBASE_PROJECT_ID` are set. Prefer `npm run emulator:seed` for local development so those variables are applied consistently.
 
 ## Firestore Backup and Restore
 
@@ -342,9 +413,9 @@ VITE_FIREBASE_MEASUREMENT_ID=G-XXXXXXXXXX
 VITE_FIREBASE_APPCHECK_SITE_KEY=your-recaptcha-enterprise-site-key
 ```
 
-If the required Firebase values are not present, DevNotes falls back to local mock mode during development. Production builds require Firebase credentials and refuse to start in mock mode.
+If the required Firebase values are not present, run `npm run dev:emulator` for local development. Production builds require Firebase credentials and refuse to start with emulator mode enabled.
 
-Firebase Analytics is disabled by default, even when `VITE_FIREBASE_MEASUREMENT_ID` exists. Set `VITE_FIREBASE_ANALYTICS_ENABLED=true` only when you want DevNotes to load Firebase Analytics. Analytics stays disabled in local mock mode and is initialized only after the user grants analytics consent in the browser.
+Firebase Analytics is disabled by default, even when `VITE_FIREBASE_MEASUREMENT_ID` exists. Set `VITE_FIREBASE_ANALYTICS_ENABLED=true` only when you want DevNotes to load Firebase Analytics. Analytics stays disabled in local emulator mode and is initialized only after the user grants analytics consent in the browser.
 
 Firebase Analytics loads Google Tag Manager under the hood. Browsers, ad blockers, Pi-hole, or corporate networks can block `https://www.googletagmanager.com`; keeping `VITE_FIREBASE_ANALYTICS_ENABLED=false` avoids that request entirely. The app suppresses Firebase's automatic page view event and logs route changes itself after consent. Consent is persisted in `localStorage` under `devnotes_analytics_consent`.
 
@@ -361,11 +432,9 @@ Pending users cannot access authoring tools until an admin approves them. Approv
 
 In Firebase mode, users sign in with their email address and password. Username login is intentionally not used in production because a frontend-only username login would require exposing a public username-to-email mapping.
 
-In mock mode, users can sign in with either username or email because the data stays inside the current browser's `localStorage`.
-
 ## Deleting Regular Users
 
-In local mock mode, admins can remove rejected user registrations from the admin dashboard. In Firebase mode, regular users must be deleted with the Admin SDK cleanup script. Deleting only Firestore data is intentionally blocked because the Firebase Auth account must also be removed; otherwise the email address remains reserved and the same person cannot register again with that email.
+Regular users must be deleted with the Admin SDK cleanup script. Deleting only Firestore data is intentionally blocked because the Firebase Auth account must also be removed; otherwise the email address remains reserved and the same person cannot register again with that email.
 
 Use the Admin SDK cleanup script to delete a regular user completely from:
 
@@ -435,7 +504,6 @@ Public routes:
 - `/impressum`
 - `/datenschutz`
 - `/nutzungsbedingungen`
-- `/mock-admin-setup` (development-only mock admin setup when mock mode is active)
 
 Approved developer routes:
 
@@ -464,5 +532,5 @@ Deploy Firestore rules together with the hosting configuration when using Fireba
 ## Current Notes
 
 - The UI content is primarily German.
-- Local mock data is stored in the browser's `localStorage`.
+- Local development data is stored by the Firebase Emulator Suite under `.firebase/emulator-data`.
 - The package name is `dev-notes`.
