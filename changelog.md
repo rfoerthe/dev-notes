@@ -4,6 +4,7 @@
 
 ### Added
 
+- MIT open source license.
 - Admins can reassign blog posts to another active, approved author from the edit form.
 - The edit form now keeps orphaned original authors selectable as a clear legacy state.
 - Tests cover active author profile loading, blog author reassignment, and the removal of legacy `authorId` handling for new posts.
