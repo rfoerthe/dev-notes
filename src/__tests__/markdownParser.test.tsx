@@ -1,3 +1,4 @@
+import { StrictMode } from 'react';
 import { describe, expect, it, vi } from 'vitest';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { renderMarkdown } from '../components/markdownParser';
@@ -70,6 +71,93 @@ describe('Markdown renderer', () => {
     expect(checkboxes.length).toBe(2);
     expect((checkboxes[0] as HTMLInputElement).checked).toBe(true);
     expect((checkboxes[1] as HTMLInputElement).checked).toBe(false);
+  });
+
+  it('adds linkable ids to headings for table-of-contents anchors', () => {
+    const markdown = [
+      '## Inhaltsverzeichnis',
+      '',
+      '- [Warum Rust so gut zu CLI-Tools passt](#warum-rust-so-gut-zu-cli-tools-passt)',
+      '- [Installation](#installation)',
+      '',
+      '## Warum Rust so gut zu CLI-Tools passt',
+      '',
+      '## Installation',
+    ].join('\n');
+
+    const { container } = render(<>{renderMarkdown(markdown)}</>);
+
+    expect(container.querySelector('#warum-rust-so-gut-zu-cli-tools-passt')?.textContent).toBe('Warum Rust so gut zu CLI-Tools passt');
+    expect(container.querySelector('#installation')?.textContent).toBe('Installation');
+    expect(container.querySelector('a[href="#warum-rust-so-gut-zu-cli-tools-passt"]')?.textContent).toBe('Warum Rust so gut zu CLI-Tools passt');
+  });
+
+  it('scrolls to a heading when a table-of-contents anchor is clicked', () => {
+    const originalScrollIntoView = HTMLElement.prototype.scrollIntoView;
+    const scrollIntoView = vi.fn();
+    HTMLElement.prototype.scrollIntoView = scrollIntoView;
+    window.history.pushState(null, '', '/');
+
+    try {
+      const markdown = [
+        '- [Installation](#installation)',
+        '',
+        '## Installation',
+      ].join('\n');
+
+      render(<>{renderMarkdown(markdown)}</>);
+
+      fireEvent.click(screen.getByRole('link', { name: 'Installation' }));
+
+      expect(scrollIntoView).toHaveBeenCalledWith({ behavior: 'smooth', block: 'start' });
+      expect(window.location.hash).toBe('#installation');
+    } finally {
+      HTMLElement.prototype.scrollIntoView = originalScrollIntoView;
+      window.history.pushState(null, '', '/');
+    }
+  });
+
+  it('keeps umlauts in heading ids so encoded hash links can target them', () => {
+    const originalScrollIntoView = HTMLElement.prototype.scrollIntoView;
+    const scrollIntoView = vi.fn();
+    HTMLElement.prototype.scrollIntoView = scrollIntoView;
+    window.history.pushState(null, '', '/');
+
+    try {
+      const markdown = [
+        '- [Schneller Überblick](#schneller-%C3%BCberblick)',
+        '',
+        '## Schneller Überblick',
+      ].join('\n');
+
+      const { container } = render(<>{renderMarkdown(markdown)}</>);
+
+      expect(container.querySelector('[id="schneller-überblick"]')?.textContent).toBe('Schneller Überblick');
+
+      fireEvent.click(screen.getByRole('link', { name: 'Schneller Überblick' }));
+
+      expect(scrollIntoView).toHaveBeenCalledWith({ behavior: 'smooth', block: 'start' });
+      expect(window.location.hash).toBe('#schneller-%C3%BCberblick');
+    } finally {
+      HTMLElement.prototype.scrollIntoView = originalScrollIntoView;
+      window.history.pushState(null, '', '/');
+    }
+  });
+
+  it('keeps duplicate heading ids unique', () => {
+    const markdown = '## Installation\n\n## Installation';
+    const { container } = render(<>{renderMarkdown(markdown)}</>);
+
+    expect(container.querySelector('#installation')?.textContent).toBe('Installation');
+    expect(container.querySelector('#installation-1')?.textContent).toBe('Installation');
+  });
+
+  it('keeps heading ids stable in React StrictMode', () => {
+    const markdown = '## Installation';
+    const { container } = render(<StrictMode>{renderMarkdown(markdown)}</StrictMode>);
+
+    expect(container.querySelector('#installation')?.textContent).toBe('Installation');
+    expect(container.querySelector('#installation-1')).toBeNull();
   });
 
   it('highlights fenced code blocks with Shiki', async () => {

@@ -18,7 +18,7 @@ import {
   loginUser,
   registerUser
 } from '../services/authService';
-import { MIN_PASSWORD_LENGTH } from '../services/securityValidation';
+import { BLOG_LIMITS, MIN_PASSWORD_LENGTH, validateBlogContent } from '../services/securityValidation';
 
 describe('Developer blog service helpers', () => {
   it('calculates reading time based on roughly 200 words per minute', () => {
@@ -113,5 +113,15 @@ describe('Firebase service validation', () => {
         authorName: 'Name without username'
       })
     ).rejects.toThrow('Autorname und Benutzername müssen gemeinsam aktualisiert werden.');
+  });
+
+  it('allows teaser summaries up to 600 characters', () => {
+    const validSummary = 'a'.repeat(BLOG_LIMITS.summaryMaxLength);
+    const tooLongSummary = 'a'.repeat(BLOG_LIMITS.summaryMaxLength + 1);
+
+    expect(validateBlogContent('Title', validSummary, 'Content', ['Tag'])).toEqual([]);
+    expect(validateBlogContent('Title', tooLongSummary, 'Content', ['Tag'])).toContain(
+      `Die Zusammenfassung darf maximal ${BLOG_LIMITS.summaryMaxLength} Zeichen lang sein.`
+    );
   });
 });

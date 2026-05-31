@@ -150,7 +150,7 @@ service cloud.firestore {
         'readTime'
       ]) &&
         request.resource.data.title is string && request.resource.data.title.size() <= 150 &&
-        request.resource.data.summary is string && request.resource.data.summary.size() <= 300 &&
+        request.resource.data.summary is string && request.resource.data.summary.size() <= 600 &&
         request.resource.data.content is string && request.resource.data.content.size() <= 50000 &&
         validTags() &&
         request.resource.data.readTime is int &&

@@ -19,7 +19,7 @@ import { BookOpen, Eye, Edit3, Send, Plus } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { createBlog, calculateReadTime } from '../services/blogService';
 import { renderMarkdown } from '../components/markdownParser';
-import { validateBlogContent } from '../services/securityValidation';
+import { BLOG_LIMITS, validateBlogContent } from '../services/securityValidation';
 
 export const CreateBlog: React.FC = () => {
   // Input states
@@ -179,6 +179,12 @@ export const CreateBlog: React.FC = () => {
                 onChange={(e) => setSummary(e.target.value)}
                 disabled={loading}
                 placeholder="Schreibe einen kurzen Teaser, der das Interesse der Leser weckt (wird in den Kacheln angezeigt)."
+                helperText={`${summary.length}/${BLOG_LIMITS.summaryMaxLength} Zeichen`}
+                slotProps={{
+                  htmlInput: {
+                    maxLength: BLOG_LIMITS.summaryMaxLength
+                  }
+                }}
               />
 
               {/* Tags section */}

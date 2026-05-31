@@ -141,6 +141,125 @@ const getTableCellStyle = (
   };
 };
 
+const extractTextContent = (children: React.ReactNode): string => {
+  if (typeof children === 'string' || typeof children === 'number') {
+    return String(children);
+  }
+
+  if (Array.isArray(children)) {
+    return children.map(extractTextContent).join('');
+  }
+
+  if (React.isValidElement(children)) {
+    return extractTextContent((children.props as { children?: React.ReactNode }).children);
+  }
+
+  return '';
+};
+
+const slugifyHeadingText = (text: string): string => (
+  text
+    .toLowerCase()
+    .trim()
+    .replace(/[^\p{Letter}\p{Number}\s-]/gu, '')
+    .replace(/[\s-]+/g, '-')
+    .replace(/^-|-$/g, '')
+);
+
+const slugifyHeading = (children: React.ReactNode): string => slugifyHeadingText(extractTextContent(children));
+
+type MarkdownHeadingNode = {
+  position?: {
+    start?: {
+      line?: number;
+    };
+  };
+};
+
+const getAtxHeadingText = (line: string): string | null => {
+  const match = line.match(/^\s{0,3}#{1,6}(?:\s+|$)(.*)$/);
+
+  if (!match) {
+    return null;
+  }
+
+  return match[1]
+    .replace(/\s+#+\s*$/, '')
+    .trim();
+};
+
+const createHeadingIdsByLine = (markdown: string): Map<number, string> => {
+  const idsByLine = new Map<number, string>();
+  const slugCounts = new Map<string, number>();
+  const lines = markdown.split(/\r?\n/);
+  let fenceMarker: string | null = null;
+
+  lines.forEach((line, index) => {
+    const fenceMatch = line.match(/^\s{0,3}(`{3,}|~{3,})/);
+
+    if (fenceMatch) {
+      const marker = fenceMatch[1][0];
+      if (fenceMarker === marker) {
+        fenceMarker = null;
+      } else if (!fenceMarker) {
+        fenceMarker = marker;
+      }
+      return;
+    }
+
+    if (fenceMarker) {
+      return;
+    }
+
+    const headingText = getAtxHeadingText(line);
+
+    if (headingText === null) {
+      return;
+    }
+
+    const slug = slugifyHeadingText(headingText);
+
+    if (!slug) {
+      return;
+    }
+
+    const count = slugCounts.get(slug) ?? 0;
+    slugCounts.set(slug, count + 1);
+    idsByLine.set(index + 1, count === 0 ? slug : `${slug}-${count}`);
+  });
+
+  return idsByLine;
+};
+
+const getElementIdFromHash = (hash: string): string | null => {
+  if (!hash.startsWith('#') || hash.length === 1) {
+    return null;
+  }
+
+  try {
+    return decodeURIComponent(hash.slice(1));
+  } catch {
+    return hash.slice(1);
+  }
+};
+
+const scrollToHashTarget = (hash: string, behavior: ScrollBehavior = 'smooth'): boolean => {
+  const targetId = getElementIdFromHash(hash);
+
+  if (!targetId) {
+    return false;
+  }
+
+  const target = document.getElementById(targetId);
+
+  if (!target) {
+    return false;
+  }
+
+  target.scrollIntoView({ behavior, block: 'start' });
+  return true;
+};
+
 const copyTextToClipboard = async (text: string): Promise<boolean> => {
   if (navigator.clipboard?.writeText) {
     await navigator.clipboard.writeText(text);
@@ -362,48 +481,98 @@ interface MarkdownRendererProps {
 }
 
 export const MarkdownRenderer = ({ markdown }: MarkdownRendererProps) => {
-  const components = useMemo<Components>(
-    () => ({
-      h1: ({ children }) => (
-        <Typography variant="h3" component="h2" sx={{ mt: 5, mb: 2, fontWeight: 800, fontFamily: 'Outfit, sans-serif' }}>
-          {children}
-        </Typography>
-      ),
-      h2: ({ children }) => (
-        <Typography
-          variant="h4"
-          component="h3"
-          sx={{
-            mt: 4,
-            mb: 2,
-            fontWeight: 700,
-            fontFamily: 'Outfit, sans-serif',
-            borderBottom: (theme) => theme.palette.mode === 'dark'
-              ? '1px solid rgba(255, 255, 255, 0.08)'
-              : '1px solid rgba(15, 23, 42, 0.08)',
-            pb: 1,
-          }}
-        >
-          {children}
-        </Typography>
-      ),
-      h3: ({ children }) => (
-        <Typography variant="h5" component="h4" sx={{ mt: 3.5, mb: 1.5, fontWeight: 600, fontFamily: 'Outfit, sans-serif' }}>
-          {children}
-        </Typography>
-      ),
-      h4: ({ children }) => (
-        <Typography variant="h6" component="h5" sx={{ mt: 3, mb: 1.5, fontWeight: 600, fontFamily: 'Outfit, sans-serif' }}>
-          {children}
-        </Typography>
-      ),
+  const headingIdsByLine = useMemo(() => createHeadingIdsByLine(markdown), [markdown]);
+  const getHeadingId = (children: React.ReactNode, node?: MarkdownHeadingNode) => {
+    const line = node?.position?.start?.line;
+
+    if (line && headingIdsByLine.has(line)) {
+      return headingIdsByLine.get(line);
+    }
+
+    return slugifyHeading(children) || undefined;
+  };
+  const handleLinkClick = (event: React.MouseEvent<HTMLAnchorElement>, href?: string) => {
+    if (!href?.startsWith('#')) {
+      return;
+    }
+
+    if (scrollToHashTarget(href)) {
+      event.preventDefault();
+      window.history.pushState(null, '', href);
+    }
+  };
+
+  useEffect(() => {
+    const hash = window.location.hash;
+
+    if (!hash) {
+      return undefined;
+    }
+
+    const animationFrameId = window.requestAnimationFrame(() => {
+      scrollToHashTarget(hash, 'auto');
+    });
+
+    return () => window.cancelAnimationFrame(animationFrameId);
+  }, [markdown]);
+
+  const components: Components = {
+    h1: ({ children, node }) => (
+      <Typography id={getHeadingId(children, node)} variant="h3" component="h2" sx={{ mt: 5, mb: 2, fontWeight: 800, fontFamily: 'Outfit, sans-serif' }}>
+        {children}
+      </Typography>
+    ),
+    h2: ({ children, node }) => (
+      <Typography
+        id={getHeadingId(children, node)}
+        variant="h4"
+        component="h3"
+        sx={{
+          mt: 4,
+          mb: 2,
+          fontWeight: 700,
+          fontFamily: 'Outfit, sans-serif',
+          borderBottom: (theme) => theme.palette.mode === 'dark'
+            ? '1px solid rgba(255, 255, 255, 0.08)'
+            : '1px solid rgba(15, 23, 42, 0.08)',
+          pb: 1,
+        }}
+      >
+        {children}
+      </Typography>
+    ),
+    h3: ({ children, node }) => (
+      <Typography id={getHeadingId(children, node)} variant="h5" component="h4" sx={{ mt: 3.5, mb: 1.5, fontWeight: 600, fontFamily: 'Outfit, sans-serif' }}>
+        {children}
+      </Typography>
+    ),
+    h4: ({ children, node }) => (
+      <Typography id={getHeadingId(children, node)} variant="h6" component="h5" sx={{ mt: 3, mb: 1.5, fontWeight: 600, fontFamily: 'Outfit, sans-serif' }}>
+        {children}
+      </Typography>
+    ),
+    h5: ({ children, node }) => (
+      <Typography id={getHeadingId(children, node)} variant="subtitle1" component="h6" sx={{ mt: 2.5, mb: 1.25, fontWeight: 700, fontFamily: 'Outfit, sans-serif' }}>
+        {children}
+      </Typography>
+    ),
+    h6: ({ children, node }) => (
+      <Typography id={getHeadingId(children, node)} variant="subtitle2" component="h6" sx={{ mt: 2, mb: 1, fontWeight: 700, fontFamily: 'Outfit, sans-serif' }}>
+        {children}
+      </Typography>
+    ),
       p: ({ children }) => (
         <Typography variant="body1" component="p" sx={{ mb: 3, fontSize: 17.5, lineHeight: 1.85, color: 'text.primary', fontWeight: 400 }}>
           {children}
         </Typography>
       ),
       a: ({ children, href }) => (
-        <MuiLink href={href} target={href?.startsWith('http') ? '_blank' : undefined} rel={href?.startsWith('http') ? 'noreferrer' : undefined}>
+        <MuiLink
+          href={href}
+          target={href?.startsWith('http') ? '_blank' : undefined}
+          rel={href?.startsWith('http') ? 'noreferrer' : undefined}
+          onClick={(event) => handleLinkClick(event, href)}
+        >
           {children}
         </MuiLink>
       ),
@@ -543,9 +712,7 @@ export const MarkdownRenderer = ({ markdown }: MarkdownRendererProps) => {
         );
       },
       pre: ({ children }) => <>{children}</>,
-    }),
-    [],
-  );
+    };
 
   return (
     <ReactMarkdown remarkPlugins={[remarkGfm]} rehypePlugins={[rehypeSanitize]} components={components}>

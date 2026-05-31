@@ -32,7 +32,7 @@ import { getBlogById, updateBlog, deleteBlog, calculateReadTime } from '../servi
 import { fetchActiveAuthorProfiles } from '../services/authService';
 import type { UserProfile } from '../services/authService';
 import { renderMarkdown } from '../components/markdownParser';
-import { validateBlogContent } from '../services/securityValidation';
+import { BLOG_LIMITS, validateBlogContent } from '../services/securityValidation';
 import { canManageBlogPost } from '../services/blogOwnership';
 
 export const EditBlog: React.FC = () => {
@@ -318,6 +318,12 @@ export const EditBlog: React.FC = () => {
                   onChange={(e) => setSummary(e.target.value)}
                   disabled={loading}
                   placeholder="Schreibe einen kurzen Teaser, der das Interesse der Leser weckt."
+                  helperText={`${summary.length}/${BLOG_LIMITS.summaryMaxLength} Zeichen`}
+                  slotProps={{
+                    htmlInput: {
+                      maxLength: BLOG_LIMITS.summaryMaxLength
+                    }
+                  }}
                 />
 
                 {isAdmin && (

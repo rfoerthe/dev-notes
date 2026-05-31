@@ -1,5 +1,17 @@
 # Changelog
 
+## [1.0.4] - 2026-05-31
+
+### Changed
+
+- Blog teaser summaries now support up to 600 characters across the editor, validation, and Firestore security rules.
+- Markdown tables of contents are now styled as compact navigation panels instead of plain lists.
+
+### Fixed
+
+- Markdown headings now receive stable linkable IDs so table-of-contents hash links jump to the matching section.
+- Hash links with German umlauts and URL-encoded characters now scroll correctly in rendered blog posts.
+
 ## [1.0.3] - 2026-05-28
 
 ### Changed
