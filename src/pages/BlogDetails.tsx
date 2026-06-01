@@ -13,13 +13,14 @@ import {
   IconButton,
   Tooltip
 } from '@mui/material';
-import { ChevronLeft, Calendar, Clock, Share2 } from 'lucide-react';
+import { ChevronLeft, Calendar, Clock, Download, Share2 } from 'lucide-react';
 import { getBlogById } from '../services/blogService';
 import type { BlogPost } from '../services/blogService';
 import { renderMarkdown } from '../components/markdownParser';
 import { useAuth } from '../context/AuthContext';
 import { Edit3 } from 'lucide-react';
 import { canManageBlogPost } from '../services/blogOwnership';
+import { buildBlogMarkdownDocument, createBlogMarkdownFilename } from '../services/blogMarkdownExport';
 
 const SCROLL_PROGRESS_VISIBLE_OFFSET = 160;
 
@@ -109,7 +110,21 @@ export const BlogDetails: React.FC = () => {
     alert('Link in die Zwischenablage kopiert!');
   };
 
+  const handleDownloadMarkdown = () => {
+    if (!blog) return;
 
+    const markdown = buildBlogMarkdownDocument(blog);
+    const blob = new Blob([markdown], { type: 'text/markdown;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+
+    link.href = url;
+    link.download = createBlogMarkdownFilename(blog);
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(url);
+  };
 
   if (loading) {
     return (
@@ -293,8 +308,21 @@ export const BlogDetails: React.FC = () => {
                     </IconButton>
                   </Tooltip>
                 )}
+                <Tooltip title="Markdown herunterladen">
+                  <IconButton
+                    aria-label="Markdown herunterladen"
+                    onClick={handleDownloadMarkdown}
+                    sx={{ border: '1px solid rgba(255, 255, 255, 0.08)', borderRadius: 3, p: 1 }}
+                  >
+                    <Download size={16} />
+                  </IconButton>
+                </Tooltip>
                 <Tooltip title="Link teilen">
-                  <IconButton onClick={handleShare} sx={{ border: '1px solid rgba(255, 255, 255, 0.08)', borderRadius: 3, p: 1 }}>
+                  <IconButton
+                    aria-label="Link teilen"
+                    onClick={handleShare}
+                    sx={{ border: '1px solid rgba(255, 255, 255, 0.08)', borderRadius: 3, p: 1 }}
+                  >
                     <Share2 size={16} />
                   </IconButton>
                 </Tooltip>

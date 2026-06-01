@@ -12,6 +12,7 @@ import {
   sortBlogPostsNewestFirst,
   updateBlog
 } from '../services/blogService';
+import { buildBlogMarkdownDocument, createBlogMarkdownFilename } from '../services/blogMarkdownExport';
 import {
   isEmailAvailable,
   isUsernameAvailable,
@@ -56,6 +57,31 @@ describe('Developer blog service helpers', () => {
       'post-b',
       'post-c'
     ]);
+  });
+
+  it('exports a raw markdown document with title heading and italic teaser', () => {
+    const markdown = buildBlogMarkdownDocument({
+      title: '  React Patterns  ',
+      summary: 'Reusable UI ideas',
+      content: '## Composition\n\nA deep dive.'
+    });
+
+    expect(markdown).toBe('# React Patterns\n\n*Reusable UI ideas*\n\n## Composition\n\nA deep dive.\n');
+  });
+
+  it('creates a safe markdown filename from the blog title', () => {
+    expect(createBlogMarkdownFilename({ title: 'Ein Überblick: React & TypeScript!' })).toBe(
+      'ein-uberblick-react-typescript.md'
+    );
+  });
+
+  it('limits markdown filename slugs to 30 characters without cutting words when possible', () => {
+    expect(createBlogMarkdownFilename({ title: 'React Patterns fuer moderne Produktteams' })).toBe(
+      'react-patterns-fuer-moderne.md'
+    );
+    expect(createBlogMarkdownFilename({ title: 'Supercalifragilisticexpialidocious' })).toBe(
+      'supercalifragilisticexpialidoc.md'
+    );
   });
 });
 

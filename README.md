@@ -10,7 +10,7 @@ The app can run in two modes:
 ## Features
 
 - Public blog overview with title/summary/content/author search, dynamic tag filtering, tag counts, a searchable tag popover, featured articles, and paginated older articles.
-- Article cards and detail pages with reading time, German date formatting, author metadata, share links, a 1024px article reading width, and a scroll progress indicator.
+- Article cards and detail pages with reading time, German date formatting, author metadata, share links, public raw Markdown downloads, a 1024px article reading width, and a scroll progress indicator.
 - GitHub-flavored Markdown rendering with `react-markdown`, `remark-gfm`, and `rehype-sanitize`, including headings, blockquotes, lists, tables, task lists, inline formatting, inline code, and renderer tests.
 - Shiki-powered syntax highlighting for fenced code blocks, rendered as compact editor-style code windows with a title bar, language label, horizontal scrolling, and a copy-to-clipboard button.
 - User registration with username reservation, input validation, strong password rules, and pending approval status.
@@ -268,6 +268,18 @@ Fenced code blocks are highlighted with Shiki. The renderer:
 - Includes a copy button that copies the raw fenced code to the clipboard.
 
 Inline code is styled separately from fenced code blocks and remains safe React output rather than injected HTML.
+
+Public article detail pages include a raw Markdown download that works without signing in. The downloaded `.md` file keeps the article body as stored, prepends the article title as a level 1 heading, and places the teaser below it as italic Markdown text:
+
+```markdown
+# Article title
+
+*Article teaser*
+
+Article body...
+```
+
+Download filenames are generated from the article title as safe lowercase slugs. The slug part is capped at 30 characters and is shortened at a word boundary when possible before the `.md` extension is appended.
 
 When a user updates their first or last name on the profile page, existing posts by that user are updated with the new author display name.
 

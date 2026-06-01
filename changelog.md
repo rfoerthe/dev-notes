@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.0.5] - 2026-06-01
+
+### Added
+
+- Article detail pages now offer a public raw Markdown download that is available without signing in.
+- Markdown downloads include the article title as a level 1 heading, the teaser as italic text, and the original article body.
+- Markdown download filenames are generated from safe title slugs capped at 30 characters, preferring word-boundary truncation.
+
 ## [1.0.4] - 2026-05-31
 
 ### Changed
