@@ -1,5 +1,15 @@
 # Changelog
 
+## [1.0.6] - 2026-06-02
+
+### Changed
+
+- Markdown heading levels now use a clearer visual hierarchy, with `h3` headings gaining a subtle underline while `h2` headings remain unaccented.
+
+### Fixed
+
+- CamelCase Markdown headings now generate word-separated IDs so table-of-contents links like `#scoped-elements-mixin-im-detail` jump to `ScopedElementsMixin im Detail`.
+
 ## [1.0.5] - 2026-06-01
 
 ### Added

@@ -55,18 +55,67 @@ body {
 .markdown-body h1, 
 .markdown-body h2, 
 .markdown-body h3, 
-.markdown-body h4 {
+.markdown-body h4,
+.markdown-body h5,
+.markdown-body h6 {
   font-family: 'Outfit', sans-serif;
   color: #f8fafc;
-  font-weight: 700;
-  margin-top: 2rem;
-  margin-bottom: 1rem;
-  letter-spacing: -0.01em;
+  letter-spacing: 0;
 }
 
-.markdown-body h1 { font-size: 2.25rem; }
-.markdown-body h2 { font-size: 1.75rem; border-bottom: 1px solid rgba(255, 255, 255, 0.08); padding-bottom: 0.5rem; }
-.markdown-body h3 { font-size: 1.35rem; }
+.markdown-body h1 {
+  font-size: 2.25rem;
+  line-height: 1.15;
+  font-weight: 800;
+  margin-top: 3rem;
+  margin-bottom: 1.5rem;
+}
+
+.markdown-body h2 {
+  font-size: 1.9rem;
+  line-height: 1.2;
+  font-weight: 750;
+  margin-top: 3.25rem;
+  margin-bottom: 1.15rem;
+}
+
+.markdown-body h3 {
+  font-size: 1.45rem;
+  line-height: 1.35;
+  font-weight: 650;
+  margin-top: 2.4rem;
+  margin-bottom: 0.9rem;
+  padding-bottom: 0.45rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  color: rgba(248, 250, 252, 0.9);
+}
+
+.markdown-body h4 {
+  font-size: 1.2rem;
+  line-height: 1.4;
+  font-weight: 650;
+  margin-top: 2rem;
+  margin-bottom: 0.75rem;
+  color: rgba(248, 250, 252, 0.78);
+}
+
+.markdown-body h5 {
+  font-size: 1rem;
+  line-height: 1.45;
+  font-weight: 650;
+  margin-top: 1.75rem;
+  margin-bottom: 0.6rem;
+  color: rgba(248, 250, 252, 0.68);
+}
+
+.markdown-body h6 {
+  font-size: 0.9rem;
+  line-height: 1.45;
+  font-weight: 650;
+  margin-top: 1.5rem;
+  margin-bottom: 0.5rem;
+  color: rgba(248, 250, 252, 0.6);
+}
 
 .markdown-body :is(h1, h2, h3, h4, h5, h6)[id] {
   scroll-margin-top: 96px;
@@ -286,12 +335,27 @@ input:-webkit-autofill:active {
 .light-mode .markdown-body h1, 
 .light-mode .markdown-body h2, 
 .light-mode .markdown-body h3, 
-.light-mode .markdown-body h4 {
+.light-mode .markdown-body h4,
+.light-mode .markdown-body h5,
+.light-mode .markdown-body h6 {
   color: #0f172a; /* Slate 900 */
 }
 
-.light-mode .markdown-body h2 {
-  border-bottom: 1px solid rgba(15, 23, 42, 0.08);
+.light-mode .markdown-body h3 {
+  border-bottom-color: rgba(15, 23, 42, 0.1);
+  color: rgba(15, 23, 42, 0.86);
+}
+
+.light-mode .markdown-body h4 {
+  color: rgba(15, 23, 42, 0.74);
+}
+
+.light-mode .markdown-body h5 {
+  color: rgba(15, 23, 42, 0.66);
+}
+
+.light-mode .markdown-body h6 {
+  color: rgba(15, 23, 42, 0.58);
 }
 
 .light-mode .markdown-body #inhaltsverzeichnis {

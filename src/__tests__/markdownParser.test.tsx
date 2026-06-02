@@ -92,6 +92,19 @@ describe('Markdown renderer', () => {
     expect(container.querySelector('a[href="#warum-rust-so-gut-zu-cli-tools-passt"]')?.textContent).toBe('Warum Rust so gut zu CLI-Tools passt');
   });
 
+  it('splits camel case heading ids so table-of-contents anchors can target them', () => {
+    const markdown = [
+      '- [ScopedElementsMixin im Detail](#scoped-elements-mixin-im-detail)',
+      '',
+      '## ScopedElementsMixin im Detail',
+    ].join('\n');
+
+    const { container } = render(<>{renderMarkdown(markdown)}</>);
+
+    expect(container.querySelector('#scoped-elements-mixin-im-detail')?.textContent).toBe('ScopedElementsMixin im Detail');
+    expect(container.querySelector('a[href="#scoped-elements-mixin-im-detail"]')?.textContent).toBe('ScopedElementsMixin im Detail');
+  });
+
   it('scrolls to a heading when a table-of-contents anchor is clicked', () => {
     const originalScrollIntoView = HTMLElement.prototype.scrollIntoView;
     const scrollIntoView = vi.fn();

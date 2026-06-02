@@ -159,6 +159,8 @@ const extractTextContent = (children: React.ReactNode): string => {
 
 const slugifyHeadingText = (text: string): string => (
   text
+    .replace(/([\p{Ll}\p{Nd}])([\p{Lu}])/gu, '$1 $2')
+    .replace(/([\p{Lu}]+)([\p{Lu}][\p{Ll}])/gu, '$1 $2')
     .toLowerCase()
     .trim()
     .replace(/[^\p{Letter}\p{Number}\s-]/gu, '')
@@ -518,7 +520,20 @@ export const MarkdownRenderer = ({ markdown }: MarkdownRendererProps) => {
 
   const components: Components = {
     h1: ({ children, node }) => (
-      <Typography id={getHeadingId(children, node)} variant="h3" component="h2" sx={{ mt: 5, mb: 2, fontWeight: 800, fontFamily: 'Outfit, sans-serif' }}>
+      <Typography
+        id={getHeadingId(children, node)}
+        variant="h3"
+        component="h2"
+        sx={{
+          mt: 6,
+          mb: 3,
+          fontFamily: 'Outfit, sans-serif',
+          fontSize: '2.25rem',
+          fontWeight: 800,
+          lineHeight: 1.15,
+          letterSpacing: 0,
+        }}
+      >
         {children}
       </Typography>
     ),
@@ -528,36 +543,103 @@ export const MarkdownRenderer = ({ markdown }: MarkdownRendererProps) => {
         variant="h4"
         component="h3"
         sx={{
-          mt: 4,
-          mb: 2,
-          fontWeight: 700,
+          mt: 6.5,
+          mb: 2.3,
           fontFamily: 'Outfit, sans-serif',
-          borderBottom: (theme) => theme.palette.mode === 'dark'
-            ? '1px solid rgba(255, 255, 255, 0.08)'
-            : '1px solid rgba(15, 23, 42, 0.08)',
-          pb: 1,
+          fontSize: '1.9rem',
+          fontWeight: 750,
+          lineHeight: 1.2,
+          letterSpacing: 0,
         }}
       >
         {children}
       </Typography>
     ),
     h3: ({ children, node }) => (
-      <Typography id={getHeadingId(children, node)} variant="h5" component="h4" sx={{ mt: 3.5, mb: 1.5, fontWeight: 600, fontFamily: 'Outfit, sans-serif' }}>
+      <Typography
+        id={getHeadingId(children, node)}
+        variant="h5"
+        component="h4"
+        sx={{
+          mt: 4.8,
+          mb: 1.8,
+          fontFamily: 'Outfit, sans-serif',
+          fontSize: '1.45rem',
+          fontWeight: 650,
+          lineHeight: 1.35,
+          letterSpacing: 0,
+          borderBottom: (theme) => theme.palette.mode === 'dark'
+            ? '1px solid rgba(255, 255, 255, 0.1)'
+            : '1px solid rgba(15, 23, 42, 0.1)',
+          pb: 0.9,
+          color: (theme) => theme.palette.mode === 'dark'
+            ? 'rgba(248, 250, 252, 0.9)'
+            : 'rgba(15, 23, 42, 0.86)',
+        }}
+      >
         {children}
       </Typography>
     ),
     h4: ({ children, node }) => (
-      <Typography id={getHeadingId(children, node)} variant="h6" component="h5" sx={{ mt: 3, mb: 1.5, fontWeight: 600, fontFamily: 'Outfit, sans-serif' }}>
+      <Typography
+        id={getHeadingId(children, node)}
+        variant="h6"
+        component="h5"
+        sx={{
+          mt: 4,
+          mb: 1.5,
+          fontFamily: 'Outfit, sans-serif',
+          fontSize: '1.2rem',
+          fontWeight: 650,
+          lineHeight: 1.4,
+          letterSpacing: 0,
+          color: (theme) => theme.palette.mode === 'dark'
+            ? 'rgba(248, 250, 252, 0.78)'
+            : 'rgba(15, 23, 42, 0.74)',
+        }}
+      >
         {children}
       </Typography>
     ),
     h5: ({ children, node }) => (
-      <Typography id={getHeadingId(children, node)} variant="subtitle1" component="h6" sx={{ mt: 2.5, mb: 1.25, fontWeight: 700, fontFamily: 'Outfit, sans-serif' }}>
+      <Typography
+        id={getHeadingId(children, node)}
+        variant="subtitle1"
+        component="h6"
+        sx={{
+          mt: 3.5,
+          mb: 1.2,
+          fontFamily: 'Outfit, sans-serif',
+          fontSize: '1rem',
+          fontWeight: 650,
+          lineHeight: 1.45,
+          letterSpacing: 0,
+          color: (theme) => theme.palette.mode === 'dark'
+            ? 'rgba(248, 250, 252, 0.68)'
+            : 'rgba(15, 23, 42, 0.66)',
+        }}
+      >
         {children}
       </Typography>
     ),
     h6: ({ children, node }) => (
-      <Typography id={getHeadingId(children, node)} variant="subtitle2" component="h6" sx={{ mt: 2, mb: 1, fontWeight: 700, fontFamily: 'Outfit, sans-serif' }}>
+      <Typography
+        id={getHeadingId(children, node)}
+        variant="subtitle2"
+        component="h6"
+        sx={{
+          mt: 3,
+          mb: 1,
+          fontFamily: 'Outfit, sans-serif',
+          fontSize: '0.9rem',
+          fontWeight: 650,
+          lineHeight: 1.45,
+          letterSpacing: 0,
+          color: (theme) => theme.palette.mode === 'dark'
+            ? 'rgba(248, 250, 252, 0.6)'
+            : 'rgba(15, 23, 42, 0.58)',
+        }}
+      >
         {children}
       </Typography>
     ),
