@@ -1,6 +1,6 @@
 # DevNotes
 
-DevNotes is a developer-focused blog application built with React, TypeScript, Vite, Material UI, Firebase, React Router, and a production Markdown rendering pipeline. It provides a public article feed, GitHub-flavored Markdown article pages, user registration with approval workflows, protected authoring tools, profile and theme settings, optional analytics consent, and an admin dashboard for managing developer accounts.
+DevNotes is a developer-focused blog application built with React, TypeScript, Vite, Material UI, Firebase, React Router, and a production Markdown rendering pipeline. It provides a public article feed, GitHub-flavored Markdown article pages with automatic table-of-contents navigation, user registration with approval workflows, protected authoring tools, bookmarks, profile and theme settings, optional analytics consent, and an admin dashboard for managing developer accounts.
 
 The app can run in two modes:
 
@@ -10,11 +10,13 @@ The app can run in two modes:
 ## Features
 
 - Public blog overview with title/summary/content/author search, dynamic tag filtering, tag counts, a searchable tag popover, featured articles, and paginated older articles.
-- Article cards and detail pages with reading time, German date formatting, author metadata, share links, public raw Markdown downloads, a 1024px article reading width, and a scroll progress indicator.
-- GitHub-flavored Markdown rendering with `react-markdown`, `remark-gfm`, and `rehype-sanitize`, including headings, blockquotes, lists, tables, task lists, inline formatting, inline code, and renderer tests.
+- Article cards and detail pages with reading time, German date formatting, author metadata, share links, public raw Markdown downloads, a 1024px article reading width, a scroll progress indicator, and bookmark toggles for approved users.
+- Automatic article table-of-contents navigation generated from Markdown headings, shown as sticky desktop side navigation and as a sticky menu button on narrower viewports.
+- GitHub-flavored Markdown rendering with `react-markdown`, `remark-gfm`, and `rehype-sanitize`, including stable linkable heading IDs, blockquotes, lists, tables, task lists, inline formatting, inline code, and renderer tests.
 - Shiki-powered syntax highlighting for fenced code blocks, rendered as compact editor-style code windows with a title bar, language label, horizontal scrolling, and a copy-to-clipboard button.
 - User registration with username reservation, input validation, strong password rules, and pending approval status.
 - Protected login flow that blocks pending or rejected users.
+- Approved users can save articles to a private Merkliste and manage saved posts from `/bookmarks`.
 - Admin dashboard for reviewing pending, approved, and rejected users and approving or rejecting registrations.
 - Approved-user routes for creating, editing, deleting, and managing blog posts, including a personal "My Posts" overview with total reading time.
 - Blog editor with comma/semicolon tag entry, tag sanitization, content length limits, live Markdown preview, live reading-time estimation, and visible bottom-of-screen validation errors on submit.
@@ -46,7 +48,7 @@ The app can run in two modes:
 
 ```text
 src/
-  components/        Navigation, route guards, analytics consent/tracking, and Markdown rendering
+  components/        Navigation, route guards, analytics consent/tracking, Markdown rendering, and table-of-contents UI
   context/           Authentication and theme context providers
   pages/             Route-level pages for blog, auth, admin, profile, and legal views
   services/          Firebase setup, analytics consent, auth workflow, and blog data access
@@ -259,6 +261,10 @@ The editor supports:
 ## Markdown and Code Blocks
 
 Article content is rendered with `react-markdown`, `remark-gfm`, and `rehype-sanitize` instead of a custom Markdown parser. This gives DevNotes CommonMark-compatible parsing plus GitHub-flavored Markdown features such as tables, task lists, strikethrough, and autolinks.
+
+Markdown headings receive stable linkable IDs. The same heading extraction is used by the renderer and the article table of contents, so generated links stay aligned with the rendered content, including duplicate headings, German umlauts, Setext headings, and fenced code blocks that contain Markdown-looking text.
+
+On article detail pages with at least two headings, DevNotes automatically builds a table of contents from headings up to level 4. On desktop it appears as sticky side navigation next to the article. On narrower screens the same navigation is available through a sticky "Inhaltsverzeichnis" menu button so long articles remain navigable without a permanent sidebar.
 
 Fenced code blocks are highlighted with Shiki. The renderer:
 
@@ -492,8 +498,9 @@ The app currently uses these Firestore collections:
 - `users`: user profile, role, status, and account metadata.
 - `usernames`: username reservations used to prevent duplicate usernames without exposing the full user collection.
 - `blogs`: blog post documents with title, summary, content, tags, read time, author metadata, and timestamps.
+- `users/{uid}/bookmarks`: private per-user bookmark documents keyed by blog ID.
 
-Firestore rules enforce role and status checks, immutable ownership fields, profile/email invariants, coupled username reservations, field type validation, server-generated blog creation timestamps, tag limits, read-time bounds, and content size limits.
+Firestore rules enforce role and status checks, immutable ownership fields, profile/email invariants, coupled username reservations, bookmark ownership, field type validation, server-generated blog creation timestamps, tag limits, read-time bounds, and content size limits.
 
 ## Security Hardening
 
@@ -521,6 +528,7 @@ Approved developer routes:
 
 - `/write`
 - `/my-posts`
+- `/bookmarks`
 - `/edit/:id`
 - `/profile`
 

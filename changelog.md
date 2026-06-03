@@ -1,5 +1,18 @@
 # Changelog
 
+## [1.0.8] - 2026-06-03
+
+### Added
+
+- Long article detail pages now generate an automatic table of contents from Markdown headings.
+- Desktop article views show the table of contents as sticky side navigation with section anchor links.
+- Narrow article views now expose the table of contents through a sticky menu button instead of hiding navigation entirely.
+
+### Fixed
+
+- The article table of contents now keeps its sticky position after jumping directly to deep heading anchors.
+- Table-of-contents heading IDs now stay aligned with rendered Markdown headings, including duplicate headings, umlauts, Setext headings, and headings around fenced code blocks.
+
 ## [1.0.7] - 2026-06-03
 
 ### Added

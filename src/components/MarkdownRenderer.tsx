@@ -10,6 +10,7 @@ import githubDarkDefault from '@shikijs/themes/github-dark-default';
 import githubLightDefault from '@shikijs/themes/github-light-default';
 import type { HighlighterCore, LanguageRegistration, TokensResult } from '@shikijs/types';
 import { shikiLanguageLoaders } from './shikiLanguageLoaders';
+import { createHeadingIdsByLine, slugifyHeadingText } from './markdownHeadings';
 
 const LANGUAGE_CLASS_REGEX = /language-([^\s]+)/;
 const DEFAULT_LANGUAGE = 'text';
@@ -157,17 +158,6 @@ const extractTextContent = (children: React.ReactNode): string => {
   return '';
 };
 
-const slugifyHeadingText = (text: string): string => (
-  text
-    .replace(/([\p{Ll}\p{Nd}])([\p{Lu}])/gu, '$1 $2')
-    .replace(/([\p{Lu}]+)([\p{Lu}][\p{Ll}])/gu, '$1 $2')
-    .toLowerCase()
-    .trim()
-    .replace(/[^\p{Letter}\p{Number}\s-]/gu, '')
-    .replace(/[\s-]+/g, '-')
-    .replace(/^-|-$/g, '')
-);
-
 const slugifyHeading = (children: React.ReactNode): string => slugifyHeadingText(extractTextContent(children));
 
 type MarkdownHeadingNode = {
@@ -176,61 +166,6 @@ type MarkdownHeadingNode = {
       line?: number;
     };
   };
-};
-
-const getAtxHeadingText = (line: string): string | null => {
-  const match = line.match(/^\s{0,3}#{1,6}(?:\s+|$)(.*)$/);
-
-  if (!match) {
-    return null;
-  }
-
-  return match[1]
-    .replace(/\s+#+\s*$/, '')
-    .trim();
-};
-
-const createHeadingIdsByLine = (markdown: string): Map<number, string> => {
-  const idsByLine = new Map<number, string>();
-  const slugCounts = new Map<string, number>();
-  const lines = markdown.split(/\r?\n/);
-  let fenceMarker: string | null = null;
-
-  lines.forEach((line, index) => {
-    const fenceMatch = line.match(/^\s{0,3}(`{3,}|~{3,})/);
-
-    if (fenceMatch) {
-      const marker = fenceMatch[1][0];
-      if (fenceMarker === marker) {
-        fenceMarker = null;
-      } else if (!fenceMarker) {
-        fenceMarker = marker;
-      }
-      return;
-    }
-
-    if (fenceMarker) {
-      return;
-    }
-
-    const headingText = getAtxHeadingText(line);
-
-    if (headingText === null) {
-      return;
-    }
-
-    const slug = slugifyHeadingText(headingText);
-
-    if (!slug) {
-      return;
-    }
-
-    const count = slugCounts.get(slug) ?? 0;
-    slugCounts.set(slug, count + 1);
-    idsByLine.set(index + 1, count === 0 ? slug : `${slug}-${count}`);
-  });
-
-  return idsByLine;
 };
 
 const getElementIdFromHash = (hash: string): string | null => {

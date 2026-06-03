@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
   Box,
@@ -11,12 +11,15 @@ import {
   Divider,
   CircularProgress,
   IconButton,
-  Tooltip
+  Tooltip,
+  Popover
 } from '@mui/material';
-import { Bookmark, BookmarkCheck, ChevronLeft, Calendar, Clock, Download, Edit3, Share2 } from 'lucide-react';
+import { Bookmark, BookmarkCheck, ChevronDown, ChevronLeft, Calendar, Clock, Download, Edit3, ListTree, Share2 } from 'lucide-react';
 import { getBlogById } from '../services/blogService';
 import type { BlogPost } from '../services/blogService';
 import { renderMarkdown } from '../components/markdownParser';
+import { TableOfContents } from '../components/TableOfContents';
+import { extractMarkdownHeadings } from '../components/markdownHeadings';
 import { useAuth } from '../context/AuthContext';
 import { canManageBlogPost } from '../services/blogOwnership';
 import { buildBlogMarkdownDocument, createBlogMarkdownFilename } from '../services/blogMarkdownExport';
@@ -33,6 +36,7 @@ export const BlogDetails: React.FC = () => {
   const [loading, setLoading] = useState<boolean>(true);
   const [isBookmarked, setIsBookmarked] = useState<boolean>(false);
   const [bookmarkLoading, setBookmarkLoading] = useState<boolean>(false);
+  const [tableOfContentsAnchor, setTableOfContentsAnchor] = useState<HTMLButtonElement | null>(null);
   
   // Scroll progress state
   const [scrollProgress, setScrollProgress] = useState<number>(0);
@@ -117,6 +121,12 @@ export const BlogDetails: React.FC = () => {
     };
   }, []);
 
+  const tableOfContentsHeadings = useMemo(
+    () => blog ? extractMarkdownHeadings(blog.content) : [],
+    [blog],
+  );
+  const hasTableOfContents = tableOfContentsHeadings.filter((heading) => heading.level <= 4).length >= 2;
+
   const formatDate = (isoString: string) => {
     return new Date(isoString).toLocaleDateString('de-DE', {
       day: '2-digit',
@@ -136,6 +146,14 @@ export const BlogDetails: React.FC = () => {
   const handleShare = () => {
     navigator.clipboard.writeText(window.location.href);
     alert('Link in die Zwischenablage kopiert!');
+  };
+
+  const handleOpenTableOfContents = (event: React.MouseEvent<HTMLButtonElement>) => {
+    setTableOfContentsAnchor(event.currentTarget);
+  };
+
+  const handleCloseTableOfContents = () => {
+    setTableOfContentsAnchor(null);
   };
 
   const handleDownloadMarkdown = () => {
@@ -221,7 +239,16 @@ export const BlogDetails: React.FC = () => {
       )}
 
       <Box sx={{ flexGrow: 1 }} className="animate-fade-in">
-      <Container maxWidth={false} sx={{ maxWidth: 1024, py: 6, display: 'flex', flexDirection: 'column', alignItems: 'flex-start' }}>
+      <Container
+        maxWidth={false}
+        sx={{
+          maxWidth: hasTableOfContents ? 1320 : 1024,
+          py: 6,
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'flex-start'
+        }}
+      >
         {/* Navigation Action */}
         <Button
           variant="text"
@@ -414,24 +441,124 @@ export const BlogDetails: React.FC = () => {
           <Divider sx={{ borderColor: 'rgba(255, 255, 255, 0.06)' }} />
         </Box>
 
+        {hasTableOfContents && (
+          <Box
+            sx={{
+              display: { xs: 'flex', lg: 'none' },
+              position: 'sticky',
+              top: 72,
+              zIndex: 10,
+              width: '100%',
+              justifyContent: 'flex-start',
+              mb: 2
+            }}
+          >
+            <Button
+              id="mobile-table-of-contents-button"
+              variant="outlined"
+              startIcon={<ListTree size={16} />}
+              endIcon={<ChevronDown size={15} />}
+              aria-haspopup="true"
+              aria-controls={tableOfContentsAnchor ? 'mobile-table-of-contents-menu' : undefined}
+              aria-expanded={tableOfContentsAnchor ? 'true' : undefined}
+              onClick={handleOpenTableOfContents}
+              sx={{
+                borderColor: (theme) => theme.palette.mode === 'dark'
+                  ? 'rgba(255, 255, 255, 0.12)'
+                  : 'rgba(15, 23, 42, 0.14)',
+                bgcolor: (theme) => theme.palette.mode === 'dark'
+                  ? 'rgba(7, 10, 19, 0.82)'
+                  : 'rgba(248, 250, 252, 0.88)',
+                backdropFilter: 'blur(14px)',
+                boxShadow: (theme) => theme.palette.mode === 'dark'
+                  ? '0 12px 28px rgba(0, 0, 0, 0.22)'
+                  : '0 12px 28px rgba(15, 23, 42, 0.1)',
+                color: 'text.primary'
+              }}
+            >
+              Inhaltsverzeichnis
+            </Button>
+            <Popover
+              id="mobile-table-of-contents-menu"
+              open={Boolean(tableOfContentsAnchor)}
+              anchorEl={tableOfContentsAnchor}
+              onClose={handleCloseTableOfContents}
+              anchorOrigin={{ vertical: 'bottom', horizontal: 'left' }}
+              transformOrigin={{ vertical: 'top', horizontal: 'left' }}
+              slotProps={{
+                paper: {
+                  sx: {
+                    mt: 1,
+                    borderRadius: 2,
+                    background: (theme) => theme.palette.mode === 'dark'
+                      ? 'rgba(15, 23, 42, 0.96)'
+                      : 'rgba(255, 255, 255, 0.98)',
+                    backdropFilter: 'blur(18px)',
+                    border: (theme) => theme.palette.mode === 'dark'
+                      ? '1px solid rgba(255, 255, 255, 0.08)'
+                      : '1px solid rgba(15, 23, 42, 0.08)',
+                    boxShadow: (theme) => theme.palette.mode === 'dark'
+                      ? '0 22px 50px rgba(0, 0, 0, 0.38)'
+                      : '0 22px 50px rgba(15, 23, 42, 0.16)'
+                  }
+                }
+              }}
+            >
+              <TableOfContents
+                headings={tableOfContentsHeadings}
+                onNavigate={handleCloseTableOfContents}
+                variant="menu"
+              />
+            </Popover>
+          </Box>
+        )}
+
         {/* FULL BLOG CONTENT */}
-        <Paper 
-          elevation={0}
-          sx={{ 
-            p: { xs: 3, md: 6 }, 
-            borderRadius: 5,
-            background: (theme) => theme.palette.mode === 'dark' ? 'rgba(15, 23, 42, 0.35)' : 'rgba(255, 255, 255, 0.55)',
-            backdropFilter: 'blur(16px)',
-            border: (theme) => theme.palette.mode === 'dark' ? '1px solid rgba(255, 255, 255, 0.04)' : '1px solid rgba(15, 23, 42, 0.05)',
-            boxShadow: (theme) => theme.palette.mode === 'dark' ? '0 15px 35px -5px rgba(0, 0, 0, 0.3)' : '0 15px 35px -5px rgba(15, 23, 42, 0.05)',
-            mb: 6,
+        <Box
+          sx={{
+            display: 'grid',
+            gridTemplateColumns: hasTableOfContents
+              ? { xs: 'minmax(0, 1fr)', lg: 'minmax(0, 1024px) minmax(208px, 248px)' }
+              : 'minmax(0, 1024px)',
+            gap: { xs: 0, lg: 4 },
+            alignItems: 'start',
             width: '100%'
           }}
         >
-          <Box className="markdown-body">
-            {renderMarkdown(blog.content)}
-          </Box>
-        </Paper>
+          <Paper
+            elevation={0}
+            sx={{
+              p: { xs: 3, md: 6 },
+              borderRadius: 5,
+              background: (theme) => theme.palette.mode === 'dark' ? 'rgba(15, 23, 42, 0.35)' : 'rgba(255, 255, 255, 0.55)',
+              backdropFilter: 'blur(16px)',
+              border: (theme) => theme.palette.mode === 'dark' ? '1px solid rgba(255, 255, 255, 0.04)' : '1px solid rgba(15, 23, 42, 0.05)',
+              boxShadow: (theme) => theme.palette.mode === 'dark' ? '0 15px 35px -5px rgba(0, 0, 0, 0.3)' : '0 15px 35px -5px rgba(15, 23, 42, 0.05)',
+              mb: 6,
+              width: '100%',
+              minWidth: 0
+            }}
+          >
+            <Box className="markdown-body">
+              {renderMarkdown(blog.content)}
+            </Box>
+          </Paper>
+
+          {hasTableOfContents && (
+            <Box
+              component="aside"
+              sx={{
+                display: { xs: 'none', lg: 'block' },
+                minWidth: 0,
+                alignSelf: 'stretch',
+                height: '100%',
+                pt: 1
+              }}
+            >
+              <TableOfContents headings={tableOfContentsHeadings} />
+            </Box>
+          )}
+        </Box>
       </Container>
       </Box>
     </>

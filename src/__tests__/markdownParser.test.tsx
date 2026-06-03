@@ -2,6 +2,8 @@ import { StrictMode } from 'react';
 import { describe, expect, it, vi } from 'vitest';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { renderMarkdown } from '../components/markdownParser';
+import { extractMarkdownHeadings } from '../components/markdownHeadings';
+import { TableOfContents } from '../components/TableOfContents';
 
 describe('Markdown renderer', () => {
   it('renders inline markdown formatting', () => {
@@ -171,6 +173,94 @@ describe('Markdown renderer', () => {
 
     expect(container.querySelector('#installation')?.textContent).toBe('Installation');
     expect(container.querySelector('#installation-1')).toBeNull();
+  });
+
+  it('extracts table-of-contents entries with the same ids as rendered headings', () => {
+    const markdown = [
+      '## Einführung',
+      '',
+      '### ScopedElementsMixin im Detail',
+      '',
+      '## Einführung',
+    ].join('\n');
+
+    const { container } = render(<>{renderMarkdown(markdown)}</>);
+    const headings = extractMarkdownHeadings(markdown);
+
+    expect(headings).toEqual([
+      { id: 'einführung', level: 2, line: 1, text: 'Einführung' },
+      { id: 'scoped-elements-mixin-im-detail', level: 3, line: 3, text: 'ScopedElementsMixin im Detail' },
+      { id: 'einführung-1', level: 2, line: 5, text: 'Einführung' },
+    ]);
+    headings.forEach((heading) => {
+      expect(container.querySelector(`[id="${heading.id}"]`)?.textContent).toBe(heading.text);
+    });
+  });
+
+  it('ignores markdown headings inside fenced code blocks when extracting table-of-contents entries', () => {
+    const markdown = [
+      '## Sichtbar',
+      '',
+      '```md',
+      '## Nicht sichtbar',
+      '```',
+      '',
+      '### Auch sichtbar',
+    ].join('\n');
+
+    expect(extractMarkdownHeadings(markdown).map((heading) => heading.text)).toEqual([
+      'Sichtbar',
+      'Auch sichtbar',
+    ]);
+  });
+
+  it('supports setext headings in rendered ids and table-of-contents extraction', () => {
+    const markdown = [
+      'Überblick',
+      '=========',
+      '',
+      'Details',
+      '-------',
+    ].join('\n');
+
+    const { container } = render(<>{renderMarkdown(markdown)}</>);
+    const headings = extractMarkdownHeadings(markdown);
+
+    expect(headings).toEqual([
+      { id: 'überblick', level: 1, line: 1, text: 'Überblick' },
+      { id: 'details', level: 2, line: 4, text: 'Details' },
+    ]);
+    expect(container.querySelector('[id="überblick"]')?.textContent).toBe('Überblick');
+    expect(container.querySelector('#details')?.textContent).toBe('Details');
+  });
+
+  it('renders automatic table-of-contents links that jump to matching headings', () => {
+    const originalScrollIntoView = HTMLElement.prototype.scrollIntoView;
+    const scrollIntoView = vi.fn();
+    HTMLElement.prototype.scrollIntoView = scrollIntoView;
+    window.history.pushState(null, '', '/');
+
+    try {
+      const markdown = '## Überblick\n\n### Details';
+      const headings = extractMarkdownHeadings(markdown);
+
+      render(
+        <>
+          <h2 id="überblick">Überblick</h2>
+          <h3 id="details">Details</h3>
+          <TableOfContents headings={headings} />
+        </>,
+      );
+
+      fireEvent.click(screen.getByRole('link', { name: 'Überblick' }));
+
+      expect(screen.getByRole('navigation', { name: 'Inhaltsverzeichnis' })).toBeTruthy();
+      expect(scrollIntoView).toHaveBeenCalledWith({ behavior: 'smooth', block: 'start' });
+      expect(window.location.hash).toBe('#%C3%BCberblick');
+    } finally {
+      HTMLElement.prototype.scrollIntoView = originalScrollIntoView;
+      window.history.pushState(null, '', '/');
+    }
   });
 
   it('highlights fenced code blocks with Shiki', async () => {
