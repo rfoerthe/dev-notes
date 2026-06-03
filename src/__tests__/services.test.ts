@@ -19,6 +19,7 @@ import {
   loginUser,
   registerUser
 } from '../services/authService';
+import { createBookmarkPayload, sortBookmarksNewestFirst } from '../services/bookmarkService';
 import { BLOG_LIMITS, MIN_PASSWORD_LENGTH, validateBlogContent } from '../services/securityValidation';
 
 describe('Developer blog service helpers', () => {
@@ -82,6 +83,67 @@ describe('Developer blog service helpers', () => {
     expect(createBlogMarkdownFilename({ title: 'Supercalifragilisticexpialidocious' })).toBe(
       'supercalifragilisticexpialidoc.md'
     );
+  });
+
+  it('creates compact bookmark payloads from blog posts', () => {
+    expect(
+      createBookmarkPayload({
+        id: 'post-1',
+        title: '  React Patterns  ',
+        summary: '  Reusable UI ideas  ',
+        content: 'Full article content is intentionally not stored in bookmarks.',
+        tags: ['React', 'TypeScript'],
+        authorName: '  Creative Dev  ',
+        authorUsername: 'creativedev',
+        createdAt: '2024-01-03T12:00:00.000Z',
+        readTime: 4
+      })
+    ).toEqual({
+      blogId: 'post-1',
+      title: 'React Patterns',
+      summary: 'Reusable UI ideas',
+      authorName: 'Creative Dev',
+      authorUsername: 'creativedev',
+      tags: ['React', 'TypeScript'],
+      readTime: 4
+    });
+  });
+
+  it('sorts bookmarks newest first with a stable blog id tie-breaker', () => {
+    expect(
+      sortBookmarksNewestFirst([
+        {
+          blogId: 'post-c',
+          title: 'Old',
+          summary: 'Old bookmark',
+          authorName: 'Author',
+          authorUsername: 'author',
+          tags: ['React'],
+          readTime: 1,
+          createdAt: '2024-01-01T12:00:00.000Z'
+        },
+        {
+          blogId: 'post-b',
+          title: 'Same',
+          summary: 'Same bookmark',
+          authorName: 'Author',
+          authorUsername: 'author',
+          tags: ['React'],
+          readTime: 1,
+          createdAt: '2024-01-03T12:00:00.000Z'
+        },
+        {
+          blogId: 'post-a',
+          title: 'Newest',
+          summary: 'Newest bookmark',
+          authorName: 'Author',
+          authorUsername: 'author',
+          tags: ['React'],
+          readTime: 1,
+          createdAt: '2024-01-03T12:00:00.000Z'
+        }
+      ]).map(bookmark => bookmark.blogId)
+    ).toEqual(['post-a', 'post-b', 'post-c']);
   });
 });
 

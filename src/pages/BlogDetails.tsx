@@ -13,14 +13,14 @@ import {
   IconButton,
   Tooltip
 } from '@mui/material';
-import { ChevronLeft, Calendar, Clock, Download, Share2 } from 'lucide-react';
+import { Bookmark, BookmarkCheck, ChevronLeft, Calendar, Clock, Download, Edit3, Share2 } from 'lucide-react';
 import { getBlogById } from '../services/blogService';
 import type { BlogPost } from '../services/blogService';
 import { renderMarkdown } from '../components/markdownParser';
 import { useAuth } from '../context/AuthContext';
-import { Edit3 } from 'lucide-react';
 import { canManageBlogPost } from '../services/blogOwnership';
 import { buildBlogMarkdownDocument, createBlogMarkdownFilename } from '../services/blogMarkdownExport';
+import { isBlogBookmarked, toggleBookmark } from '../services/bookmarkService';
 
 const SCROLL_PROGRESS_VISIBLE_OFFSET = 160;
 
@@ -31,6 +31,8 @@ export const BlogDetails: React.FC = () => {
 
   const [blog, setBlog] = useState<BlogPost | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
+  const [isBookmarked, setIsBookmarked] = useState<boolean>(false);
+  const [bookmarkLoading, setBookmarkLoading] = useState<boolean>(false);
   
   // Scroll progress state
   const [scrollProgress, setScrollProgress] = useState<number>(0);
@@ -49,6 +51,32 @@ export const BlogDetails: React.FC = () => {
     };
     fetchBlog();
   }, [id]);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    const loadBookmarkState = async () => {
+      if (!blog || !userProfile?.uid || userProfile.status !== 'approved') {
+        setIsBookmarked(false);
+        return;
+      }
+
+      try {
+        const bookmarked = await isBlogBookmarked(userProfile.uid, blog.id);
+        if (isMounted) {
+          setIsBookmarked(bookmarked);
+        }
+      } catch (err) {
+        console.error('Failed to load bookmark state:', err);
+      }
+    };
+
+    loadBookmarkState();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [blog, userProfile?.uid, userProfile?.status]);
 
   // Scroll event listener for progress bar
   useEffect(() => {
@@ -124,6 +152,29 @@ export const BlogDetails: React.FC = () => {
     link.click();
     link.remove();
     URL.revokeObjectURL(url);
+  };
+
+  const handleToggleBookmark = async () => {
+    if (!blog) return;
+
+    if (!userProfile) {
+      navigate('/login');
+      return;
+    }
+
+    if (userProfile.status !== 'approved') {
+      return;
+    }
+
+    setBookmarkLoading(true);
+    try {
+      const nextBookmarked = await toggleBookmark(userProfile.uid, blog, isBookmarked);
+      setIsBookmarked(nextBookmarked);
+    } catch (err) {
+      console.error('Failed to toggle bookmark:', err);
+    } finally {
+      setBookmarkLoading(false);
+    }
   };
 
   if (loading) {
@@ -308,6 +359,36 @@ export const BlogDetails: React.FC = () => {
                     </IconButton>
                   </Tooltip>
                 )}
+                <Tooltip
+                  title={
+                    userProfile
+                      ? isBookmarked ? 'Aus Merkliste entfernen' : 'Zur Merkliste hinzufügen'
+                      : 'Zum Merken anmelden'
+                  }
+                >
+                  <span>
+                    <IconButton
+                      aria-label={isBookmarked ? 'Aus Merkliste entfernen' : 'Zur Merkliste hinzufügen'}
+                      onClick={handleToggleBookmark}
+                      disabled={bookmarkLoading || Boolean(userProfile && userProfile.status !== 'approved')}
+                      sx={{
+                        border: isBookmarked ? '1px solid rgba(20, 184, 166, 0.28)' : '1px solid rgba(255, 255, 255, 0.08)',
+                        borderRadius: 3,
+                        p: 1,
+                        color: isBookmarked ? 'secondary.main' : 'inherit',
+                        bgcolor: isBookmarked ? 'rgba(20, 184, 166, 0.08)' : 'transparent'
+                      }}
+                    >
+                      {bookmarkLoading ? (
+                        <CircularProgress size={16} color="inherit" />
+                      ) : isBookmarked ? (
+                        <BookmarkCheck size={16} />
+                      ) : (
+                        <Bookmark size={16} />
+                      )}
+                    </IconButton>
+                  </span>
+                </Tooltip>
                 <Tooltip title="Markdown herunterladen">
                   <IconButton
                     aria-label="Markdown herunterladen"

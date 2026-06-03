@@ -1,5 +1,17 @@
 # Changelog
 
+## [1.0.7] - 2026-06-03
+
+### Added
+
+- Approved users can save articles to a private Merkliste and manage saved posts from the new `/bookmarks` page.
+- Article cards and article detail pages now expose a bookmark toggle with saved/unsaved states.
+- Firestore rules now protect per-user bookmark subcollections under `users/{uid}/bookmarks/{blogId}`.
+
+### Fixed
+
+- Featured article card tags now reserve space for the bookmark button so long tag rows no longer overlap the action.
+
 ## [1.0.6] - 2026-06-02
 
 ### Changed

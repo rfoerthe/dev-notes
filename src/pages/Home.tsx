@@ -12,7 +12,8 @@ import {
   InputAdornment,
   Chip,
   Button,
-  ButtonBase,
+  CircularProgress,
+  IconButton,
   Avatar,
   Skeleton,
   Stack,
@@ -22,13 +23,16 @@ import {
   FormControl,
   Select,
   MenuItem,
-  Pagination
+  Pagination,
+  Tooltip
 } from '@mui/material';
-import { Search, Calendar, Clock, ArrowUpRight, Code, ChevronDown } from 'lucide-react';
+import { Search, Calendar, Clock, ArrowUpRight, Code, ChevronDown, Bookmark, BookmarkCheck } from 'lucide-react';
 import { getBlogs, getRecentBlogs, sortBlogPostsNewestFirst } from '../services/blogService';
 import type { BlogPost } from '../services/blogService';
 import { blogMatchesSearch } from '../services/blogSearch';
 import { blogMatchesFilterTag, getBlogFilterTags } from '../services/blogTagFilters';
+import { useAuth } from '../context/AuthContext';
+import { getBookmarkedBlogIds, toggleBookmark } from '../services/bookmarkService';
 
 const FEATURED_POST_LIMIT = 6;
 const INITIAL_OLDER_POST_LIMIT = 20;
@@ -44,6 +48,10 @@ export const Home: React.FC = () => {
   const [popoverSearchQuery, setPopoverSearchQuery] = useState<string>('');
   const [olderPage, setOlderPage] = useState<number>(1);
   const [olderPageSize, setOlderPageSize] = useState<number>(20);
+  const [bookmarkedBlogIds, setBookmarkedBlogIds] = useState<Set<string>>(new Set());
+  const [bookmarkActionId, setBookmarkActionId] = useState<string | null>(null);
+
+  const { userProfile } = useAuth();
 
   const handleOpenPopover = (event: React.MouseEvent<HTMLDivElement>) => {
     setAnchorEl(event.currentTarget);
@@ -123,6 +131,66 @@ export const Home: React.FC = () => {
     };
   }, []);
 
+  useEffect(() => {
+    let isMounted = true;
+
+    const loadBookmarks = async () => {
+      if (!userProfile?.uid || userProfile.status !== 'approved') {
+        setBookmarkedBlogIds(new Set());
+        return;
+      }
+
+      try {
+        const savedBlogIds = await getBookmarkedBlogIds(userProfile.uid);
+        if (isMounted) {
+          setBookmarkedBlogIds(new Set(savedBlogIds));
+        }
+      } catch (err) {
+        console.error('Failed to load bookmarked blog IDs:', err);
+      }
+    };
+
+    loadBookmarks();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [userProfile?.uid, userProfile?.status]);
+
+  const handleBookmarkClick = async (event: React.MouseEvent, blog: BlogPost) => {
+    event.preventDefault();
+    event.stopPropagation();
+
+    if (!userProfile) {
+      navigate('/login');
+      return;
+    }
+
+    if (userProfile.status !== 'approved') {
+      return;
+    }
+
+    const wasBookmarked = bookmarkedBlogIds.has(blog.id);
+    setBookmarkActionId(blog.id);
+
+    try {
+      const isNowBookmarked = await toggleBookmark(userProfile.uid, blog, wasBookmarked);
+      setBookmarkedBlogIds(currentIds => {
+        const nextIds = new Set(currentIds);
+        if (isNowBookmarked) {
+          nextIds.add(blog.id);
+        } else {
+          nextIds.delete(blog.id);
+        }
+        return nextIds;
+      });
+    } catch (err) {
+      console.error('Failed to toggle bookmark:', err);
+    } finally {
+      setBookmarkActionId(null);
+    }
+  };
+
   const searchMatchedBlogs = useMemo(() => {
     return blogs.filter(blog => blogMatchesSearch(blog, searchQuery));
   }, [blogs, searchQuery]);
@@ -197,6 +265,60 @@ export const Home: React.FC = () => {
       .map(part => part.charAt(0))
       .join('')
       .toUpperCase();
+  };
+
+  const renderBookmarkButton = (blog: BlogPost, placement: 'floating' | 'inline' = 'floating') => {
+    const isBookmarked = bookmarkedBlogIds.has(blog.id);
+    const isActionLoading = bookmarkActionId === blog.id;
+    const isDisabled = isActionLoading || Boolean(userProfile && userProfile.status !== 'approved');
+
+    return (
+      <Tooltip
+        title={
+          userProfile
+            ? isBookmarked ? 'Aus Merkliste entfernen' : 'Zur Merkliste hinzufügen'
+            : 'Zum Merken anmelden'
+        }
+      >
+        <span>
+          <IconButton
+            aria-label={isBookmarked ? 'Aus Merkliste entfernen' : 'Zur Merkliste hinzufügen'}
+            disabled={isDisabled}
+            onClick={(event) => handleBookmarkClick(event, blog)}
+            sx={{
+              ...(placement === 'floating'
+                ? {
+                    position: 'absolute',
+                    top: 12,
+                    right: 12,
+                    zIndex: 2,
+                    bgcolor: (theme) => theme.palette.mode === 'dark' ? 'rgba(7, 10, 19, 0.72)' : 'rgba(255, 255, 255, 0.86)',
+                    backdropFilter: 'blur(10px)'
+                  }
+                : {
+                    flexShrink: 0
+                  }),
+              width: placement === 'floating' ? 36 : 34,
+              height: placement === 'floating' ? 36 : 34,
+              border: isBookmarked ? '1px solid rgba(20, 184, 166, 0.3)' : '1px solid rgba(139, 92, 246, 0.18)',
+              color: isBookmarked ? 'secondary.main' : 'text.secondary',
+              '&:hover': {
+                color: isBookmarked ? 'secondary.main' : 'primary.light',
+                bgcolor: isBookmarked ? 'rgba(20, 184, 166, 0.12)' : 'rgba(139, 92, 246, 0.1)'
+              }
+            }}
+          >
+            {isActionLoading ? (
+              <CircularProgress size={15} color="inherit" />
+            ) : isBookmarked ? (
+              <BookmarkCheck size={17} />
+            ) : (
+              <Bookmark size={17} />
+            )}
+          </IconButton>
+        </span>
+      </Tooltip>
+    );
   };
 
   return (
@@ -499,9 +621,10 @@ export const Home: React.FC = () => {
                       position: 'relative'
                     }}
                   >
+                    {renderBookmarkButton(blog)}
                     <CardContent sx={{ flexGrow: 1, p: 3, pb: 1 }}>
                       {/* Tags */}
-                      <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.8, mb: 2 }}>
+                      <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.8, mb: 2, pr: 6.5 }}>
                         {blog.tags.map(tag => (
                           <Box
                             key={tag}
@@ -678,10 +801,17 @@ export const Home: React.FC = () => {
                 }}
               >
                 {pagedOlderBlogs.map((blog, index) => (
-                  <ButtonBase
+                  <Box
                     key={blog.id}
                     component="article"
                     onClick={() => navigate(`/blog/${blog.id}`)}
+                    onKeyDown={(event) => {
+                      if (event.key === 'Enter' || event.key === ' ') {
+                        event.preventDefault();
+                        navigate(`/blog/${blog.id}`);
+                      }
+                    }}
+                    tabIndex={0}
                     sx={{
                       width: '100%',
                       display: 'grid',
@@ -691,13 +821,18 @@ export const Home: React.FC = () => {
                       textAlign: 'left',
                       px: { xs: 2, md: 2.5 },
                       py: 2,
+                      cursor: 'pointer',
                       borderTop: index === 0 ? 0 : (theme) => theme.palette.mode === 'dark' ? '1px solid rgba(255, 255, 255, 0.05)' : '1px solid rgba(15, 23, 42, 0.06)',
                       transition: 'background-color 0.2s ease, color 0.2s ease',
+                      outline: 'none',
                       '&:hover': {
                         bgcolor: (theme) => theme.palette.mode === 'dark' ? 'rgba(139, 92, 246, 0.08)' : 'rgba(139, 92, 246, 0.06)',
                         '& .archive-title': {
                           color: '#a78bfa'
                         }
+                      },
+                      '&:focus-visible': {
+                        boxShadow: 'inset 0 0 0 2px rgba(139, 92, 246, 0.45)'
                       }
                     }}
                   >
@@ -773,13 +908,14 @@ export const Home: React.FC = () => {
                         whiteSpace: 'nowrap'
                       }}
                     >
+                      {renderBookmarkButton(blog, 'inline')}
                       <Stack direction="row" spacing={0.5} sx={{ alignItems: 'center' }}>
                         <Clock size={13} />
                         <Typography variant="caption" sx={{ fontWeight: 700 }}>{blog.readTime} min</Typography>
                       </Stack>
                       <ArrowUpRight size={16} />
                     </Stack>
-                  </ButtonBase>
+                  </Box>
                 ))}
               </Box>
 

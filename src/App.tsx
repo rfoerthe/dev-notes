@@ -15,6 +15,7 @@ import { CreateBlog } from './pages/CreateBlog';
 import { BlogDetails } from './pages/BlogDetails';
 import { EditBlog } from './pages/EditBlog';
 import { MyPosts } from './pages/MyPosts';
+import { Bookmarks } from './pages/Bookmarks';
 import { Profile } from './pages/Profile';
 import { Impressum } from './pages/Impressum';
 import { Datenschutz } from './pages/Datenschutz';
@@ -64,6 +65,7 @@ const App: React.FC = () => {
                 <Route element={<ProtectedRoute />}>
                   <Route path="/write" element={<CreateBlog />} />
                   <Route path="/my-posts" element={<MyPosts />} />
+                  <Route path="/bookmarks" element={<Bookmarks />} />
                   <Route path="/edit/:id" element={<EditBlog />} />
                   <Route path="/profile" element={<Profile />} />
                 </Route>

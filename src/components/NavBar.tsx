@@ -21,7 +21,7 @@ import {
   ListItemButton,
   ListItemText
 } from '@mui/material';
-import { Terminal, PenTool, ShieldAlert, LogOut, Menu as MenuIcon, Settings, Sun, Moon, Monitor, FileText } from 'lucide-react';
+import { Terminal, PenTool, ShieldAlert, LogOut, Menu as MenuIcon, Settings, Sun, Moon, Monitor, FileText, Bookmark } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { fetchUsersByStatus } from '../services/authService';
 import { useCustomTheme } from '../context/CustomThemeContext';
@@ -103,6 +103,7 @@ export const NavBar: React.FC = () => {
   const navLinks = [
     { label: 'Home', path: '/' },
     ...(userProfile?.status === 'approved' ? [{ label: 'Meine Beiträge', path: '/my-posts', icon: <FileText size={16} /> }] : []),
+    ...(userProfile?.status === 'approved' ? [{ label: 'Merkliste', path: '/bookmarks', icon: <Bookmark size={16} /> }] : []),
     ...(userProfile?.status === 'approved' ? [{ label: 'Beitrag schreiben', path: '/write', icon: <PenTool size={16} /> }] : []),
     ...(userProfile?.role === 'admin' ? [{ label: 'Admin-Panel', path: '/admin', icon: <ShieldAlert size={16} />, badge: pendingCount }] : [])
   ];
@@ -448,6 +449,12 @@ export const NavBar: React.FC = () => {
                           sx={{ fontFamily: 'Outfit, sans-serif', fontSize: 14, py: 1 }}
                         >
                           <FileText size={14} style={{ marginRight: 8 }} /> Meine Beiträge
+                        </MenuItem>
+                        <MenuItem 
+                          onClick={() => { handleCloseUserMenu(); navigate('/bookmarks'); }}
+                          sx={{ fontFamily: 'Outfit, sans-serif', fontSize: 14, py: 1 }}
+                        >
+                          <Bookmark size={14} style={{ marginRight: 8 }} /> Merkliste
                         </MenuItem>
                         <MenuItem 
                           onClick={() => { handleCloseUserMenu(); navigate('/write'); }}

@@ -41,6 +41,30 @@ service cloud.firestore {
         request.resource.data.themeMode in ['light', 'dark', 'system'];
     }
 
+    function validBookmark() {
+      return request.resource.data.keys().hasOnly([
+        'blogId',
+        'title',
+        'summary',
+        'authorName',
+        'authorUsername',
+        'tags',
+        'readTime',
+        'createdAt'
+      ]) &&
+        request.resource.data.blogId is string &&
+        request.resource.data.title is string && request.resource.data.title.size() <= 150 &&
+        request.resource.data.summary is string && request.resource.data.summary.size() <= 600 &&
+        request.resource.data.authorName is string && request.resource.data.authorName.size() <= 100 &&
+        request.resource.data.authorUsername is string &&
+        validUsernameValue(request.resource.data.authorUsername) &&
+        validTags() &&
+        request.resource.data.readTime is int &&
+        request.resource.data.readTime >= 1 &&
+        request.resource.data.readTime <= 240 &&
+        request.resource.data.createdAt == request.time;
+    }
+
     function validOptionalBootstrappedAt() {
       return !request.resource.data.keys().hasAny(['bootstrappedAt']) ||
         request.resource.data.bootstrappedAt == resource.data.bootstrappedAt;
@@ -220,6 +244,20 @@ service cloud.firestore {
       // User deletion must go through the Admin SDK cleanup script so the
       // Firebase Auth account and Firestore profile cannot get out of sync.
       allow delete: if false;
+
+      match /bookmarks/{blogId} {
+        allow read: if isAuthenticated() && request.auth.uid == userId;
+
+        allow create: if isApproved() &&
+          request.auth.uid == userId &&
+          request.resource.data.blogId == blogId &&
+          exists(/databases/$(database)/documents/blogs/$(blogId)) &&
+          validBookmark();
+
+        allow update: if false;
+
+        allow delete: if isApproved() && request.auth.uid == userId;
+      }
     }
 
     // --- Public Usernames Collection Rules (PII Protection) ---
