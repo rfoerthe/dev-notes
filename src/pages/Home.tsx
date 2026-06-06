@@ -324,63 +324,50 @@ export const Home: React.FC = () => {
   };
 
   return (
-    <Container maxWidth="lg" sx={{ py: 6, flexGrow: 1 }} className="animate-fade-in">
+    <Container maxWidth="lg" sx={{ py: { xs: 4, md: 5 }, flexGrow: 1 }} className="animate-fade-in">
       {/* HERO SECTION */}
-      <Box 
-        sx={{ 
-          textAlign: 'center', 
-          py: { xs: 6, md: 8 }, 
-          mb: 6, 
-          borderRadius: 6,
-          background: 'linear-gradient(180deg, rgba(139, 92, 246, 0.05) 0%, rgba(7, 10, 19, 0) 100%)',
-          border: '1px solid rgba(255, 255, 255, 0.03)',
-          position: 'relative',
-          overflow: 'hidden'
+      <Box
+        component="header"
+        sx={{
+          display: 'grid',
+          gridTemplateColumns: { xs: '1fr', md: 'minmax(0, 1fr) minmax(320px, 480px)' },
+          gap: { xs: 2, md: 4 },
+          alignItems: 'end',
+          mb: { xs: 3.5, md: 4.5 },
+          pb: { xs: 3, md: 3.5 },
+          borderBottom: (theme) => theme.palette.mode === 'dark'
+            ? '1px solid rgba(255, 255, 255, 0.06)'
+            : '1px solid rgba(15, 23, 42, 0.08)',
         }}
       >
-        {/* Glow decorative bubble */}
-        <Box 
-          sx={{
-            position: 'absolute',
-            top: '-20%',
-            left: '50%',
-            transform: 'translateX(-50%)',
-            width: '60%',
-            height: '60%',
-            background: 'radial-gradient(circle, rgba(139, 92, 246, 0.15) 0%, rgba(7, 10, 19, 0) 70%)',
-            zIndex: 0,
-            pointerEvents: 'none'
-          }}
-        />
-
-        <Box sx={{ position: 'relative', zIndex: 1, px: 2 }}>
-          <Box 
-            sx={{ 
-              display: 'inline-flex', 
-              alignItems: 'center', 
-              gap: 1, 
-              px: 2, 
-              py: 0.5, 
-              borderRadius: 5, 
+        <Box>
+          <Box
+            sx={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 1,
+              px: 1.4,
+              py: 0.45,
+              borderRadius: 2,
               bgcolor: 'rgba(20, 184, 166, 0.08)',
               border: '1px solid rgba(20, 184, 166, 0.2)',
-              mb: 3
+              mb: 1.4
             }}
           >
             <Code size={14} color="#14b8a6" />
-            <Typography variant="caption" sx={{ color: '#14b8a6', fontWeight: 700, fontFamily: 'Outfit, sans-serif', letterSpacing: '0.05em' }}>
+            <Typography variant="caption" sx={{ color: '#14b8a6', fontWeight: 700, fontFamily: 'Outfit, sans-serif', letterSpacing: 0 }}>
               DEVS WRITE FOR DEVS
             </Typography>
           </Box>
-          <Typography 
-            variant="h2" 
-            component="h1" 
-            sx={{ 
-              fontWeight: 800, 
-              mb: 2, 
+          <Typography
+            variant="h2"
+            component="h1"
+            sx={{
+              fontWeight: 800,
               fontFamily: 'Outfit, sans-serif',
-              fontSize: { xs: '2.5rem', md: '3.75rem' },
-              letterSpacing: '-0.02em',
+              fontSize: { xs: '2.2rem', md: '3rem' },
+              lineHeight: 1.05,
+              letterSpacing: 0,
               background: (theme) => theme.palette.mode === 'dark' 
                 ? 'linear-gradient(135deg, #ffffff 0%, #a78bfa 50%, #8b5cf6 100%)' 
                 : 'linear-gradient(135deg, #0f172a 0%, #6d28d9 50%, #7c3aed 100%)',
@@ -390,20 +377,26 @@ export const Home: React.FC = () => {
           >
             Entdecke DevNotes
           </Typography>
-          <Typography 
-            variant="h6" 
-            color="text.secondary" 
-            sx={{ maxWidth: '650px', mx: 'auto', mb: 4, fontWeight: 400, px: 2 }}
-          >
-            Lies tiefgehende Tutorials, moderne Best Practices und spannende Updates über Frontend, Backend und DevOps – geschrieben von Experten aus der Community.
-          </Typography>
         </Box>
+
+        <Typography
+          variant="body1"
+          color="text.secondary"
+          sx={{
+            lineHeight: 1.65,
+            fontWeight: 400,
+            maxWidth: { xs: 'none', md: 480 },
+            justifySelf: { xs: 'start', md: 'end' }
+          }}
+        >
+          Lies tiefgehende Tutorials, moderne Best Practices und spannende Updates über Frontend, Backend und DevOps – geschrieben von Experten aus der Community.
+        </Typography>
       </Box>
 
       {/* FILTER & SEARCH */}
       <Stack 
         spacing={2.5} 
-        sx={{ mb: 5, width: '100%', alignItems: 'flex-start' }}
+        sx={{ mb: { xs: 4, md: 4.5 }, width: '100%', alignItems: 'flex-start' }}
       >
         {/* Search Field */}
         <TextField

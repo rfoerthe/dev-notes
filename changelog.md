@@ -2,13 +2,19 @@
 
 ## [1.0.10] - 2026-06-06
 
+### Added
+
+- The navigation now links to the GitHub repository from a GitHub icon in the top bar and mobile drawer.
+
 ### Changed
 
+- The Home page introduction is now more compact, leaving more room for filters and article cards above the fold.
 - Long article table-of-contents navigation now tracks the currently scrolled section automatically.
 - Long desktop table-of-contents panels now scroll themselves to keep the active marker visible.
 
 ### Fixed
 
+- Route changes now reset the window scroll position, so Home and newly opened articles start at the top instead of inheriting the previous page scroll.
 - Table-of-contents markers no longer jump to the last entry after Markdown headings are remounted.
 - Table-of-contents markers stay stable while smooth scrolling to a clicked heading is in progress.
 

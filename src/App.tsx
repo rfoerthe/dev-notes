@@ -6,6 +6,7 @@ import { AuthProvider, useAuth } from './context/AuthContext';
 import { NavBar } from './components/NavBar';
 import { AnalyticsRouteTracker } from './components/AnalyticsRouteTracker';
 import { AnalyticsConsentBanner } from './components/AnalyticsConsentBanner';
+import { RouteScrollReset } from './components/RouteScrollReset';
 import { Home } from './pages/Home';
 import { Login } from './pages/Login';
 import { Register } from './pages/Register';
@@ -45,6 +46,7 @@ const App: React.FC = () => {
       <AuthProvider>
         <ProfileThemeSync />
         <BrowserRouter>
+          <RouteScrollReset />
           <AnalyticsRouteTracker />
           <Box sx={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
             <NavBar />

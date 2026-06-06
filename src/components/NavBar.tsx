@@ -21,6 +21,7 @@ import {
   ListItemButton,
   ListItemText
 } from '@mui/material';
+import GitHubIcon from '@mui/icons-material/GitHub';
 import { Terminal, PenTool, ShieldAlert, LogOut, Menu as MenuIcon, Settings, Sun, Moon, Monitor, FileText, Bookmark } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { canAccessApprovedFeatures, fetchUsersByStatus } from '../services/authService';
@@ -99,6 +100,7 @@ export const NavBar: React.FC = () => {
   const isActive = (path: string) => location.pathname === path;
   const appVersionLabel = `Installierte Version: ${__APP_VERSION__}`;
   const hasApprovedAccess = canAccessApprovedFeatures(userProfile);
+  const githubRepoUrl = 'https://github.com/rfoerthe/dev-notes';
 
   // Render navigation links based on user status
   const navLinks = [
@@ -178,6 +180,36 @@ export const NavBar: React.FC = () => {
             </ListItemButton>
           </ListItem>
         ))}
+        <ListItem disablePadding>
+          <ListItemButton
+            component="a"
+            href={githubRepoUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            sx={{
+              borderRadius: 2,
+              mb: 1,
+              mx: 1,
+              justifyContent: 'center',
+              color: (theme) => theme.palette.mode === 'dark' ? '#94a3b8' : '#475569',
+              '&:hover': {
+                color: (theme) => theme.palette.mode === 'dark' ? '#ffffff' : 'primary.main',
+                backgroundColor: (theme) => theme.palette.mode === 'dark' ? 'rgba(255, 255, 255, 0.03)' : 'rgba(15, 23, 42, 0.03)',
+              }
+            }}
+          >
+            <Box sx={{ mr: 1, display: 'flex', alignItems: 'center' }}>
+              <GitHubIcon sx={{ fontSize: 18 }} />
+            </Box>
+            <ListItemText
+              primary={
+                <Typography sx={{ fontFamily: 'Outfit, sans-serif', fontWeight: 600, textAlign: 'center', fontSize: 16 }}>
+                  GitHub Repo
+                </Typography>
+              }
+            />
+          </ListItemButton>
+        </ListItem>
       </List>
       
       <Box sx={{ position: 'absolute', bottom: 20, left: 0, right: 0, px: 2 }}>
@@ -307,6 +339,28 @@ export const NavBar: React.FC = () => {
 
             {/* RIGHT SIDE USER ACTIONS */}
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+              <Tooltip title="GitHub Repository öffnen">
+                <IconButton
+                  component="a"
+                  href={githubRepoUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  aria-label="GitHub Repository öffnen"
+                  sx={{
+                    p: 1.2,
+                    border: (theme) => theme.palette.mode === 'dark' ? '1px solid rgba(255, 255, 255, 0.08)' : '1px solid rgba(15, 23, 42, 0.08)',
+                    borderRadius: 3,
+                    color: 'inherit',
+                    '&:hover': {
+                      borderColor: 'primary.light',
+                      bgcolor: (theme) => theme.palette.mode === 'dark' ? 'rgba(255, 255, 255, 0.03)' : 'rgba(15, 23, 42, 0.03)'
+                    }
+                  }}
+                >
+                  <GitHubIcon sx={{ fontSize: 19 }} />
+                </IconButton>
+              </Tooltip>
+
               {/* Theme Selector Dropdown */}
               <Tooltip title="Design anpassen">
                 <IconButton 
