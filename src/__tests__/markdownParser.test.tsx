@@ -1,4 +1,4 @@
-import { StrictMode } from 'react';
+import { StrictMode, useEffect, useState } from 'react';
 import { describe, expect, it, vi } from 'vitest';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { renderMarkdown } from '../components/markdownParser';
@@ -259,6 +259,275 @@ describe('Markdown renderer', () => {
       expect(window.location.hash).toBe('#%C3%BCberblick');
     } finally {
       HTMLElement.prototype.scrollIntoView = originalScrollIntoView;
+      window.history.pushState(null, '', '/');
+    }
+  });
+
+  it('moves the automatic table-of-contents marker to the current scrolled section', async () => {
+    const originalGetBoundingClientRect = HTMLElement.prototype.getBoundingClientRect;
+    const originalScrollY = Object.getOwnPropertyDescriptor(window, 'scrollY');
+    const headingPositions: Record<string, number> = {
+      'überblick': 200,
+      details: 900,
+      fazit: 1600,
+    };
+
+    HTMLElement.prototype.getBoundingClientRect = function getBoundingClientRect() {
+      const documentTop = headingPositions[this.id] ?? 0;
+
+      return {
+        bottom: 0,
+        height: 0,
+        left: 0,
+        right: 0,
+        top: documentTop - window.scrollY,
+        width: 0,
+        x: 0,
+        y: documentTop - window.scrollY,
+        toJSON: () => ({}),
+      };
+    };
+    Object.defineProperty(window, 'scrollY', { configurable: true, value: 0 });
+    window.history.pushState(null, '', '/');
+
+    try {
+      const markdown = '## Überblick\n\n### Details\n\n## Fazit';
+      const headings = extractMarkdownHeadings(markdown);
+
+      render(
+        <>
+          <h2 id="überblick">Überblick</h2>
+          <h3 id="details">Details</h3>
+          <h2 id="fazit">Fazit</h2>
+          <TableOfContents headings={headings} />
+        </>,
+      );
+
+      Object.defineProperty(window, 'scrollY', { configurable: true, value: 850 });
+      fireEvent.scroll(window);
+
+      await waitFor(() => {
+        expect(screen.getByRole('link', { name: 'Details' }).getAttribute('aria-current')).toBe('location');
+      });
+      expect(screen.getByRole('link', { name: 'Überblick' }).getAttribute('aria-current')).toBeNull();
+    } finally {
+      HTMLElement.prototype.getBoundingClientRect = originalGetBoundingClientRect;
+      if (originalScrollY) {
+        Object.defineProperty(window, 'scrollY', originalScrollY);
+      }
+      window.history.pushState(null, '', '/');
+    }
+  });
+
+  it('scrolls the table of contents to keep the active marker visible', async () => {
+    const originalGetBoundingClientRect = HTMLElement.prototype.getBoundingClientRect;
+    const originalScrollY = Object.getOwnPropertyDescriptor(window, 'scrollY');
+    const headingPositions: Record<string, number> = {
+      'überblick': 200,
+      details: 900,
+      fazit: 1600,
+    };
+
+    HTMLElement.prototype.getBoundingClientRect = function getBoundingClientRect() {
+      if (this.getAttribute('aria-label') === 'Inhaltsverzeichnis') {
+        return {
+          bottom: 300,
+          height: 200,
+          left: 0,
+          right: 240,
+          top: 100,
+          width: 240,
+          x: 0,
+          y: 100,
+          toJSON: () => ({}),
+        };
+      }
+
+      if (this.tagName === 'A' && this.textContent?.trim() === 'Details') {
+        return {
+          bottom: 390,
+          height: 30,
+          left: 0,
+          right: 220,
+          top: 360,
+          width: 220,
+          x: 0,
+          y: 360,
+          toJSON: () => ({}),
+        };
+      }
+
+      const documentTop = headingPositions[this.id] ?? 0;
+
+      return {
+        bottom: 0,
+        height: 0,
+        left: 0,
+        right: 0,
+        top: documentTop - window.scrollY,
+        width: 0,
+        x: 0,
+        y: documentTop - window.scrollY,
+        toJSON: () => ({}),
+      };
+    };
+    Object.defineProperty(window, 'scrollY', { configurable: true, value: 0 });
+    window.history.pushState(null, '', '/');
+
+    try {
+      const markdown = '## Überblick\n\n### Details\n\n## Fazit';
+      const headings = extractMarkdownHeadings(markdown);
+
+      render(
+        <>
+          <h2 id="überblick">Überblick</h2>
+          <h3 id="details">Details</h3>
+          <h2 id="fazit">Fazit</h2>
+          <TableOfContents headings={headings} />
+        </>,
+      );
+
+      const tableOfContents = screen.getByRole('navigation', { name: 'Inhaltsverzeichnis' });
+      Object.defineProperty(tableOfContents, 'clientHeight', { configurable: true, value: 200 });
+      Object.defineProperty(tableOfContents, 'scrollHeight', { configurable: true, value: 1000 });
+      Object.defineProperty(window, 'scrollY', { configurable: true, value: 850 });
+      fireEvent.scroll(window);
+
+      await waitFor(() => {
+        expect(screen.getByRole('link', { name: 'Details' }).getAttribute('aria-current')).toBe('location');
+        expect(tableOfContents.scrollTop).toBeGreaterThan(0);
+      });
+    } finally {
+      HTMLElement.prototype.getBoundingClientRect = originalGetBoundingClientRect;
+      if (originalScrollY) {
+        Object.defineProperty(window, 'scrollY', originalScrollY);
+      }
+      window.history.pushState(null, '', '/');
+    }
+  });
+
+  it('keeps the clicked table-of-contents marker active while smooth scrolling is in progress', async () => {
+    const originalGetBoundingClientRect = HTMLElement.prototype.getBoundingClientRect;
+    const originalScrollIntoView = HTMLElement.prototype.scrollIntoView;
+    const originalScrollY = Object.getOwnPropertyDescriptor(window, 'scrollY');
+    const scrollIntoView = vi.fn();
+    const headingPositions: Record<string, number> = {
+      'überblick': 200,
+      details: 900,
+      fazit: 1600,
+    };
+
+    HTMLElement.prototype.getBoundingClientRect = function getBoundingClientRect() {
+      const documentTop = headingPositions[this.id] ?? 0;
+
+      return {
+        bottom: 0,
+        height: 0,
+        left: 0,
+        right: 0,
+        top: documentTop - window.scrollY,
+        width: 0,
+        x: 0,
+        y: documentTop - window.scrollY,
+        toJSON: () => ({}),
+      };
+    };
+    HTMLElement.prototype.scrollIntoView = scrollIntoView;
+    Object.defineProperty(window, 'scrollY', { configurable: true, value: 0 });
+    window.history.pushState(null, '', '/');
+
+    try {
+      const markdown = '## Überblick\n\n### Details\n\n## Fazit';
+      const headings = extractMarkdownHeadings(markdown);
+      const { unmount } = render(
+        <>
+          <h2 id="überblick">Überblick</h2>
+          <h3 id="details">Details</h3>
+          <h2 id="fazit">Fazit</h2>
+          <TableOfContents headings={headings} />
+        </>,
+      );
+
+      fireEvent.click(screen.getByRole('link', { name: 'Fazit' }));
+      Object.defineProperty(window, 'scrollY', { configurable: true, value: 850 });
+      fireEvent.scroll(window);
+      await new Promise((resolve) => window.setTimeout(resolve, 50));
+
+      expect(scrollIntoView).toHaveBeenCalledWith({ behavior: 'smooth', block: 'start' });
+      expect(screen.getByRole('link', { name: 'Fazit' }).getAttribute('aria-current')).toBe('location');
+      expect(screen.getByRole('link', { name: 'Details' }).getAttribute('aria-current')).toBeNull();
+      unmount();
+    } finally {
+      HTMLElement.prototype.getBoundingClientRect = originalGetBoundingClientRect;
+      HTMLElement.prototype.scrollIntoView = originalScrollIntoView;
+      if (originalScrollY) {
+        Object.defineProperty(window, 'scrollY', originalScrollY);
+      }
+      window.history.pushState(null, '', '/');
+    }
+  });
+
+  it('keeps the table-of-contents marker aligned when rendered headings are replaced', async () => {
+    const originalGetBoundingClientRect = HTMLElement.prototype.getBoundingClientRect;
+    const originalScrollY = Object.getOwnPropertyDescriptor(window, 'scrollY');
+    const headingPositions: Record<string, number> = {
+      'überblick': 200,
+      details: 900,
+      fazit: 1600,
+    };
+    const markdown = '## Überblick\n\n### Details\n\n## Fazit';
+    const headings = extractMarkdownHeadings(markdown);
+
+    const RemountedHeadings = () => {
+      const [version, setVersion] = useState(0);
+
+      useEffect(() => {
+        setVersion(1);
+      }, []);
+
+      return (
+        <>
+          <div key={version}>
+            <h2 id="überblick">Überblick</h2>
+            <h3 id="details">Details</h3>
+            <h2 id="fazit">Fazit</h2>
+          </div>
+          <TableOfContents headings={headings} />
+        </>
+      );
+    };
+
+    HTMLElement.prototype.getBoundingClientRect = function getBoundingClientRect() {
+      const documentTop = this.isConnected ? headingPositions[this.id] ?? 0 : 0;
+
+      return {
+        bottom: 0,
+        height: 0,
+        left: 0,
+        right: 0,
+        top: documentTop - window.scrollY,
+        width: 0,
+        x: 0,
+        y: documentTop - window.scrollY,
+        toJSON: () => ({}),
+      };
+    };
+    Object.defineProperty(window, 'scrollY', { configurable: true, value: 850 });
+    window.history.pushState(null, '', '/');
+
+    try {
+      render(<RemountedHeadings />);
+      fireEvent.scroll(window);
+
+      await waitFor(() => {
+        expect(screen.getByRole('link', { name: 'Details' }).getAttribute('aria-current')).toBe('location');
+      });
+      expect(screen.getByRole('link', { name: 'Fazit' }).getAttribute('aria-current')).toBeNull();
+    } finally {
+      HTMLElement.prototype.getBoundingClientRect = originalGetBoundingClientRect;
+      if (originalScrollY) {
+        Object.defineProperty(window, 'scrollY', originalScrollY);
+      }
       window.history.pushState(null, '', '/');
     }
   });

@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Box, Link as MuiLink, Typography } from '@mui/material';
 import { ListTree } from 'lucide-react';
 import type { MarkdownHeading } from './markdownHeadings';
@@ -10,6 +10,8 @@ interface TableOfContentsProps {
 }
 
 const getHeadingHash = (id: string): string => `#${encodeURIComponent(id)}`;
+const ACTIVE_HEADING_OFFSET = 128;
+const ACTIVE_LINK_SCROLL_MARGIN = 48;
 
 const getCurrentHashId = (): string => {
   if (typeof window === 'undefined' || !window.location.hash) {
@@ -29,6 +31,9 @@ export const TableOfContents = ({ headings, onNavigate, variant = 'sticky' }: Ta
     [headings],
   );
   const [activeId, setActiveId] = useState<string>(() => getCurrentHashId());
+  const navRef = useRef<HTMLElement | null>(null);
+  const pendingNavigationIdRef = useRef<string | null>(null);
+  const pendingNavigationClearTimeoutRef = useRef<number | null>(null);
   const minLevel = useMemo(
     () => items.reduce((minimum, item) => Math.min(minimum, item.level), 6),
     [items],
@@ -40,39 +45,121 @@ export const TableOfContents = ({ headings, onNavigate, variant = 'sticky' }: Ta
       ? hashId
       : items[0]?.id ?? '';
 
+  const clearPendingNavigationTimeout = useCallback(() => {
+    if (pendingNavigationClearTimeoutRef.current === null) {
+      return;
+    }
+
+    window.clearTimeout(pendingNavigationClearTimeoutRef.current);
+    pendingNavigationClearTimeoutRef.current = null;
+  }, []);
+
+  const schedulePendingNavigationClear = useCallback((delay = 180) => {
+    clearPendingNavigationTimeout();
+    pendingNavigationClearTimeoutRef.current = window.setTimeout(() => {
+      pendingNavigationIdRef.current = null;
+      pendingNavigationClearTimeoutRef.current = null;
+    }, delay);
+  }, [clearPendingNavigationTimeout]);
+
+  useEffect(() => () => {
+    if (pendingNavigationClearTimeoutRef.current !== null) {
+      window.clearTimeout(pendingNavigationClearTimeoutRef.current);
+    }
+  }, []);
+
   useEffect(() => {
-    if (variant !== 'sticky' || items.length < 2 || typeof IntersectionObserver === 'undefined') {
+    const nav = navRef.current;
+    const activeLink = nav?.querySelector<HTMLAnchorElement>('a[aria-current="location"]');
+
+    if (!nav || !activeLink || nav.scrollHeight <= nav.clientHeight) {
+      return;
+    }
+
+    const navRect = nav.getBoundingClientRect();
+    const activeLinkRect = activeLink.getBoundingClientRect();
+    const upperEdge = navRect.top + ACTIVE_LINK_SCROLL_MARGIN;
+    const lowerEdge = navRect.bottom - ACTIVE_LINK_SCROLL_MARGIN;
+
+    if (activeLinkRect.top < upperEdge) {
+      nav.scrollTop -= upperEdge - activeLinkRect.top;
+    } else if (activeLinkRect.bottom > lowerEdge) {
+      nav.scrollTop += activeLinkRect.bottom - lowerEdge;
+    }
+  }, [displayedActiveId]);
+
+  useEffect(() => {
+    if (items.length < 2) {
       return undefined;
     }
 
-    const headingElements = items
+    let animationFrameId: number | null = null;
+    const getHeadingElements = () => items
       .map((item) => document.getElementById(item.id))
       .filter((element): element is HTMLElement => Boolean(element));
 
-    if (!headingElements.length) {
-      return undefined;
-    }
+    const updateActiveHeading = () => {
+      const pendingNavigationId = pendingNavigationIdRef.current;
 
-    const observer = new IntersectionObserver(
-      (entries) => {
-        const visibleEntries = entries
-          .filter((entry) => entry.isIntersecting)
-          .sort((a, b) => a.boundingClientRect.top - b.boundingClientRect.top);
-
-        if (visibleEntries[0]?.target.id) {
-          setActiveId(visibleEntries[0].target.id);
+      if (pendingNavigationId) {
+        if (items.some((item) => item.id === pendingNavigationId)) {
+          setActiveId((currentActiveId) => currentActiveId === pendingNavigationId
+            ? currentActiveId
+            : pendingNavigationId);
+          schedulePendingNavigationClear();
+          return;
         }
-      },
-      {
-        rootMargin: '-112px 0px -68% 0px',
-        threshold: [0, 1],
-      },
-    );
 
-    headingElements.forEach((element) => observer.observe(element));
+        pendingNavigationIdRef.current = null;
+        clearPendingNavigationTimeout();
+      }
 
-    return () => observer.disconnect();
-  }, [items, variant]);
+      const headingElements = getHeadingElements();
+
+      if (!headingElements.length) {
+        return;
+      }
+
+      let nextActiveId = headingElements[0].id;
+
+      for (const element of headingElements) {
+        const elementTop = element.getBoundingClientRect().top;
+
+        if (elementTop > ACTIVE_HEADING_OFFSET) {
+          break;
+        }
+
+        nextActiveId = element.id;
+      }
+
+      setActiveId((currentActiveId) => currentActiveId === nextActiveId ? currentActiveId : nextActiveId);
+    };
+
+    const scheduleActiveHeadingUpdate = () => {
+      if (animationFrameId !== null) {
+        return;
+      }
+
+      animationFrameId = window.requestAnimationFrame(() => {
+        updateActiveHeading();
+        animationFrameId = null;
+      });
+    };
+
+    scheduleActiveHeadingUpdate();
+    window.addEventListener('scroll', scheduleActiveHeadingUpdate, { passive: true });
+    window.addEventListener('resize', scheduleActiveHeadingUpdate);
+    window.addEventListener('hashchange', scheduleActiveHeadingUpdate);
+
+    return () => {
+      window.removeEventListener('scroll', scheduleActiveHeadingUpdate);
+      window.removeEventListener('resize', scheduleActiveHeadingUpdate);
+      window.removeEventListener('hashchange', scheduleActiveHeadingUpdate);
+      if (animationFrameId !== null) {
+        window.cancelAnimationFrame(animationFrameId);
+      }
+    };
+  }, [clearPendingNavigationTimeout, items, schedulePendingNavigationClear]);
 
   if (items.length < 2) {
     return null;
@@ -86,6 +173,8 @@ export const TableOfContents = ({ headings, onNavigate, variant = 'sticky' }: Ta
     }
 
     event.preventDefault();
+    pendingNavigationIdRef.current = id;
+    schedulePendingNavigationClear(1600);
     target.scrollIntoView({ behavior: 'smooth', block: 'start' });
     window.history.pushState(null, '', getHeadingHash(id));
     setActiveId(id);
@@ -94,6 +183,7 @@ export const TableOfContents = ({ headings, onNavigate, variant = 'sticky' }: Ta
 
   return (
     <Box
+      ref={navRef}
       component="nav"
       aria-label="Inhaltsverzeichnis"
       sx={{
@@ -137,6 +227,7 @@ export const TableOfContents = ({ headings, onNavigate, variant = 'sticky' }: Ta
             <Box key={item.id} component="li" sx={{ m: 0, pl: `${(item.level - minLevel) * 0.9}rem` }}>
               <MuiLink
                 href={getHeadingHash(item.id)}
+                aria-current={isActive ? 'location' : undefined}
                 onClick={(event) => handleClick(event, item.id)}
                 sx={{
                   display: 'block',

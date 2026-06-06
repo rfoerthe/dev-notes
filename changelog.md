@@ -1,5 +1,17 @@
 # Changelog
 
+## [1.0.10] - 2026-06-06
+
+### Changed
+
+- Long article table-of-contents navigation now tracks the currently scrolled section automatically.
+- Long desktop table-of-contents panels now scroll themselves to keep the active marker visible.
+
+### Fixed
+
+- Table-of-contents markers no longer jump to the last entry after Markdown headings are remounted.
+- Table-of-contents markers stay stable while smooth scrolling to a clicked heading is in progress.
+
 ## [1.0.9] - 2026-06-05
 
 ### Added
