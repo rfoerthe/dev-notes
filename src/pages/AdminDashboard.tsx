@@ -17,7 +17,8 @@ import {
   Stack,
   Alert,
   CircularProgress,
-  Tooltip
+  Tooltip,
+  Chip
 } from '@mui/material';
 import { Check, X, Shield, Users, UserMinus, UserCheck, Calendar, Trash2 } from 'lucide-react';
 import { fetchUsersByStatus, updateUserStatus } from '../services/authService';
@@ -118,6 +119,101 @@ export const AdminDashboard: React.FC = () => {
     return `${user.firstName.charAt(0)}${user.lastName.charAt(0)}`.toUpperCase();
   };
 
+  const renderEmailVerificationStatus = (user: UserProfile) => {
+    const emailStatus = user.emailVerified === true
+      ? { label: 'Bestätigt', color: 'success' as const }
+      : user.emailVerified === false
+        ? { label: 'Offen', color: 'warning' as const }
+        : { label: 'Altbestand', color: 'default' as const };
+
+    return (
+      <Chip
+        label={emailStatus.label}
+        color={emailStatus.color}
+        variant="outlined"
+        size="small"
+        sx={{ fontWeight: 700 }}
+      />
+    );
+  };
+
+  const renderPendingUsersTable = (users: UserProfile[], emptyText: string) => (
+    users.length > 0 ? (
+      <TableContainer>
+        <Table sx={{ minWidth: 650 }}>
+          <TableHead sx={{ '& .MuiTableCell-head': { fontWeight: 700, color: 'text.secondary', borderBottomColor: 'rgba(255, 255, 255, 0.06)' } }}>
+            <TableRow>
+              <TableCell>Benutzer</TableCell>
+              <TableCell>Benutzername</TableCell>
+              <TableCell>E-Mail</TableCell>
+              <TableCell>E-Mail bestätigt</TableCell>
+              <TableCell>Registriert am</TableCell>
+              <TableCell align="right">Aktionen</TableCell>
+            </TableRow>
+          </TableHead>
+          <TableBody sx={{ '& .MuiTableCell-body': { borderBottomColor: 'rgba(255, 255, 255, 0.04)', py: 2 } }}>
+            {users.map((user) => (
+              <TableRow key={user.uid} sx={{ '&:hover': { bgcolor: 'rgba(255,255,255,0.01)' } }}>
+                <TableCell>
+                  <Stack direction="row" spacing={1.5} sx={{ alignItems: 'center' }}>
+                    <Avatar sx={{ width: 32, height: 32, bgcolor: 'primary.main', fontWeight: 600, fontSize: 13 }}>
+                      {getUserInitials(user)}
+                    </Avatar>
+                    <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                      {user.firstName} {user.lastName}
+                    </Typography>
+                  </Stack>
+                </TableCell>
+                <TableCell>@{user.username}</TableCell>
+                <TableCell>{user.email}</TableCell>
+                <TableCell>{renderEmailVerificationStatus(user)}</TableCell>
+                <TableCell>
+                  <Stack direction="row" spacing={0.5} sx={{ alignItems: 'center', color: 'text.secondary' }}>
+                    <Calendar size={13} />
+                    <Typography variant="caption">{formatDate(user.createdAt)}</Typography>
+                  </Stack>
+                </TableCell>
+                <TableCell align="right">
+                  <Stack direction="row" spacing={1} sx={{ justifyContent: 'flex-end' }}>
+                    <Tooltip title="Ablehnen">
+                      <Button
+                        variant="outlined"
+                        color="error"
+                        size="small"
+                        onClick={() => handleStatusChange(user.uid, user.username, 'rejected')}
+                        disabled={actionLoading !== null}
+                        sx={{ p: 1, minWidth: 'auto', borderRadius: 2 }}
+                      >
+                        <X size={16} />
+                      </Button>
+                    </Tooltip>
+                    <Button
+                      variant="contained"
+                      color="secondary"
+                      size="small"
+                      startIcon={actionLoading === user.uid ? <CircularProgress size={12} color="inherit" /> : <Check size={16} />}
+                      onClick={() => handleStatusChange(user.uid, user.username, 'approved')}
+                      disabled={actionLoading !== null}
+                      sx={{ borderRadius: 2 }}
+                    >
+                      Freigeben
+                    </Button>
+                  </Stack>
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </TableContainer>
+    ) : (
+      <Box sx={{ textAlign: 'center', py: 6 }}>
+        <Typography color="text.secondary" variant="body1">
+          {emptyText}
+        </Typography>
+      </Box>
+    )
+  );
+
   return (
     <Container maxWidth="lg" sx={{ py: 6, flexGrow: 1 }} className="animate-fade-in">
       {/* Title */}
@@ -213,77 +309,9 @@ export const AdminDashboard: React.FC = () => {
           <Box sx={{ p: 1 }}>
             {/* TAB 1: PENDING */}
             <CustomTabPanel value={tabValue} index={0}>
-              {pendingUsers.length > 0 ? (
-                <TableContainer>
-                  <Table sx={{ minWidth: 650 }}>
-                    <TableHead sx={{ '& .MuiTableCell-head': { fontWeight: 700, color: 'text.secondary', borderBottomColor: 'rgba(255, 255, 255, 0.06)' } }}>
-                      <TableRow>
-                        <TableCell>Benutzer</TableCell>
-                        <TableCell>Benutzername</TableCell>
-                        <TableCell>E-Mail</TableCell>
-                        <TableCell>Registriert am</TableCell>
-                        <TableCell align="right">Aktionen</TableCell>
-                      </TableRow>
-                    </TableHead>
-                    <TableBody sx={{ '& .MuiTableCell-body': { borderBottomColor: 'rgba(255, 255, 255, 0.04)', py: 2 } }}>
-                      {pendingUsers.map((user) => (
-                        <TableRow key={user.uid} sx={{ '&:hover': { bgcolor: 'rgba(255,255,255,0.01)' } }}>
-                          <TableCell>
-                            <Stack direction="row" spacing={1.5} sx={{ alignItems: 'center' }}>
-                              <Avatar sx={{ width: 32, height: 32, bgcolor: 'primary.main', fontWeight: 600, fontSize: 13 }}>
-                                {getUserInitials(user)}
-                              </Avatar>
-                              <Typography variant="body2" sx={{ fontWeight: 600 }}>
-                                {user.firstName} {user.lastName}
-                              </Typography>
-                            </Stack>
-                          </TableCell>
-                          <TableCell>@{user.username}</TableCell>
-                          <TableCell>{user.email}</TableCell>
-                          <TableCell>
-                            <Stack direction="row" spacing={0.5} sx={{ alignItems: 'center', color: 'text.secondary' }}>
-                              <Calendar size={13} />
-                              <Typography variant="caption">{formatDate(user.createdAt)}</Typography>
-                            </Stack>
-                          </TableCell>
-                          <TableCell align="right">
-                            <Stack direction="row" spacing={1} sx={{ justifyContent: 'flex-end' }}>
-                              <Tooltip title="Ablehnen">
-                                <Button
-                                  variant="outlined"
-                                  color="error"
-                                  size="small"
-                                  onClick={() => handleStatusChange(user.uid, user.username, 'rejected')}
-                                  disabled={actionLoading !== null}
-                                  sx={{ p: 1, minWidth: 'auto', borderRadius: 2 }}
-                                >
-                                  <X size={16} />
-                                </Button>
-                              </Tooltip>
-                              <Button
-                                variant="contained"
-                                color="secondary"
-                                size="small"
-                                startIcon={actionLoading === user.uid ? <CircularProgress size={12} color="inherit" /> : <Check size={16} />}
-                                onClick={() => handleStatusChange(user.uid, user.username, 'approved')}
-                                disabled={actionLoading !== null}
-                                sx={{ borderRadius: 2 }}
-                              >
-                                Freigeben
-                              </Button>
-                            </Stack>
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                </TableContainer>
-              ) : (
-                <Box sx={{ textAlign: 'center', py: 6 }}>
-                  <Typography color="text.secondary" variant="body1">
-                    Keine ausstehenden Registrierungsanfragen.
-                  </Typography>
-                </Box>
+              {renderPendingUsersTable(
+                pendingUsers,
+                'Keine ausstehenden Registrierungsanfragen.'
               )}
             </CustomTabPanel>
 
@@ -297,6 +325,7 @@ export const AdminDashboard: React.FC = () => {
                         <TableCell>Benutzer</TableCell>
                         <TableCell>Benutzername</TableCell>
                         <TableCell>E-Mail</TableCell>
+                        <TableCell>E-Mail bestätigt</TableCell>
                         <TableCell>Freigegeben am</TableCell>
                         <TableCell align="right">Aktionen</TableCell>
                       </TableRow>
@@ -316,6 +345,7 @@ export const AdminDashboard: React.FC = () => {
                           </TableCell>
                           <TableCell>@{user.username}</TableCell>
                           <TableCell>{user.email}</TableCell>
+                          <TableCell>{renderEmailVerificationStatus(user)}</TableCell>
                           <TableCell>
                             <Stack direction="row" spacing={0.5} sx={{ alignItems: 'center', color: 'text.secondary' }}>
                               <Calendar size={13} />
@@ -362,6 +392,7 @@ export const AdminDashboard: React.FC = () => {
                         <TableCell>Benutzer</TableCell>
                         <TableCell>Benutzername</TableCell>
                         <TableCell>E-Mail</TableCell>
+                        <TableCell>E-Mail bestätigt</TableCell>
                         <TableCell>Registriert am</TableCell>
                         <TableCell align="right">Aktionen</TableCell>
                       </TableRow>
@@ -381,6 +412,7 @@ export const AdminDashboard: React.FC = () => {
                           </TableCell>
                           <TableCell>@{user.username}</TableCell>
                           <TableCell>{user.email}</TableCell>
+                          <TableCell>{renderEmailVerificationStatus(user)}</TableCell>
                           <TableCell>
                             <Stack direction="row" spacing={0.5} sx={{ alignItems: 'center', color: 'text.secondary' }}>
                               <Calendar size={13} />

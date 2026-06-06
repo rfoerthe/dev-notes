@@ -11,6 +11,7 @@ import {
 } from '@mui/material';
 import { ShieldAlert, LogOut, RefreshCw } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import { canAccessApprovedFeatures } from '../services/authService';
 
 export const PendingApproval: React.FC = () => {
   const { userProfile, logout, refreshProfile } = useAuth();
@@ -27,9 +28,9 @@ export const PendingApproval: React.FC = () => {
 
   const handleRefresh = async () => {
     try {
-      await refreshProfile();
+      const refreshedProfile = await refreshProfile();
       // If approved, redirect home!
-      if (userProfile?.status === 'approved') {
+      if (canAccessApprovedFeatures(refreshedProfile)) {
         navigate('/');
       }
     } catch (err) {
@@ -38,6 +39,7 @@ export const PendingApproval: React.FC = () => {
   };
 
   const isRejected = userProfile?.status === 'rejected';
+  const needsEmailVerification = userProfile?.status === 'approved' && userProfile.role !== 'admin' && userProfile.emailVerified === false;
 
   return (
     <Container maxWidth="sm" sx={{ py: 12, display: 'flex', flexDirection: 'column', justifyContent: 'center', flexGrow: 1 }} className="animate-fade-in">
@@ -88,13 +90,15 @@ export const PendingApproval: React.FC = () => {
           </Box>
 
           <Typography variant="h4" sx={{ fontFamily: 'Outfit, sans-serif', fontWeight: 800, mb: 2, letterSpacing: '-0.02em' }}>
-            {isRejected ? 'Account abgelehnt' : 'Account ausstehend'}
+            {isRejected ? 'Account abgelehnt' : needsEmailVerification ? 'E-Mail ausstehend' : 'Account ausstehend'}
           </Typography>
           
           <Typography variant="body1" color="text.secondary" sx={{ mb: 4, lineHeight: 1.7 }}>
             Hallo {userProfile?.firstName}! {isRejected 
               ? 'Leider wurde deine Registrierungsanfrage von einem Administrator abgelehnt.'
-              : 'Deine Registrierung wurde übermittelt und wartet derzeit auf die Freigabe durch einen Administrator.'}
+              : needsEmailVerification
+                ? 'Dein Account wurde freigegeben. Bitte bestätige noch deine E-Mail-Adresse, damit du DevNotes vollständig nutzen kannst.'
+                : 'Deine Registrierung wurde übermittelt und wartet derzeit auf die Freigabe durch einen Administrator.'}
           </Typography>
 
           {isRejected ? (
@@ -103,7 +107,9 @@ export const PendingApproval: React.FC = () => {
             </Alert>
           ) : (
             <Alert severity="warning" sx={{ mb: 4, borderRadius: 3, textAlign: 'left' }}>
-              Sobald dein Benutzerkonto freigegeben wurde, kannst du dich vollständig anmelden und eigene Blogs erstellen.
+              {needsEmailVerification
+                ? 'Klicke nach der E-Mail-Bestätigung auf „Status prüfen“. Danach wird der bestätigte Status synchronisiert.'
+                : 'Sobald dein Benutzerkonto freigegeben und deine E-Mail-Adresse bestätigt wurde, kannst du eigene Blogs erstellen.'}
             </Alert>
           )}
 

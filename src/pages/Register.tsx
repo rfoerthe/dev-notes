@@ -164,7 +164,7 @@ export const Register: React.FC = () => {
             </Typography>
 
             <Alert severity="warning" sx={{ mb: 4, borderRadius: 3, textAlign: 'left', bgcolor: 'rgba(251, 191, 36, 0.06)', border: '1px solid rgba(251, 191, 36, 0.2)' }}>
-              Ein Administrator muss deine Registrierung prüfen und freigeben, bevor du dich anmelden und Beiträge erstellen kannst. Wir bitten um ein wenig Geduld.
+              Bitte bestätige zusätzlich deine E-Mail-Adresse über den Link, den wir dir gesendet haben. Ein Administrator muss deine Registrierung prüfen und freigeben, bevor du dich anmelden und Beiträge erstellen kannst.
             </Alert>
 
             <Stack direction="row" spacing={2} sx={{ justifyContent: 'center' }}>

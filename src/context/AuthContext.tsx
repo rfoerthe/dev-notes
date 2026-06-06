@@ -1,6 +1,6 @@
 /* eslint-disable react-refresh/only-export-components */
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import { onAuthStateChanged, type User } from 'firebase/auth';
+import { onAuthStateChanged, reload, type User } from 'firebase/auth';
 import {
   auth,
   useFirebaseEmulator
@@ -9,7 +9,8 @@ import {
   getUserProfile,
   loginUser,
   logoutUser,
-  registerUser
+  registerUser,
+  syncEmailVerificationStatus
 } from '../services/authService';
 import type { RegisterParams, UserProfile } from '../services/authService';
 
@@ -21,7 +22,7 @@ interface AuthContextType {
   login: (username: string, password: string) => Promise<UserProfile>;
   register: (params: RegisterParams) => Promise<UserProfile>;
   logout: () => Promise<void>;
-  refreshProfile: () => Promise<void>;
+  refreshProfile: () => Promise<UserProfile | null>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -37,8 +38,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setCurrentUser(user);
       if (user) {
         try {
+          await reload(user);
+          await user.getIdToken(true);
           const profile = await getUserProfile(user.uid);
-          setUserProfile(profile);
+          const syncedProfile = profile
+            ? await syncEmailVerificationStatus(user.uid, user.emailVerified, profile)
+            : null;
+          setUserProfile(syncedProfile);
         } catch (err) {
           console.error("Failed to load user profile:", err);
           setUserProfile(null);
@@ -82,11 +88,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
-  const refreshProfile = async (): Promise<void> => {
+  const refreshProfile = async (): Promise<UserProfile | null> => {
     if (currentUser) {
+      await reload(currentUser);
+      await currentUser.getIdToken(true);
       const profile = await getUserProfile(currentUser.uid);
-      setUserProfile(profile);
+      const syncedProfile = profile
+        ? await syncEmailVerificationStatus(currentUser.uid, currentUser.emailVerified, profile)
+        : null;
+      setUserProfile(syncedProfile);
+      return syncedProfile;
     }
+    return null;
   };
 
   return (

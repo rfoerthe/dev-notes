@@ -23,7 +23,7 @@ import {
 } from '@mui/material';
 import { Terminal, PenTool, ShieldAlert, LogOut, Menu as MenuIcon, Settings, Sun, Moon, Monitor, FileText, Bookmark } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
-import { fetchUsersByStatus } from '../services/authService';
+import { canAccessApprovedFeatures, fetchUsersByStatus } from '../services/authService';
 import { useCustomTheme } from '../context/CustomThemeContext';
 import { useFirebaseEmulator } from '../services/firebase';
 
@@ -98,13 +98,14 @@ export const NavBar: React.FC = () => {
 
   const isActive = (path: string) => location.pathname === path;
   const appVersionLabel = `Installierte Version: ${__APP_VERSION__}`;
+  const hasApprovedAccess = canAccessApprovedFeatures(userProfile);
 
   // Render navigation links based on user status
   const navLinks = [
     { label: 'Home', path: '/' },
-    ...(userProfile?.status === 'approved' ? [{ label: 'Meine Beiträge', path: '/my-posts', icon: <FileText size={16} /> }] : []),
-    ...(userProfile?.status === 'approved' ? [{ label: 'Merkliste', path: '/bookmarks', icon: <Bookmark size={16} /> }] : []),
-    ...(userProfile?.status === 'approved' ? [{ label: 'Beitrag schreiben', path: '/write', icon: <PenTool size={16} /> }] : []),
+    ...(hasApprovedAccess ? [{ label: 'Meine Beiträge', path: '/my-posts', icon: <FileText size={16} /> }] : []),
+    ...(hasApprovedAccess ? [{ label: 'Merkliste', path: '/bookmarks', icon: <Bookmark size={16} /> }] : []),
+    ...(hasApprovedAccess ? [{ label: 'Beitrag schreiben', path: '/write', icon: <PenTool size={16} /> }] : []),
     ...(userProfile?.role === 'admin' ? [{ label: 'Admin-Panel', path: '/admin', icon: <ShieldAlert size={16} />, badge: pendingCount }] : [])
   ];
 
@@ -431,18 +432,18 @@ export const NavBar: React.FC = () => {
                               fontSize: 10, 
                               fontWeight: 700, 
                               borderRadius: '4px',
-                              bgcolor: userProfile.status === 'approved' ? 'rgba(74, 222, 128, 0.1)' : 'rgba(251, 191, 36, 0.1)',
-                              color: userProfile.status === 'approved' ? '#4ade80' : '#fbbf24',
-                              border: `1px solid ${userProfile.status === 'approved' ? 'rgba(74, 222, 128, 0.2)' : 'rgba(251, 191, 36, 0.2)'}`
+                              bgcolor: hasApprovedAccess ? 'rgba(74, 222, 128, 0.1)' : 'rgba(251, 191, 36, 0.1)',
+                              color: hasApprovedAccess ? '#4ade80' : '#fbbf24',
+                              border: `1px solid ${hasApprovedAccess ? 'rgba(74, 222, 128, 0.2)' : 'rgba(251, 191, 36, 0.2)'}`
                             }}
                           >
-                            {userProfile.status === 'approved' ? 'Freigegeben' : 'Ausstehend'}
+                            {hasApprovedAccess ? 'Freigegeben' : userProfile.status === 'approved' ? 'E-Mail offen' : 'Ausstehend'}
                           </Box>
                         )}
                       </Box>
                     </Box>
                     <Divider />
-                    {userProfile?.status === 'approved' && (
+                    {hasApprovedAccess && (
                       <>
                         <MenuItem 
                           onClick={() => { handleCloseUserMenu(); navigate('/my-posts'); }}

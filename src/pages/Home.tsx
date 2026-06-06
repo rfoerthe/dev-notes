@@ -33,6 +33,7 @@ import { blogMatchesSearch } from '../services/blogSearch';
 import { blogMatchesFilterTag, getBlogFilterTags } from '../services/blogTagFilters';
 import { useAuth } from '../context/AuthContext';
 import { getBookmarkedBlogIds, toggleBookmark } from '../services/bookmarkService';
+import { canAccessApprovedFeatures } from '../services/authService';
 
 const FEATURED_POST_LIMIT = 6;
 const INITIAL_OLDER_POST_LIMIT = 20;
@@ -52,6 +53,7 @@ export const Home: React.FC = () => {
   const [bookmarkActionId, setBookmarkActionId] = useState<string | null>(null);
 
   const { userProfile } = useAuth();
+  const hasApprovedAccess = canAccessApprovedFeatures(userProfile);
 
   const handleOpenPopover = (event: React.MouseEvent<HTMLDivElement>) => {
     setAnchorEl(event.currentTarget);
@@ -135,7 +137,7 @@ export const Home: React.FC = () => {
     let isMounted = true;
 
     const loadBookmarks = async () => {
-      if (!userProfile?.uid || userProfile.status !== 'approved') {
+      if (!userProfile?.uid || !hasApprovedAccess) {
         setBookmarkedBlogIds(new Set());
         return;
       }
@@ -155,7 +157,7 @@ export const Home: React.FC = () => {
     return () => {
       isMounted = false;
     };
-  }, [userProfile?.uid, userProfile?.status]);
+  }, [hasApprovedAccess, userProfile?.uid]);
 
   const handleBookmarkClick = async (event: React.MouseEvent, blog: BlogPost) => {
     event.preventDefault();
@@ -166,7 +168,7 @@ export const Home: React.FC = () => {
       return;
     }
 
-    if (userProfile.status !== 'approved') {
+    if (!hasApprovedAccess) {
       return;
     }
 
@@ -270,7 +272,7 @@ export const Home: React.FC = () => {
   const renderBookmarkButton = (blog: BlogPost, placement: 'floating' | 'inline' = 'floating') => {
     const isBookmarked = bookmarkedBlogIds.has(blog.id);
     const isActionLoading = bookmarkActionId === blog.id;
-    const isDisabled = isActionLoading || Boolean(userProfile && userProfile.status !== 'approved');
+    const isDisabled = isActionLoading || Boolean(userProfile && !hasApprovedAccess);
 
     return (
       <Tooltip

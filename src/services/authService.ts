@@ -1,6 +1,8 @@
 import {
   createUserWithEmailAndPassword,
   deleteUser,
+  reload,
+  sendEmailVerification,
   signInWithEmailAndPassword,
   signOut,
   updatePassword
@@ -32,11 +34,19 @@ export interface UserProfile {
   lastName: string;
   username: string;
   email: string;
+  emailVerified?: boolean;
   role: 'admin' | 'user';
   status: 'pending' | 'approved' | 'rejected';
   createdAt: string;
   operatingSystem?: string;
   themeMode?: ThemeMode;
+}
+
+export function canAccessApprovedFeatures(profile: UserProfile | null): boolean {
+  return Boolean(
+    profile?.status === 'approved' &&
+    (profile.role === 'admin' || profile.emailVerified !== false)
+  );
 }
 
 function getErrorCode(error: unknown): string | undefined {
@@ -131,6 +141,7 @@ export async function registerUser(params: RegisterParams): Promise<UserProfile>
     lastName: params.lastName.trim(),
     username,
     email,
+    emailVerified: false,
     role: 'user',
     status: 'pending',
     createdAt: new Date().toISOString()
@@ -166,10 +177,34 @@ export async function registerUser(params: RegisterParams): Promise<UserProfile>
     throw new Error('Registrierung fehlgeschlagen. Datenbankfehler.', { cause: dbErr });
   }
 
-  // Sign out immediately because they are pending approval
-  await signOut(auth);
+  const actionCodeSettings = typeof window !== 'undefined'
+    ? {
+        url: `${window.location.origin}/pending-approval`,
+        handleCodeInApp: false
+      }
+    : undefined;
+
+  try {
+    await sendEmailVerification(userCredential.user, actionCodeSettings);
+  } catch (verificationErr) {
+    console.error('Failed to send verification email during registration:', verificationErr);
+  }
 
   return newProfile;
+}
+
+export async function syncEmailVerificationStatus(uid: string, emailVerified: boolean, profile: UserProfile): Promise<UserProfile> {
+  if (!emailVerified || profile.emailVerified === true) {
+    return profile;
+  }
+
+  const updatedProfile = {
+    ...profile,
+    emailVerified: true
+  };
+
+  await updateDoc(doc(db, 'users', uid), { emailVerified: true });
+  return updatedProfile;
 }
 
 // Firebase Auth signs in with email addresses. Username login is intentionally
@@ -183,14 +218,18 @@ export async function loginUser(loginInput: string, passwordInput: string): Prom
 
   try {
     const userCredential = await signInWithEmailAndPassword(auth, normalizedLogin, passwordInput);
+    await reload(userCredential.user);
+    await userCredential.user.getIdToken(true);
     const uid = userCredential.user.uid;
     const profileSnap = await getDoc(doc(db, 'users', uid));
-    const profile = profileSnap.exists() ? profileSnap.data() as UserProfile : null;
+    let profile = profileSnap.exists() ? profileSnap.data() as UserProfile : null;
 
     if (!profile) {
       await signOut(auth);
       throw new Error('Benutzerprofil existiert nicht.');
     }
+
+    profile = await syncEmailVerificationStatus(uid, userCredential.user.emailVerified, profile);
 
     if (profile.status === 'pending') {
       await signOut(auth);
@@ -199,6 +238,11 @@ export async function loginUser(loginInput: string, passwordInput: string): Prom
     if (profile.status === 'rejected') {
       await signOut(auth);
       throw new Error('Dein Account wurde abgelehnt. Du kannst dich an den Support wenden.');
+    }
+
+    if (profile.role !== 'admin' && profile.emailVerified === false && !userCredential.user.emailVerified) {
+      await signOut(auth);
+      throw new Error('Bitte bestätige zuerst deine E-Mail-Adresse über den Link, den wir dir gesendet haben.');
     }
 
     return profile;

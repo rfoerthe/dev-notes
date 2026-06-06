@@ -1,5 +1,21 @@
 # Changelog
 
+## [1.0.9] - 2026-06-05
+
+### Added
+
+- New user registrations now send a Firebase email verification link and persist an explicit `emailVerified` status.
+- The admin dashboard now shows email verification status for pending, approved, and rejected users.
+
+### Changed
+
+- Admin approval and email verification are now independent requirements for new users before write access is granted.
+- Existing approved users without an `emailVerified` field are treated as legacy accounts and keep their write access.
+
+### Fixed
+
+- Email verification status now refreshes from Firebase Auth after users confirm their email link, so approved users can gain write access without manual profile edits.
+
 ## [1.0.8] - 2026-06-03
 
 ### Added

@@ -2,6 +2,7 @@ import React from 'react';
 import { Navigate, Outlet } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { Box, CircularProgress } from '@mui/material';
+import { canAccessApprovedFeatures } from '../services/authService';
 
 // Guard for authenticated and approved developers
 export const ProtectedRoute: React.FC = () => {
@@ -19,8 +20,8 @@ export const ProtectedRoute: React.FC = () => {
     return <Navigate to="/login" replace />;
   }
 
-  // Redirect users who are not approved to the pending page
-  if (userProfile && userProfile.status !== 'approved') {
+  // Redirect users who are not approved or still need email verification.
+  if (userProfile && !canAccessApprovedFeatures(userProfile)) {
     return <Navigate to="/pending-approval" replace />;
   }
 

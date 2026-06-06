@@ -19,7 +19,13 @@ service cloud.firestore {
     function isApproved() {
       return isAuthenticated() && 
         exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
-        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.status == 'approved';
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.status == 'approved' &&
+        (
+          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin' ||
+          !get(/databases/$(database)/documents/users/$(request.auth.uid)).data.keys().hasAny(['emailVerified']) ||
+          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.emailVerified == true ||
+          request.auth.token.email_verified == true
+        );
     }
 
     function currentUserProfile() {
@@ -39,6 +45,11 @@ service cloud.firestore {
     function validOptionalThemeMode() {
       return !request.resource.data.keys().hasAny(['themeMode']) ||
         request.resource.data.themeMode in ['light', 'dark', 'system'];
+    }
+
+    function validOptionalEmailVerified() {
+      return !request.resource.data.keys().hasAny(['emailVerified']) ||
+        request.resource.data.emailVerified is bool;
     }
 
     function validBookmark() {
@@ -102,6 +113,7 @@ service cloud.firestore {
         'role',
         'status',
         'createdAt',
+        'emailVerified',
         'operatingSystem',
         'themeMode',
         'bootstrappedAt'
@@ -114,6 +126,7 @@ service cloud.firestore {
         request.resource.data.role in ['admin', 'user'] &&
         request.resource.data.status in ['pending', 'approved', 'rejected'] &&
         request.resource.data.createdAt is string &&
+        validOptionalEmailVerified() &&
         validOptionalOperatingSystem() &&
         validOptionalThemeMode();
     }
@@ -225,6 +238,7 @@ service cloud.firestore {
         usernameReservationMatchesCreatedProfile(userId) &&
         request.resource.data.role == 'user' &&
         request.resource.data.status == 'pending' &&
+        request.resource.data.emailVerified == false &&
         !request.resource.data.keys().hasAny(['bootstrappedAt']);
       
       // Admins can update any user's profile.
@@ -237,7 +251,14 @@ service cloud.firestore {
           (
             request.auth.uid == userId &&
             request.resource.data.status == resource.data.status &&
-            request.resource.data.diff(resource.data).affectedKeys().hasOnly(['firstName', 'lastName', 'operatingSystem', 'themeMode'])
+            (
+              request.resource.data.diff(resource.data).affectedKeys().hasOnly(['firstName', 'lastName', 'operatingSystem', 'themeMode']) ||
+              (
+                request.resource.data.diff(resource.data).affectedKeys().hasOnly(['emailVerified']) &&
+                request.resource.data.emailVerified == true &&
+                request.auth.token.email_verified == true
+              )
+            )
           )
       );
       

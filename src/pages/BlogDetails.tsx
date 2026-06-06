@@ -24,6 +24,7 @@ import { useAuth } from '../context/AuthContext';
 import { canManageBlogPost } from '../services/blogOwnership';
 import { buildBlogMarkdownDocument, createBlogMarkdownFilename } from '../services/blogMarkdownExport';
 import { isBlogBookmarked, toggleBookmark } from '../services/bookmarkService';
+import { canAccessApprovedFeatures } from '../services/authService';
 
 const SCROLL_PROGRESS_VISIBLE_OFFSET = 160;
 
@@ -31,6 +32,7 @@ export const BlogDetails: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { userProfile } = useAuth();
+  const hasApprovedAccess = canAccessApprovedFeatures(userProfile);
 
   const [blog, setBlog] = useState<BlogPost | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
@@ -60,7 +62,7 @@ export const BlogDetails: React.FC = () => {
     let isMounted = true;
 
     const loadBookmarkState = async () => {
-      if (!blog || !userProfile?.uid || userProfile.status !== 'approved') {
+      if (!blog || !userProfile?.uid || !hasApprovedAccess) {
         setIsBookmarked(false);
         return;
       }
@@ -80,7 +82,7 @@ export const BlogDetails: React.FC = () => {
     return () => {
       isMounted = false;
     };
-  }, [blog, userProfile?.uid, userProfile?.status]);
+  }, [blog, hasApprovedAccess, userProfile?.uid]);
 
   // Scroll event listener for progress bar
   useEffect(() => {
@@ -180,7 +182,7 @@ export const BlogDetails: React.FC = () => {
       return;
     }
 
-    if (userProfile.status !== 'approved') {
+    if (!hasApprovedAccess) {
       return;
     }
 
@@ -397,7 +399,7 @@ export const BlogDetails: React.FC = () => {
                     <IconButton
                       aria-label={isBookmarked ? 'Aus Merkliste entfernen' : 'Zur Merkliste hinzufügen'}
                       onClick={handleToggleBookmark}
-                      disabled={bookmarkLoading || Boolean(userProfile && userProfile.status !== 'approved')}
+                      disabled={bookmarkLoading || Boolean(userProfile && !hasApprovedAccess)}
                       sx={{
                         border: isBookmarked ? '1px solid rgba(20, 184, 166, 0.28)' : '1px solid rgba(255, 255, 255, 0.08)',
                         borderRadius: 3,
