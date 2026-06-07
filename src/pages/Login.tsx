@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useNavigate, Link as RouterLink } from 'react-router-dom';
+import { useLocation, useNavigate, Link as RouterLink } from 'react-router-dom';
 import {
   Box,
   Container,
@@ -25,6 +25,16 @@ export const Login: React.FC = () => {
 
   const { login } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
+
+  const redirectPath = (() => {
+    const state = location.state as { from?: { pathname?: string; search?: string; hash?: string } } | null;
+    if (!state?.from?.pathname || state.from.pathname === '/login') {
+      return null;
+    }
+
+    return `${state.from.pathname}${state.from.search || ''}${state.from.hash || ''}`;
+  })();
 
   const handleTogglePassword = () => {
     setShowPassword(!showPassword);
@@ -44,7 +54,9 @@ export const Login: React.FC = () => {
     try {
       const profile = await login(trimmedUsername, password);
       // Success: check role or status
-      if (profile.role === 'admin') {
+      if (redirectPath) {
+        navigate(redirectPath, { replace: true });
+      } else if (profile.role === 'admin') {
         navigate('/admin');
       } else {
         navigate('/');

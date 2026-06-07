@@ -12,14 +12,17 @@ import {
 import { ShieldAlert, LogOut, RefreshCw } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { canAccessApprovedFeatures } from '../services/authService';
+import { DEFAULT_THEME_ACCENT, useCustomTheme } from '../context/CustomThemeContext';
 
 export const PendingApproval: React.FC = () => {
   const { userProfile, logout, refreshProfile } = useAuth();
+  const { setThemeAccent } = useCustomTheme();
   const navigate = useNavigate();
 
   const handleLogout = async () => {
     try {
       await logout();
+      setThemeAccent(DEFAULT_THEME_ACCENT);
       navigate('/');
     } catch (err) {
       console.error("Sign out failed:", err);

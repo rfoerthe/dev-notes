@@ -1,5 +1,24 @@
 # Changelog
 
+## [1.0.13] - 2026-06-07
+
+### Added
+
+- Admins can now manage application settings from a new admin dashboard tab.
+- Added a closed user group mode that redirects unauthenticated visitors to login before they can open the home feed or read articles.
+- Firestore rules now protect article reads dynamically when closed user group mode is enabled.
+
+### Changed
+
+- Article reading views now align their maximum desktop content width with the existing top navigation width.
+- The sticky article title row now spans the full desktop reading layout, including the table-of-contents column.
+
+### Fixed
+
+- Anonymous theme selections now persist from browser local storage instead of being reset by profile synchronization when no user is signed in.
+- Signing out now resets the accent color to the default violet theme.
+- App settings loading now falls back to default public settings if Firestore does not respond quickly enough, avoiding an indefinite loading state.
+
 ## [1.0.12] - 2026-06-07
 
 ### Added

@@ -7,6 +7,8 @@ import useMediaQuery from '@mui/material/useMediaQuery';
 export type ThemeMode = 'light' | 'dark' | 'system';
 export type ThemeAccent = 'purple' | 'blue' | 'green' | 'rose' | 'orange';
 
+export const DEFAULT_THEME_ACCENT: ThemeAccent = 'purple';
+
 type AccentScale = {
   main: string;
   light: string;
@@ -129,7 +131,7 @@ export const themeAccentOptions: ThemeAccentOption[] = [
 const themeAccentValues = new Set<ThemeAccent>(themeAccentOptions.map((option) => option.value));
 
 const normalizeThemeAccent = (accent: string | null): ThemeAccent => (
-  accent && themeAccentValues.has(accent as ThemeAccent) ? accent as ThemeAccent : 'purple'
+  accent && themeAccentValues.has(accent as ThemeAccent) ? accent as ThemeAccent : DEFAULT_THEME_ACCENT
 );
 
 export const getThemeAccentOption = (accent: ThemeAccent): ThemeAccentOption => (

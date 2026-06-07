@@ -28,6 +28,11 @@ service cloud.firestore {
         );
     }
 
+    function closedUserGroupEnabled() {
+      return exists(/databases/$(database)/documents/appSettings/public) &&
+        get(/databases/$(database)/documents/appSettings/public).data.closedUserGroupEnabled == true;
+    }
+
     function currentUserProfile() {
       return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
     }
@@ -128,6 +133,17 @@ service cloud.firestore {
         validOptionalEmailVerified() &&
         validOptionalThemeMode() &&
         validOptionalThemeAccent();
+    }
+
+    function validAppSettings() {
+      return request.resource.data.keys().hasOnly([
+        'closedUserGroupEnabled',
+        'updatedAt',
+        'updatedBy'
+      ]) &&
+        request.resource.data.closedUserGroupEnabled is bool &&
+        request.resource.data.updatedAt == request.time &&
+        request.resource.data.updatedBy == request.auth.uid;
     }
 
     function userIdentityIsImmutable() {
@@ -300,9 +316,28 @@ service cloud.firestore {
       allow delete: if false;
     }
 
+    // --- Application Settings Rules ---
+    match /appSettings/{settingsId} {
+      allow read: if settingsId == 'public';
+
+      allow create, update: if settingsId == 'public' &&
+        isAdmin() &&
+        validAppSettings() &&
+        (
+          !exists(/databases/$(database)/documents/appSettings/$(settingsId)) ||
+          request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+            'closedUserGroupEnabled',
+            'updatedAt',
+            'updatedBy'
+          ])
+        );
+
+      allow delete: if false;
+    }
+
     // --- Blogs Collection Rules ---
     match /blogs/{blogId} {
-      allow read: if true;
+      allow read: if !closedUserGroupEnabled() || isApproved();
       
       // Enforce strict field-level type safety and size constraints on creation
       allow create: if isApproved() &&

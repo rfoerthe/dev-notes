@@ -25,7 +25,7 @@ import GitHubIcon from '@mui/icons-material/GitHub';
 import { Terminal, PenTool, ShieldAlert, LogOut, Menu as MenuIcon, Settings, Sun, Moon, Monitor, FileText, Bookmark } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { canAccessApprovedFeatures, fetchUsersByStatus, updateUserThemeMode } from '../services/authService';
-import { useCustomTheme } from '../context/CustomThemeContext';
+import { DEFAULT_THEME_ACCENT, useCustomTheme } from '../context/CustomThemeContext';
 import type { ThemeMode } from '../context/CustomThemeContext';
 import { useFirebaseEmulator } from '../services/firebase';
 
@@ -68,7 +68,7 @@ export const NavBar: React.FC = () => {
     setAnchorEl(null);
   };
 
-  const { themeMode, setThemeMode } = useCustomTheme();
+  const { themeMode, setThemeMode, setThemeAccent } = useCustomTheme();
   const [themeAnchorEl, setThemeAnchorEl] = useState<null | HTMLElement>(null);
   const [themeSyncing, setThemeSyncing] = useState(false);
 
@@ -103,6 +103,7 @@ export const NavBar: React.FC = () => {
     handleCloseUserMenu();
     try {
       await logout();
+      setThemeAccent(DEFAULT_THEME_ACCENT);
       navigate('/');
     } catch (err) {
       console.error("Sign out failed:", err);

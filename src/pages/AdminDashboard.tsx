@@ -18,11 +18,15 @@ import {
   Alert,
   CircularProgress,
   Tooltip,
-  Chip
+  Chip,
+  FormControlLabel,
+  Switch
 } from '@mui/material';
-import { Check, X, Shield, Users, UserMinus, UserCheck, Calendar, Trash2 } from 'lucide-react';
+import { Check, X, Shield, Users, UserMinus, UserCheck, Calendar, Trash2, Settings as SettingsIcon } from 'lucide-react';
 import { fetchUsersByStatus, updateUserStatus } from '../services/authService';
 import type { UserProfile } from '../services/authService';
+import { useAppSettings } from '../context/AppSettingsContext';
+import { updateClosedUserGroupEnabled } from '../services/appSettingsService';
 
 interface TabPanelProps {
   children?: React.ReactNode;
@@ -47,6 +51,7 @@ const CustomTabPanel = (props: TabPanelProps) => {
 
 export const AdminDashboard: React.FC = () => {
   const [tabValue, setTabValue] = useState(0);
+  const { closedUserGroupEnabled, loading: settingsLoading } = useAppSettings();
   
   // Data lists
   const [pendingUsers, setPendingUsers] = useState<UserProfile[]>([]);
@@ -56,6 +61,7 @@ export const AdminDashboard: React.FC = () => {
   // UI states
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState<string | null>(null); // UID of user being updated
+  const [settingsActionLoading, setSettingsActionLoading] = useState(false);
   const [message, setMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null);
 
   const loadAllUsers = async () => {
@@ -102,6 +108,27 @@ export const AdminDashboard: React.FC = () => {
       setMessage({ type: 'error', text: 'Statusänderung fehlgeschlagen.' });
     } finally {
       setActionLoading(null);
+    }
+  };
+
+  const handleClosedUserGroupChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const enabled = event.target.checked;
+    setSettingsActionLoading(true);
+    setMessage(null);
+
+    try {
+      await updateClosedUserGroupEnabled(enabled);
+      setMessage({
+        type: 'success',
+        text: enabled
+          ? 'Die Anwendung ist jetzt auf eine geschlossene Benutzergruppe beschränkt.'
+          : 'Die Anwendung ist jetzt wieder öffentlich lesbar.'
+      });
+    } catch (err) {
+      console.error('Failed to update application settings:', err);
+      setMessage({ type: 'error', text: 'Anwendungseinstellung konnte nicht gespeichert werden.' });
+    } finally {
+      setSettingsActionLoading(false);
     }
   };
 
@@ -298,6 +325,14 @@ export const AdminDashboard: React.FC = () => {
               </Stack>
             } 
           />
+          <Tab
+            label={
+              <Stack direction="row" spacing={1} sx={{ alignItems: 'center' }}>
+                <SettingsIcon size={16} />
+                <span>Anwendung</span>
+              </Stack>
+            }
+          />
         </Tabs>
 
         {/* LOADING PROGRESS */}
@@ -457,6 +492,58 @@ export const AdminDashboard: React.FC = () => {
                   </Typography>
                 </Box>
               )}
+            </CustomTabPanel>
+
+            {/* TAB 4: APPLICATION SETTINGS */}
+            <CustomTabPanel value={tabValue} index={3}>
+              <Box sx={{ px: { xs: 1, sm: 2 }, pb: 1 }}>
+                <Paper
+                  elevation={0}
+                  sx={{
+                    p: { xs: 2.5, sm: 3 },
+                    borderRadius: 3,
+                    bgcolor: (theme) => theme.palette.mode === 'dark' ? 'rgba(2, 6, 23, 0.32)' : 'rgba(248, 250, 252, 0.72)',
+                    border: (theme) => theme.palette.mode === 'dark' ? '1px solid rgba(255, 255, 255, 0.06)' : '1px solid rgba(15, 23, 42, 0.08)'
+                  }}
+                >
+                  <Stack
+                    direction={{ xs: 'column', sm: 'row' }}
+                    spacing={2}
+                    sx={{ alignItems: { xs: 'flex-start', sm: 'center' }, justifyContent: 'space-between' }}
+                  >
+                    <Box>
+                      <Typography variant="h6" sx={{ fontFamily: 'Outfit, sans-serif', fontWeight: 800 }}>
+                        Geschlossene Benutzergruppe
+                      </Typography>
+                      <Typography variant="body2" color="text.secondary" sx={{ mt: 0.75, maxWidth: 620 }}>
+                        {closedUserGroupEnabled
+                          ? 'Aktiv: Artikel sind nur nach Anmeldung und Freigabe lesbar.'
+                          : 'Inaktiv: Artikel sind öffentlich lesbar.'}
+                      </Typography>
+                    </Box>
+                    <FormControlLabel
+                      label={closedUserGroupEnabled ? 'Aktiv' : 'Inaktiv'}
+                      labelPlacement="start"
+                      control={
+                        <Switch
+                          checked={closedUserGroupEnabled}
+                          onChange={handleClosedUserGroupChange}
+                          disabled={settingsLoading || settingsActionLoading}
+                          color="secondary"
+                        />
+                      }
+                      sx={{
+                        m: 0,
+                        gap: 1,
+                        '& .MuiFormControlLabel-label': {
+                          fontFamily: 'Outfit, sans-serif',
+                          fontWeight: 700
+                        }
+                      }}
+                    />
+                  </Stack>
+                </Paper>
+              </Box>
             </CustomTabPanel>
           </Box>
         )}
