@@ -300,7 +300,7 @@ export const BlogDetails: React.FC = () => {
             sx={{
               fontWeight: 800,
               fontFamily: 'Outfit, sans-serif',
-              fontSize: { xs: '2.25rem', md: '3.25rem' },
+              fontSize: { xs: '2.25rem', md: '2.25rem' },
               lineHeight: 1.25,
               mb: 3,
               letterSpacing: 0,
