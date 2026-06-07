@@ -108,9 +108,9 @@ describe('Markdown renderer', () => {
   });
 
   it('scrolls to a heading when a table-of-contents anchor is clicked', () => {
-    const originalScrollIntoView = HTMLElement.prototype.scrollIntoView;
-    const scrollIntoView = vi.fn();
-    HTMLElement.prototype.scrollIntoView = scrollIntoView;
+    const originalScrollTo = window.scrollTo;
+    const scrollTo = vi.fn();
+    Object.defineProperty(window, 'scrollTo', { configurable: true, value: scrollTo });
     window.history.pushState(null, '', '/');
 
     try {
@@ -124,18 +124,18 @@ describe('Markdown renderer', () => {
 
       fireEvent.click(screen.getByRole('link', { name: 'Installation' }));
 
-      expect(scrollIntoView).toHaveBeenCalledWith({ behavior: 'smooth', block: 'start' });
+      expect(scrollTo).toHaveBeenCalledWith({ top: 0, behavior: 'smooth' });
       expect(window.location.hash).toBe('#installation');
     } finally {
-      HTMLElement.prototype.scrollIntoView = originalScrollIntoView;
+      Object.defineProperty(window, 'scrollTo', { configurable: true, value: originalScrollTo });
       window.history.pushState(null, '', '/');
     }
   });
 
   it('keeps umlauts in heading ids so encoded hash links can target them', () => {
-    const originalScrollIntoView = HTMLElement.prototype.scrollIntoView;
-    const scrollIntoView = vi.fn();
-    HTMLElement.prototype.scrollIntoView = scrollIntoView;
+    const originalScrollTo = window.scrollTo;
+    const scrollTo = vi.fn();
+    Object.defineProperty(window, 'scrollTo', { configurable: true, value: scrollTo });
     window.history.pushState(null, '', '/');
 
     try {
@@ -151,10 +151,10 @@ describe('Markdown renderer', () => {
 
       fireEvent.click(screen.getByRole('link', { name: 'Schneller Überblick' }));
 
-      expect(scrollIntoView).toHaveBeenCalledWith({ behavior: 'smooth', block: 'start' });
+      expect(scrollTo).toHaveBeenCalledWith({ top: 0, behavior: 'smooth' });
       expect(window.location.hash).toBe('#schneller-%C3%BCberblick');
     } finally {
-      HTMLElement.prototype.scrollIntoView = originalScrollIntoView;
+      Object.defineProperty(window, 'scrollTo', { configurable: true, value: originalScrollTo });
       window.history.pushState(null, '', '/');
     }
   });
@@ -235,9 +235,9 @@ describe('Markdown renderer', () => {
   });
 
   it('renders automatic table-of-contents links that jump to matching headings', () => {
-    const originalScrollIntoView = HTMLElement.prototype.scrollIntoView;
-    const scrollIntoView = vi.fn();
-    HTMLElement.prototype.scrollIntoView = scrollIntoView;
+    const originalScrollTo = window.scrollTo;
+    const scrollTo = vi.fn();
+    Object.defineProperty(window, 'scrollTo', { configurable: true, value: scrollTo });
     window.history.pushState(null, '', '/');
 
     try {
@@ -255,10 +255,10 @@ describe('Markdown renderer', () => {
       fireEvent.click(screen.getByRole('link', { name: 'Überblick' }));
 
       expect(screen.getByRole('navigation', { name: 'Inhaltsverzeichnis' })).toBeTruthy();
-      expect(scrollIntoView).toHaveBeenCalledWith({ behavior: 'smooth', block: 'start' });
+      expect(scrollTo).toHaveBeenCalledWith({ top: 0, behavior: 'smooth' });
       expect(window.location.hash).toBe('#%C3%BCberblick');
     } finally {
-      HTMLElement.prototype.scrollIntoView = originalScrollIntoView;
+      Object.defineProperty(window, 'scrollTo', { configurable: true, value: originalScrollTo });
       window.history.pushState(null, '', '/');
     }
   });
@@ -408,9 +408,9 @@ describe('Markdown renderer', () => {
 
   it('keeps the clicked table-of-contents marker active while smooth scrolling is in progress', async () => {
     const originalGetBoundingClientRect = HTMLElement.prototype.getBoundingClientRect;
-    const originalScrollIntoView = HTMLElement.prototype.scrollIntoView;
     const originalScrollY = Object.getOwnPropertyDescriptor(window, 'scrollY');
-    const scrollIntoView = vi.fn();
+    const originalScrollTo = window.scrollTo;
+    const scrollTo = vi.fn();
     const headingPositions: Record<string, number> = {
       'überblick': 200,
       details: 900,
@@ -432,7 +432,7 @@ describe('Markdown renderer', () => {
         toJSON: () => ({}),
       };
     };
-    HTMLElement.prototype.scrollIntoView = scrollIntoView;
+    Object.defineProperty(window, 'scrollTo', { configurable: true, value: scrollTo });
     Object.defineProperty(window, 'scrollY', { configurable: true, value: 0 });
     window.history.pushState(null, '', '/');
 
@@ -453,13 +453,13 @@ describe('Markdown renderer', () => {
       fireEvent.scroll(window);
       await new Promise((resolve) => window.setTimeout(resolve, 50));
 
-      expect(scrollIntoView).toHaveBeenCalledWith({ behavior: 'smooth', block: 'start' });
+      expect(scrollTo).toHaveBeenCalledWith({ top: 1510, behavior: 'smooth' });
       expect(screen.getByRole('link', { name: 'Fazit' }).getAttribute('aria-current')).toBe('location');
       expect(screen.getByRole('link', { name: 'Details' }).getAttribute('aria-current')).toBeNull();
       unmount();
     } finally {
       HTMLElement.prototype.getBoundingClientRect = originalGetBoundingClientRect;
-      HTMLElement.prototype.scrollIntoView = originalScrollIntoView;
+      Object.defineProperty(window, 'scrollTo', { configurable: true, value: originalScrollTo });
       if (originalScrollY) {
         Object.defineProperty(window, 'scrollY', originalScrollY);
       }

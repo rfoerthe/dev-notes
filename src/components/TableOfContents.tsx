@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Box, Link as MuiLink, Typography } from '@mui/material';
 import { ListTree } from 'lucide-react';
 import type { MarkdownHeading } from './markdownHeadings';
+import { getHeadingScrollOffset, scrollHeadingIntoView } from './headingScroll';
 
 interface TableOfContentsProps {
   headings: MarkdownHeading[];
@@ -10,7 +11,6 @@ interface TableOfContentsProps {
 }
 
 const getHeadingHash = (id: string): string => `#${encodeURIComponent(id)}`;
-const ACTIVE_HEADING_OFFSET = 128;
 const ACTIVE_LINK_SCROLL_MARGIN = 48;
 
 const getCurrentHashId = (): string => {
@@ -125,7 +125,7 @@ export const TableOfContents = ({ headings, onNavigate, variant = 'sticky' }: Ta
       for (const element of headingElements) {
         const elementTop = element.getBoundingClientRect().top;
 
-        if (elementTop > ACTIVE_HEADING_OFFSET) {
+        if (elementTop > getHeadingScrollOffset()) {
           break;
         }
 
@@ -175,7 +175,7 @@ export const TableOfContents = ({ headings, onNavigate, variant = 'sticky' }: Ta
     event.preventDefault();
     pendingNavigationIdRef.current = id;
     schedulePendingNavigationClear(1600);
-    target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    scrollHeadingIntoView(target);
     window.history.pushState(null, '', getHeadingHash(id));
     setActiveId(id);
     onNavigate?.();
@@ -188,8 +188,8 @@ export const TableOfContents = ({ headings, onNavigate, variant = 'sticky' }: Ta
       aria-label="Inhaltsverzeichnis"
       sx={{
         position: variant === 'sticky' ? 'sticky' : 'static',
-        top: variant === 'sticky' ? 96 : 'auto',
-        maxHeight: variant === 'sticky' ? 'calc(100vh - 128px)' : 'min(64vh, 620px)',
+        top: variant === 'sticky' ? 84 : 'auto',
+        maxHeight: variant === 'sticky' ? 'calc(100vh - 116px)' : 'min(64vh, 620px)',
         overflowY: 'auto',
         pr: variant === 'sticky' ? 1 : 0,
         p: variant === 'menu' ? 1 : 0,

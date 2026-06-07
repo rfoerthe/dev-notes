@@ -1,5 +1,20 @@
 # Changelog
 
+## [1.0.11] - 2026-06-07
+
+### Changed
+
+- Article detail pages now place the title, teaser, and author metadata in a clearer reading order.
+- Article detail pages now keep a compact sticky article title visible while scrolling.
+- Desktop article table-of-contents panels now align closer to the sticky header while scrolling.
+- Dark mode article surfaces are now slightly lighter for better contrast against the page background.
+
+### Fixed
+
+- Narrow article views now keep the table-of-contents control visible without covering the selected heading in the article.
+- Table-of-contents heading clicks now account for the sticky header and sticky article title when positioning the target section.
+- Table-of-contents heading jumps now use native smooth scrolling again.
+
 ## [1.0.10] - 2026-06-06
 
 ### Added

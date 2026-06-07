@@ -11,6 +11,7 @@ import githubLightDefault from '@shikijs/themes/github-light-default';
 import type { HighlighterCore, LanguageRegistration, TokensResult } from '@shikijs/types';
 import { shikiLanguageLoaders } from './shikiLanguageLoaders';
 import { createHeadingIdsByLine, slugifyHeadingText } from './markdownHeadings';
+import { scrollHeadingIntoView } from './headingScroll';
 
 const LANGUAGE_CLASS_REGEX = /language-([^\s]+)/;
 const DEFAULT_LANGUAGE = 'text';
@@ -193,7 +194,7 @@ const scrollToHashTarget = (hash: string, behavior: ScrollBehavior = 'smooth'): 
     return false;
   }
 
-  target.scrollIntoView({ behavior, block: 'start' });
+  scrollHeadingIntoView(target, behavior);
   return true;
 };
 

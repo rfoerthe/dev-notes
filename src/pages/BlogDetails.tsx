@@ -270,8 +270,8 @@ export const BlogDetails: React.FC = () => {
           Zurück zur Übersicht
         </Button>
 
-        {/* HERO TITLE BLOCK */}
-        <Box sx={{ mb: 5, width: '100%' }}>
+        {/* ARTICLE META BLOCK */}
+        <Box sx={{ mb: 2, width: '100%' }}>
           {/* Tags */}
           <Stack direction="row" spacing={1} sx={{ mb: 2.5, flexWrap: 'wrap', gap: 1 }}>
             {blog.tags.map(tag => (
@@ -294,16 +294,16 @@ export const BlogDetails: React.FC = () => {
             ))}
           </Stack>
 
-          <Typography 
-            variant="h2" 
-            component="h1" 
-            sx={{ 
-              fontWeight: 800, 
+          <Typography
+            variant="h2"
+            component="h1"
+            sx={{
+              fontWeight: 800,
               fontFamily: 'Outfit, sans-serif',
               fontSize: { xs: '2.25rem', md: '3.25rem' },
               lineHeight: 1.25,
               mb: 3,
-              letterSpacing: '-0.02em',
+              letterSpacing: 0,
               color: 'text.primary'
             }}
           >
@@ -534,20 +534,84 @@ export const BlogDetails: React.FC = () => {
             gridTemplateColumns: hasTableOfContents
               ? { xs: 'minmax(0, 1fr)', lg: 'minmax(0, 1024px) minmax(208px, 248px)' }
               : 'minmax(0, 1024px)',
-            gap: { xs: 0, lg: 4 },
+            columnGap: { xs: 0, lg: 4 },
+            rowGap: 2,
             alignItems: 'start',
             width: '100%'
           }}
         >
+          <Box
+            data-article-sticky-title="true"
+            sx={{
+              gridColumn: 1,
+              position: 'sticky',
+              top: 72,
+              zIndex: 9,
+              width: '100%',
+              py: 1,
+              px: { xs: 1.25, md: 1.5 },
+              borderRadius: '0 0 8px 8px',
+              background: (theme) => theme.palette.mode === 'dark'
+                ? 'rgba(7, 10, 19, 0.94)'
+                : 'rgba(248, 250, 252, 0.94)',
+              backdropFilter: 'blur(18px)',
+              border: (theme) => theme.palette.mode === 'dark'
+                ? '1px solid rgba(255, 255, 255, 0.08)'
+                : '1px solid rgba(15, 23, 42, 0.08)',
+              borderTop: 0,
+              boxShadow: (theme) => theme.palette.mode === 'dark'
+                ? '0 14px 32px rgba(0, 0, 0, 0.28)'
+                : '0 14px 32px rgba(15, 23, 42, 0.09)'
+            }}
+          >
+            <Typography
+              component="span"
+              aria-hidden="true"
+              sx={{
+                display: 'block',
+                mb: 0.25,
+                color: 'text.secondary',
+                fontFamily: 'Outfit, sans-serif',
+                fontSize: 11,
+                fontWeight: 800,
+                letterSpacing: 0,
+                lineHeight: 1,
+                textTransform: 'uppercase'
+              }}
+            >
+              Artikel
+            </Typography>
+            <Typography
+              variant="h6"
+              component="div"
+              aria-hidden="true"
+              sx={{
+                display: '-webkit-box',
+                overflow: 'hidden',
+                WebkitBoxOrient: 'vertical',
+                WebkitLineClamp: 2,
+                fontWeight: 750,
+                fontFamily: 'Outfit, sans-serif',
+                fontSize: { xs: '0.98rem', sm: '1.05rem', md: '1.1rem' },
+                lineHeight: 1.25,
+                letterSpacing: 0,
+                color: 'text.primary'
+              }}
+            >
+              {blog.title}
+            </Typography>
+          </Box>
+
           <Paper
             elevation={0}
             sx={{
+              gridColumn: 1,
               p: { xs: 3, md: 6 },
               borderRadius: 5,
-              background: (theme) => theme.palette.mode === 'dark' ? 'rgba(15, 23, 42, 0.35)' : 'rgba(255, 255, 255, 0.55)',
+              background: (theme) => theme.palette.mode === 'dark' ? 'rgba(30, 41, 59, 0.5)' : 'rgba(255, 255, 255, 0.55)',
               backdropFilter: 'blur(16px)',
-              border: (theme) => theme.palette.mode === 'dark' ? '1px solid rgba(255, 255, 255, 0.04)' : '1px solid rgba(15, 23, 42, 0.05)',
-              boxShadow: (theme) => theme.palette.mode === 'dark' ? '0 15px 35px -5px rgba(0, 0, 0, 0.3)' : '0 15px 35px -5px rgba(15, 23, 42, 0.05)',
+              border: (theme) => theme.palette.mode === 'dark' ? '1px solid rgba(255, 255, 255, 0.08)' : '1px solid rgba(15, 23, 42, 0.05)',
+              boxShadow: (theme) => theme.palette.mode === 'dark' ? '0 18px 42px -8px rgba(0, 0, 0, 0.34)' : '0 15px 35px -5px rgba(15, 23, 42, 0.05)',
               mb: 6,
               width: '100%',
               minWidth: 0
@@ -562,6 +626,8 @@ export const BlogDetails: React.FC = () => {
             <Box
               component="aside"
               sx={{
+                gridColumn: { lg: 2 },
+                gridRow: { lg: '1 / span 2' },
                 display: { xs: 'none', lg: 'block' },
                 minWidth: 0,
                 alignSelf: 'stretch',
