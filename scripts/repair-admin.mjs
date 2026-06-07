@@ -226,6 +226,7 @@ const buildAdminProfile = ({ authUid, adminEmail, username, firstName, lastName,
   createdAt: sourceProfile?.data?.createdAt || new Date().toISOString(),
   ...(sourceProfile?.data?.operatingSystem ? { operatingSystem: sourceProfile.data.operatingSystem } : {}),
   ...(sourceProfile?.data?.themeMode ? { themeMode: sourceProfile.data.themeMode } : {}),
+  ...(sourceProfile?.data?.themeAccent ? { themeAccent: sourceProfile.data.themeAccent } : {}),
   bootstrappedAt: FieldValue.serverTimestamp()
 });
 

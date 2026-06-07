@@ -79,7 +79,7 @@ export const Login: React.FC = () => {
             right: '-20%',
             width: '50%',
             height: '50%',
-            background: 'radial-gradient(circle, rgba(139, 92, 246, 0.15) 0%, rgba(7, 10, 19, 0) 70%)',
+            background: 'radial-gradient(circle, rgba(var(--theme-primary-main-rgb), 0.15) 0%, rgba(7, 10, 19, 0) 70%)',
             zIndex: 0,
             pointerEvents: 'none'
           }}
@@ -92,11 +92,11 @@ export const Login: React.FC = () => {
               sx={{ 
                 p: 1.5, 
                 borderRadius: 4, 
-                background: 'linear-gradient(135deg, rgba(139, 92, 246, 0.2) 0%, rgba(20, 184, 166, 0.1) 100%)',
-                border: '1px solid rgba(139, 92, 246, 0.3)'
+                background: 'linear-gradient(135deg, rgba(var(--theme-primary-main-rgb), 0.2) 0%, rgba(20, 184, 166, 0.1) 100%)',
+                border: '1px solid rgba(var(--theme-primary-main-rgb), 0.3)'
               }}
             >
-              <Terminal color="#8b5cf6" size={26} className="text-glow-primary" />
+              <Terminal color="var(--theme-primary-main)" size={26} className="text-glow-primary" />
             </Box>
             <Typography variant="h4" sx={{ fontFamily: 'Outfit, sans-serif', fontWeight: 800, letterSpacing: '-0.02em' }}>
               Anmelden

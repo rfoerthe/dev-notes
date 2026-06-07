@@ -147,8 +147,8 @@ export const Bookmarks: React.FC = () => {
             sx={{
               p: 1.2,
               borderRadius: 3,
-              bgcolor: 'rgba(139, 92, 246, 0.1)',
-              border: '1px solid rgba(139, 92, 246, 0.26)',
+              bgcolor: 'rgba(var(--theme-primary-main-rgb), 0.1)',
+              border: '1px solid rgba(var(--theme-primary-main-rgb), 0.26)',
               color: 'primary.main',
               display: 'flex'
             }}
@@ -199,8 +199,8 @@ export const Bookmarks: React.FC = () => {
               mx: 'auto',
               mb: 2,
               borderRadius: '50%',
-              bgcolor: 'rgba(139, 92, 246, 0.1)',
-              border: '1px solid rgba(139, 92, 246, 0.24)',
+              bgcolor: 'rgba(var(--theme-primary-main-rgb), 0.1)',
+              border: '1px solid rgba(var(--theme-primary-main-rgb), 0.24)',
               color: 'primary.main',
               display: 'flex',
               alignItems: 'center',
@@ -306,9 +306,9 @@ export const Bookmarks: React.FC = () => {
                     border: (theme) => theme.palette.mode === 'dark' ? '1px solid rgba(255, 255, 255, 0.06)' : '1px solid rgba(15, 23, 42, 0.08)',
                     transition: 'border-color 0.2s ease, background-color 0.2s ease',
                     '&:hover': {
-                      borderColor: 'rgba(139, 92, 246, 0.3)',
+                      borderColor: 'rgba(var(--theme-primary-main-rgb), 0.3)',
                       '& .bookmark-title': {
-                        color: '#a78bfa'
+                        color: 'var(--theme-primary-light)'
                       }
                     }
                   }}
@@ -362,7 +362,7 @@ export const Bookmarks: React.FC = () => {
                       <Divider sx={{ my: 2, borderColor: 'rgba(255, 255, 255, 0.05)' }} />
 
                       <Stack direction="row" spacing={1.5} sx={{ alignItems: 'center' }}>
-                        <Avatar sx={{ width: 30, height: 30, fontSize: 11, fontWeight: 700, bgcolor: 'rgba(139, 92, 246, 0.18)', color: 'primary.light' }}>
+                        <Avatar sx={{ width: 30, height: 30, fontSize: 11, fontWeight: 700, bgcolor: 'rgba(var(--theme-primary-main-rgb), 0.18)', color: 'primary.light' }}>
                           {getAuthorInitials(bookmark.authorName)}
                         </Avatar>
                         <Box sx={{ minWidth: 0 }}>
@@ -404,7 +404,7 @@ export const Bookmarks: React.FC = () => {
                             event.stopPropagation();
                             navigate(`/blog/${bookmark.blogId}`);
                           }}
-                          sx={{ border: '1px solid rgba(139, 92, 246, 0.2)', borderRadius: 3, color: 'primary.light' }}
+                          sx={{ border: '1px solid rgba(var(--theme-primary-main-rgb), 0.2)', borderRadius: 3, color: 'primary.light' }}
                         >
                           <ArrowUpRight size={17} />
                         </IconButton>

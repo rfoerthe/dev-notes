@@ -211,8 +211,8 @@ export const MyPosts: React.FC = () => {
               mx: 'auto',
               mb: 2,
               borderRadius: '50%',
-              bgcolor: 'rgba(139, 92, 246, 0.1)',
-              border: '1px solid rgba(139, 92, 246, 0.24)',
+              bgcolor: 'rgba(var(--theme-primary-main-rgb), 0.1)',
+              border: '1px solid rgba(var(--theme-primary-main-rgb), 0.24)',
               color: 'primary.main',
               display: 'flex',
               alignItems: 'center',
@@ -405,7 +405,7 @@ export const MyPosts: React.FC = () => {
                       <IconButton
                         onClick={() => navigate(`/edit/${post.id}`)}
                         sx={{
-                          border: '1px solid rgba(139, 92, 246, 0.22)',
+                          border: '1px solid rgba(var(--theme-primary-main-rgb), 0.22)',
                           color: 'primary.main',
                           borderRadius: 2
                         }}

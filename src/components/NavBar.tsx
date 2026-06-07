@@ -119,7 +119,7 @@ export const NavBar: React.FC = () => {
     <Box onClick={handleDrawerToggle} sx={{ textAlign: 'center', p: 2, bgcolor: 'background.default', height: '100%' }}>
       <Tooltip title={appVersionLabel} arrow>
         <Box sx={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 1, mb: 3 }}>
-          <Terminal color="#8b5cf6" size={24} />
+          <Terminal color="var(--theme-primary-main)" size={24} />
           <Typography variant="h6" sx={{ fontFamily: 'Outfit, sans-serif', fontWeight: 800 }}>
             Dev<span style={{ color: '#14b8a6' }}>Notes</span>
           </Typography>
@@ -157,9 +157,9 @@ export const NavBar: React.FC = () => {
                 mb: 1,
                 mx: 1,
                 justifyContent: 'center',
-                backgroundColor: isActive(item.path) ? 'rgba(139, 92, 246, 0.08)' : 'transparent',
+                backgroundColor: isActive(item.path) ? 'rgba(var(--theme-primary-main-rgb), 0.08)' : 'transparent',
                 color: (theme) => isActive(item.path) 
-                  ? (theme.palette.mode === 'dark' ? '#a78bfa' : 'primary.main') 
+                  ? (theme.palette.mode === 'dark' ? 'var(--theme-primary-light)' : 'primary.main') 
                   : (theme.palette.mode === 'dark' ? '#94a3b8' : '#475569'),
                 '&:hover': {
                   backgroundColor: (theme) => theme.palette.mode === 'dark' ? 'rgba(255, 255, 255, 0.03)' : 'rgba(15, 23, 42, 0.03)',
@@ -263,11 +263,11 @@ export const NavBar: React.FC = () => {
                   sx={{
                     p: 1,
                     borderRadius: 3,
-                    background: 'linear-gradient(135deg, rgba(139, 92, 246, 0.2) 0%, rgba(20, 184, 166, 0.1) 100%)',
-                    border: '1px solid rgba(139, 92, 246, 0.3)'
+                    background: 'linear-gradient(135deg, rgba(var(--theme-primary-main-rgb), 0.2) 0%, rgba(20, 184, 166, 0.1) 100%)',
+                    border: '1px solid rgba(var(--theme-primary-main-rgb), 0.3)'
                   }}
                 >
-                  <Terminal color="#8b5cf6" size={22} className="text-glow-primary" />
+                  <Terminal color="var(--theme-primary-main)" size={22} className="text-glow-primary" />
                 </Box>
                 <Typography
                   variant="h5"
@@ -306,12 +306,12 @@ export const NavBar: React.FC = () => {
                       color: (theme) => isActive(link.path) 
                         ? (theme.palette.mode === 'dark' ? '#ffffff' : 'primary.main') 
                         : (theme.palette.mode === 'dark' ? '#94a3b8' : '#475569'),
-                      backgroundColor: isActive(link.path) ? 'rgba(139, 92, 246, 0.08)' : 'transparent',
-                      border: isActive(link.path) ? '1px solid rgba(139, 92, 246, 0.15)' : '1px solid transparent',
+                      backgroundColor: isActive(link.path) ? 'rgba(var(--theme-primary-main-rgb), 0.08)' : 'transparent',
+                      border: isActive(link.path) ? '1px solid rgba(var(--theme-primary-main-rgb), 0.15)' : '1px solid transparent',
                       '&:hover': {
                         color: (theme) => theme.palette.mode === 'dark' ? '#ffffff' : 'primary.main',
-                        backgroundColor: (theme) => theme.palette.mode === 'dark' ? 'rgba(255, 255, 255, 0.03)' : 'rgba(139, 92, 246, 0.04)',
-                        borderColor: (theme) => theme.palette.mode === 'dark' ? 'rgba(255, 255, 255, 0.08)' : 'rgba(139, 92, 246, 0.12)'
+                        backgroundColor: (theme) => theme.palette.mode === 'dark' ? 'rgba(255, 255, 255, 0.03)' : 'rgba(var(--theme-primary-main-rgb), 0.04)',
+                        borderColor: (theme) => theme.palette.mode === 'dark' ? 'rgba(255, 255, 255, 0.08)' : 'rgba(var(--theme-primary-main-rgb), 0.12)'
                       }
                     }}
                   >
@@ -439,7 +439,7 @@ export const NavBar: React.FC = () => {
                           fontWeight: 700,
                           fontSize: 14,
                           color: userProfile?.role === 'admin' ? '#000000' : '#ffffff',
-                          boxShadow: '0 0 10px rgba(139, 92, 246, 0.2)'
+                          boxShadow: '0 0 10px rgba(var(--theme-primary-main-rgb), 0.2)'
                         }}
                       >
                         {userInitials}
@@ -471,9 +471,9 @@ export const NavBar: React.FC = () => {
                             fontSize: 10, 
                             fontWeight: 700, 
                             borderRadius: '4px',
-                            bgcolor: userProfile?.role === 'admin' ? 'rgba(20, 184, 166, 0.15)' : 'rgba(139, 92, 246, 0.15)',
+                            bgcolor: userProfile?.role === 'admin' ? 'rgba(20, 184, 166, 0.15)' : 'rgba(var(--theme-primary-main-rgb), 0.15)',
                             color: userProfile?.role === 'admin' ? 'secondary.main' : 'primary.light',
-                            border: `1px solid ${userProfile?.role === 'admin' ? 'rgba(20, 184, 166, 0.3)' : 'rgba(139, 92, 246, 0.3)'}`
+                            border: `1px solid ${userProfile?.role === 'admin' ? 'rgba(20, 184, 166, 0.3)' : 'rgba(var(--theme-primary-main-rgb), 0.3)'}`
                           }}
                         >
                           {userProfile?.role === 'admin' ? 'ADMIN' : 'DEVELOPER'}

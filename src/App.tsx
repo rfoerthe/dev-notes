@@ -26,7 +26,7 @@ import { Link as RouterLink } from 'react-router-dom';
 
 const ProfileThemeSync: React.FC = () => {
   const { loading, userProfile } = useAuth();
-  const { setThemeMode } = useCustomTheme();
+  const { setThemeMode, setThemeAccent } = useCustomTheme();
 
   useEffect(() => {
     if (loading) {
@@ -34,7 +34,8 @@ const ProfileThemeSync: React.FC = () => {
     }
 
     setThemeMode(userProfile?.themeMode || 'system');
-  }, [loading, setThemeMode, userProfile?.themeMode, userProfile?.uid]);
+    setThemeAccent(userProfile?.themeAccent || 'purple');
+  }, [loading, setThemeAccent, setThemeMode, userProfile?.themeAccent, userProfile?.themeMode, userProfile?.uid]);
 
   return null;
 };

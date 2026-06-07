@@ -26,7 +26,7 @@ import {
   validatePasswordStrength,
   validateUsername
 } from './securityValidation';
-import type { ThemeMode } from '../context/CustomThemeContext';
+import type { ThemeAccent, ThemeMode } from '../context/CustomThemeContext';
 
 export interface UserProfile {
   uid: string;
@@ -40,6 +40,7 @@ export interface UserProfile {
   createdAt: string;
   operatingSystem?: string;
   themeMode?: ThemeMode;
+  themeAccent?: ThemeAccent;
 }
 
 export function canAccessApprovedFeatures(profile: UserProfile | null): boolean {
@@ -144,7 +145,9 @@ export async function registerUser(params: RegisterParams): Promise<UserProfile>
     emailVerified: false,
     role: 'user',
     status: 'pending',
-    createdAt: new Date().toISOString()
+    createdAt: new Date().toISOString(),
+    themeMode: 'system',
+    themeAccent: 'purple'
   };
 
   try {
@@ -329,6 +332,7 @@ export interface UpdateUserProfileParams {
   newPassword?: string;
   operatingSystem?: string;
   themeMode?: ThemeMode;
+  themeAccent?: ThemeAccent;
 }
 
 export async function updateUserProfile(params: UpdateUserProfileParams): Promise<void> {
@@ -348,7 +352,8 @@ export async function updateUserProfile(params: UpdateUserProfileParams): Promis
     firstName,
     lastName,
     operatingSystem: params.operatingSystem || null,
-    themeMode: params.themeMode || 'system'
+    themeMode: params.themeMode || 'system',
+    themeAccent: params.themeAccent || 'purple'
   });
   await updateAuthorNameForBlogs(profile.username, authorName);
 

@@ -598,8 +598,8 @@ export const MarkdownRenderer = ({ markdown }: MarkdownRendererProps) => {
         <Box
           component="blockquote"
           sx={{
-            borderLeft: '4px solid #8b5cf6',
-            bgcolor: (theme) => theme.palette.mode === 'dark' ? 'rgba(139, 92, 246, 0.05)' : 'rgba(124, 58, 237, 0.04)',
+            borderLeft: '4px solid var(--theme-primary-main)',
+            bgcolor: (theme) => theme.palette.mode === 'dark' ? 'rgba(var(--theme-primary-main-rgb), 0.05)' : 'rgba(var(--theme-primary-main-rgb), 0.04)',
             borderRadius: '0 12px 12px 0',
             px: 3,
             py: 2,

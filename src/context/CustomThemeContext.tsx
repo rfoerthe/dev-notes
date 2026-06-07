@@ -5,10 +5,142 @@ import type { Theme } from '@mui/material/styles';
 import useMediaQuery from '@mui/material/useMediaQuery';
 
 export type ThemeMode = 'light' | 'dark' | 'system';
+export type ThemeAccent = 'purple' | 'blue' | 'green' | 'rose' | 'orange';
+
+type AccentScale = {
+  main: string;
+  light: string;
+  dark: string;
+  mainRgb: string;
+  lightRgb: string;
+  darkRgb: string;
+};
+
+export type ThemeAccentOption = {
+  value: ThemeAccent;
+  label: string;
+  dark: AccentScale;
+  light: AccentScale;
+};
+
+export const themeAccentOptions: ThemeAccentOption[] = [
+  {
+    value: 'purple',
+    label: 'Violett',
+    dark: {
+      main: '#8b5cf6',
+      light: '#a78bfa',
+      dark: '#6d28d9',
+      mainRgb: '139, 92, 246',
+      lightRgb: '167, 139, 250',
+      darkRgb: '109, 40, 217',
+    },
+    light: {
+      main: '#7c3aed',
+      light: '#a78bfa',
+      dark: '#5b21b6',
+      mainRgb: '124, 58, 237',
+      lightRgb: '167, 139, 250',
+      darkRgb: '91, 33, 182',
+    },
+  },
+  {
+    value: 'blue',
+    label: 'Blau',
+    dark: {
+      main: '#3b82f6',
+      light: '#60a5fa',
+      dark: '#2563eb',
+      mainRgb: '59, 130, 246',
+      lightRgb: '96, 165, 250',
+      darkRgb: '37, 99, 235',
+    },
+    light: {
+      main: '#2563eb',
+      light: '#60a5fa',
+      dark: '#1d4ed8',
+      mainRgb: '37, 99, 235',
+      lightRgb: '96, 165, 250',
+      darkRgb: '29, 78, 216',
+    },
+  },
+  {
+    value: 'green',
+    label: 'Grün',
+    dark: {
+      main: '#10b981',
+      light: '#34d399',
+      dark: '#059669',
+      mainRgb: '16, 185, 129',
+      lightRgb: '52, 211, 153',
+      darkRgb: '5, 150, 105',
+    },
+    light: {
+      main: '#059669',
+      light: '#34d399',
+      dark: '#047857',
+      mainRgb: '5, 150, 105',
+      lightRgb: '52, 211, 153',
+      darkRgb: '4, 120, 87',
+    },
+  },
+  {
+    value: 'rose',
+    label: 'Rose',
+    dark: {
+      main: '#f43f5e',
+      light: '#fb7185',
+      dark: '#e11d48',
+      mainRgb: '244, 63, 94',
+      lightRgb: '251, 113, 133',
+      darkRgb: '225, 29, 72',
+    },
+    light: {
+      main: '#e11d48',
+      light: '#fb7185',
+      dark: '#be123c',
+      mainRgb: '225, 29, 72',
+      lightRgb: '251, 113, 133',
+      darkRgb: '190, 18, 60',
+    },
+  },
+  {
+    value: 'orange',
+    label: 'Orange',
+    dark: {
+      main: '#ff6200',
+      light: '#ff8a3d',
+      dark: '#c94d00',
+      mainRgb: '255, 98, 0',
+      lightRgb: '255, 138, 61',
+      darkRgb: '201, 77, 0',
+    },
+    light: {
+      main: '#ff6200',
+      light: '#ff8a3d',
+      dark: '#c94d00',
+      mainRgb: '255, 98, 0',
+      lightRgb: '255, 138, 61',
+      darkRgb: '201, 77, 0',
+    },
+  },
+];
+
+const themeAccentValues = new Set<ThemeAccent>(themeAccentOptions.map((option) => option.value));
+
+const normalizeThemeAccent = (accent: string | null): ThemeAccent => (
+  accent && themeAccentValues.has(accent as ThemeAccent) ? accent as ThemeAccent : 'purple'
+);
+
+export const getThemeAccentOption = (accent: ThemeAccent): ThemeAccentOption => (
+  themeAccentOptions.find((option) => option.value === accent) || themeAccentOptions[0]
+);
 
 interface CustomThemeContextType {
   themeMode: ThemeMode;
   setThemeMode: (mode: ThemeMode) => void;
+  themeAccent: ThemeAccent;
+  setThemeAccent: (accent: ThemeAccent) => void;
   activeMode: 'light' | 'dark';
 }
 
@@ -19,12 +151,21 @@ export const CustomThemeProvider: React.FC<{ children: React.ReactNode }> = ({ c
     const saved = localStorage.getItem('devblog_theme_mode');
     return (saved as ThemeMode) || 'system';
   });
+  const [themeAccent, setThemeAccentState] = useState<ThemeAccent>(() => (
+    normalizeThemeAccent(localStorage.getItem('devblog_theme_accent'))
+  ));
 
   const systemPrefersDark = useMediaQuery('(prefers-color-scheme: dark)');
 
   const setThemeMode = useCallback((mode: ThemeMode) => {
     setThemeModeState(mode);
     localStorage.setItem('devblog_theme_mode', mode);
+  }, []);
+
+  const setThemeAccent = useCallback((accent: ThemeAccent) => {
+    const normalizedAccent = normalizeThemeAccent(accent);
+    setThemeAccentState(normalizedAccent);
+    localStorage.setItem('devblog_theme_accent', normalizedAccent);
   }, []);
 
   const activeMode = useMemo<'light' | 'dark'>(() => {
@@ -39,19 +180,31 @@ export const CustomThemeProvider: React.FC<{ children: React.ReactNode }> = ({ c
     const root = window.document.documentElement;
     root.classList.remove('light-mode', 'dark-mode');
     root.classList.add(`${activeMode}-mode`);
-  }, [activeMode]);
+    const accent = getThemeAccentOption(themeAccent)[activeMode];
+    root.style.setProperty('--theme-primary-main', accent.main);
+    root.style.setProperty('--theme-primary-light', accent.light);
+    root.style.setProperty('--theme-primary-dark', accent.dark);
+    root.style.setProperty('--theme-primary-main-rgb', accent.mainRgb);
+    root.style.setProperty('--theme-primary-light-rgb', accent.lightRgb);
+    root.style.setProperty('--theme-primary-dark-rgb', accent.darkRgb);
+    root.style.setProperty('--accent', accent.main);
+    root.style.setProperty('--accent-bg', `rgba(${accent.mainRgb}, 0.1)`);
+    root.style.setProperty('--accent-border', `rgba(${accent.mainRgb}, 0.35)`);
+  }, [activeMode, themeAccent]);
 
   // Dynamically build theme based on activeMode
   const theme = useMemo<Theme>(() => {
     const isDark = activeMode === 'dark';
+    const accent = getThemeAccentOption(themeAccent)[activeMode];
+    const accentGlow = (opacity: number) => `rgba(${accent.mainRgb}, ${opacity})`;
 
     return createTheme({
       palette: {
         mode: isDark ? 'dark' : 'light',
         primary: {
-          main: isDark ? '#8b5cf6' : '#7c3aed', // Electric Purple
-          light: isDark ? '#a78bfa' : '#a78bfa',
-          dark: isDark ? '#6d28d9' : '#5b21b6',
+          main: accent.main,
+          light: accent.light,
+          dark: accent.dark,
           contrastText: '#ffffff',
         },
         secondary: {
@@ -165,10 +318,10 @@ export const CustomThemeProvider: React.FC<{ children: React.ReactNode }> = ({ c
               boxShadow: isDark ? '0 10px 30px -10px rgba(0,0,0,0.3)' : '0 10px 30px -10px rgba(15, 23, 42, 0.05)',
               transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
               '&:hover': {
-                borderColor: isDark ? 'rgba(139, 92, 246, 0.3)' : 'rgba(124, 58, 237, 0.25)',
+                borderColor: accentGlow(isDark ? 0.3 : 0.25),
                 boxShadow: isDark 
-                  ? '0 15px 35px -5px rgba(139, 92, 246, 0.15)' 
-                  : '0 15px 35px -5px rgba(124, 58, 237, 0.12)',
+                  ? `0 15px 35px -5px ${accentGlow(0.15)}`
+                  : `0 15px 35px -5px ${accentGlow(0.12)}`,
                 transform: 'translateY(-4px)',
               },
             },
@@ -199,19 +352,11 @@ export const CustomThemeProvider: React.FC<{ children: React.ReactNode }> = ({ c
             {
               props: { variant: 'contained', color: 'primary' },
               style: {
-                background: isDark 
-                  ? 'linear-gradient(135deg, #8b5cf6 0%, #6d28d9 100%)' 
-                  : 'linear-gradient(135deg, #7c3aed 0%, #5b21b6 100%)',
-                boxShadow: isDark 
-                  ? '0 4px 14px 0 rgba(139, 92, 246, 0.25)' 
-                  : '0 4px 14px 0 rgba(124, 58, 237, 0.2)',
+                background: `linear-gradient(135deg, ${accent.main} 0%, ${accent.dark} 100%)`,
+                boxShadow: `0 4px 14px 0 ${accentGlow(isDark ? 0.25 : 0.2)}`,
                 '&:hover': {
-                  background: isDark 
-                    ? 'linear-gradient(135deg, #a78bfa 0%, #7c3aed 100%)' 
-                    : 'linear-gradient(135deg, #c084fc 0%, #7c3aed 100%)',
-                  boxShadow: isDark 
-                    ? '0 6px 20px 0 rgba(139, 92, 246, 0.4)' 
-                    : '0 6px 20px 0 rgba(124, 58, 237, 0.35)',
+                  background: `linear-gradient(135deg, ${accent.light} 0%, ${accent.main} 100%)`,
+                  boxShadow: `0 6px 20px 0 ${accentGlow(isDark ? 0.4 : 0.35)}`,
                 },
               },
             },
@@ -250,7 +395,7 @@ export const CustomThemeProvider: React.FC<{ children: React.ReactNode }> = ({ c
                   borderColor: isDark ? 'rgba(255, 255, 255, 0.2)' : 'rgba(15, 23, 42, 0.2)',
                 },
                 '&.Mui-focused fieldset': {
-                  borderColor: isDark ? '#8b5cf6' : '#7c3aed',
+                  borderColor: accent.main,
                   borderWidth: '1px',
                 },
               },
@@ -262,22 +407,22 @@ export const CustomThemeProvider: React.FC<{ children: React.ReactNode }> = ({ c
             root: {
               borderRadius: 8,
               fontWeight: 500,
-              backgroundColor: isDark ? 'rgba(139, 92, 246, 0.1)' : 'rgba(124, 58, 237, 0.06)',
-              border: isDark ? '1px solid rgba(139, 92, 246, 0.2)' : '1px solid rgba(124, 58, 237, 0.15)',
-              color: isDark ? '#c084fc' : '#6d28d9',
+              backgroundColor: accentGlow(isDark ? 0.1 : 0.06),
+              border: `1px solid ${accentGlow(isDark ? 0.2 : 0.15)}`,
+              color: isDark ? accent.light : accent.dark,
               transition: 'all 0.2s ease',
               '&:hover': {
-                backgroundColor: isDark ? 'rgba(139, 92, 246, 0.2)' : 'rgba(124, 58, 237, 0.1)',
+                backgroundColor: accentGlow(isDark ? 0.2 : 0.1),
               },
             },
           },
         },
       },
     });
-  }, [activeMode]);
+  }, [activeMode, themeAccent]);
 
   return (
-    <CustomThemeContext.Provider value={{ themeMode, setThemeMode, activeMode }}>
+    <CustomThemeContext.Provider value={{ themeMode, setThemeMode, themeAccent, setThemeAccent, activeMode }}>
       <ThemeProvider theme={theme}>
         {children}
       </ThemeProvider>

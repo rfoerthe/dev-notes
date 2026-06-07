@@ -230,12 +230,12 @@ export const BlogDetails: React.FC = () => {
             left: 0, 
             height: '3px', 
             width: '100%', 
-            background: 'linear-gradient(90deg, #8b5cf6 0%, #14b8a6 100%)', 
+            background: 'linear-gradient(90deg, var(--theme-primary-main) 0%, #14b8a6 100%)', 
             zIndex: 1100,
             pointerEvents: 'none',
             transform: `scaleX(${scrollProgress / 100})`,
             transformOrigin: 'left center',
-            boxShadow: '0 0 8px rgba(139, 92, 246, 0.5)',
+            boxShadow: '0 0 8px rgba(var(--theme-primary-main-rgb), 0.5)',
             willChange: 'transform'
           }}
         />
@@ -317,7 +317,7 @@ export const BlogDetails: React.FC = () => {
               lineHeight: 1.6, 
               fontWeight: 400,
               fontStyle: 'italic', 
-              borderLeft: '3px solid rgba(139, 92, 246, 0.4)', 
+              borderLeft: '3px solid rgba(var(--theme-primary-main-rgb), 0.4)', 
               pl: 2.5,
               mb: 4
             }}
@@ -338,12 +338,12 @@ export const BlogDetails: React.FC = () => {
                 sx={{ 
                   width: 44, 
                   height: 44, 
-                  bgcolor: 'rgba(139, 92, 246, 0.2)',
+                  bgcolor: 'rgba(var(--theme-primary-main-rgb), 0.2)',
                   color: 'primary.light',
                   fontSize: 16,
                   fontWeight: 700,
-                  border: '1px solid rgba(139, 92, 246, 0.3)',
-                  boxShadow: '0 0 10px rgba(139, 92, 246, 0.1)'
+                  border: '1px solid rgba(var(--theme-primary-main-rgb), 0.3)',
+                  boxShadow: '0 0 10px rgba(var(--theme-primary-main-rgb), 0.1)'
                 }}
               >
                 {getAuthorInitials(blog.authorName)}
@@ -375,14 +375,14 @@ export const BlogDetails: React.FC = () => {
                     <IconButton 
                       onClick={() => navigate(`/edit/${blog.id}`)} 
                       sx={{ 
-                        border: '1px solid rgba(139, 92, 246, 0.2)', 
-                        bgcolor: 'rgba(139, 92, 246, 0.05)',
+                        border: '1px solid rgba(var(--theme-primary-main-rgb), 0.2)', 
+                        bgcolor: 'rgba(var(--theme-primary-main-rgb), 0.05)',
                         color: 'primary.light',
                         borderRadius: 3, 
                         p: 1,
                         '&:hover': {
-                          bgcolor: 'rgba(139, 92, 246, 0.15)',
-                          borderColor: 'rgba(139, 92, 246, 0.4)'
+                          bgcolor: 'rgba(var(--theme-primary-main-rgb), 0.15)',
+                          borderColor: 'rgba(var(--theme-primary-main-rgb), 0.4)'
                         }
                       }}
                     >

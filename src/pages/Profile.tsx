@@ -17,13 +17,13 @@ import {
 import { User, Lock, Eye, EyeOff, ShieldCheck, Mail, AlertCircle, Save, Laptop, Palette } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { updateUserProfile } from '../services/authService';
-import { useCustomTheme } from '../context/CustomThemeContext';
-import type { ThemeMode } from '../context/CustomThemeContext';
+import { themeAccentOptions, useCustomTheme } from '../context/CustomThemeContext';
+import type { ThemeAccent, ThemeMode } from '../context/CustomThemeContext';
 import { validatePasswordStrength } from '../services/securityValidation';
 
 export const Profile: React.FC = () => {
   const { userProfile, refreshProfile } = useAuth();
-  const { themeMode, setThemeMode } = useCustomTheme();
+  const { themeMode, setThemeMode, themeAccent, setThemeAccent, activeMode } = useCustomTheme();
 
   const [firstName, setFirstName] = useState<string>('');
   const [lastName, setLastName] = useState<string>('');
@@ -86,7 +86,8 @@ export const Profile: React.FC = () => {
         lastName: lastName.trim(),
         newPassword: password ? password : undefined,
         operatingSystem,
-        themeMode
+        themeMode,
+        themeAccent
       });
 
       // Clear password inputs
@@ -140,7 +141,7 @@ export const Profile: React.FC = () => {
             right: '-20%',
             width: '60%',
             height: '60%',
-            background: 'radial-gradient(circle, rgba(139, 92, 246, 0.12) 0%, rgba(7, 10, 19, 0) 70%)',
+            background: 'radial-gradient(circle, rgba(var(--theme-primary-main-rgb), 0.12) 0%, rgba(7, 10, 19, 0) 70%)',
             zIndex: 0,
             pointerEvents: 'none'
           }}
@@ -152,8 +153,8 @@ export const Profile: React.FC = () => {
               sx={{ 
                 p: 1.5, 
                 borderRadius: 4, 
-                background: 'linear-gradient(135deg, rgba(139, 92, 246, 0.2) 0%, rgba(20, 184, 166, 0.1) 100%)',
-                border: '1px solid rgba(139, 92, 246, 0.3)'
+                background: 'linear-gradient(135deg, rgba(var(--theme-primary-main-rgb), 0.2) 0%, rgba(20, 184, 166, 0.1) 100%)',
+                border: '1px solid rgba(var(--theme-primary-main-rgb), 0.3)'
               }}
             >
               <ShieldCheck color="#14b8a6" size={28} className="text-glow-secondary" />
@@ -304,6 +305,83 @@ export const Profile: React.FC = () => {
                     <MenuItem value="system">System-Einstellung (OS Preference)</MenuItem>
                   </TextField>
 
+                  <Box>
+                    <Typography variant="caption" sx={{ display: 'block', mb: 1, color: 'text.secondary', fontWeight: 700 }}>
+                      Akzent-Farbe
+                    </Typography>
+                    <Box
+                      role="radiogroup"
+                      aria-label="Akzent-Farbe"
+                      sx={{
+                        display: 'grid',
+                        gridTemplateColumns: 'repeat(auto-fit, minmax(128px, 1fr))',
+                        gap: 1,
+                      }}
+                    >
+                      {themeAccentOptions.map((option) => {
+                        const accent = option[activeMode];
+                        const selected = themeAccent === option.value;
+
+                        return (
+                          <Box
+                            key={option.value}
+                            component="button"
+                            type="button"
+                            role="radio"
+                            aria-checked={selected}
+                            disabled={loading}
+                            onClick={() => setThemeAccent(option.value as ThemeAccent)}
+                            sx={{
+                              appearance: 'none',
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: 1,
+                              width: '100%',
+                              minHeight: 44,
+                              px: 1.25,
+                              py: 1,
+                              borderRadius: 2,
+                              border: selected
+                                ? `1px solid ${accent.main}`
+                                : (theme) => theme.palette.mode === 'dark' ? '1px solid rgba(255, 255, 255, 0.08)' : '1px solid rgba(15, 23, 42, 0.1)',
+                              bgcolor: selected ? `rgba(${accent.mainRgb}, 0.12)` : 'transparent',
+                              color: 'text.primary',
+                              cursor: loading ? 'default' : 'pointer',
+                              font: 'inherit',
+                              fontFamily: 'Outfit, sans-serif',
+                              fontWeight: 700,
+                              opacity: loading ? 0.5 : 1,
+                              transition: 'all 0.2s ease',
+                              '&:hover': {
+                                bgcolor: `rgba(${accent.mainRgb}, 0.1)`,
+                                borderColor: accent.main,
+                              },
+                              '&:focus-visible': {
+                                outline: `2px solid ${accent.main}`,
+                                outlineOffset: 2,
+                              },
+                            }}
+                          >
+                            <Box
+                              aria-hidden
+                              sx={{
+                                width: 18,
+                                height: 18,
+                                flexShrink: 0,
+                                borderRadius: '50%',
+                                background: `linear-gradient(135deg, ${accent.light}, ${accent.dark})`,
+                                boxShadow: `0 0 0 3px rgba(${accent.mainRgb}, 0.16)`,
+                              }}
+                            />
+                            <Box component="span" sx={{ whiteSpace: 'nowrap' }}>
+                              {option.label}
+                            </Box>
+                          </Box>
+                        );
+                      })}
+                    </Box>
+                  </Box>
+
                   <TextField
                     select
                     label="Betriebssystem"
@@ -405,11 +483,11 @@ export const Profile: React.FC = () => {
                   fontWeight: 700,
                   fontSize: 16,
                   fontFamily: 'Outfit, sans-serif',
-                  background: 'linear-gradient(90deg, #8b5cf6 0%, #14b8a6 100%)',
-                  boxShadow: '0 8px 20px -6px rgba(139, 92, 246, 0.4)',
+                  background: 'linear-gradient(90deg, var(--theme-primary-main) 0%, #14b8a6 100%)',
+                  boxShadow: '0 8px 20px -6px rgba(var(--theme-primary-main-rgb), 0.4)',
                   '&:hover': {
-                    background: 'linear-gradient(90deg, #7c3aed 0%, #0d9488 100%)',
-                    boxShadow: '0 8px 20px -4px rgba(139, 92, 246, 0.5)',
+                    background: 'linear-gradient(90deg, var(--theme-primary-dark) 0%, #0d9488 100%)',
+                    boxShadow: '0 8px 20px -4px rgba(var(--theme-primary-main-rgb), 0.5)',
                   }
                 }}
               >

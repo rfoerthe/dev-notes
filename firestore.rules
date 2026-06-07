@@ -47,6 +47,11 @@ service cloud.firestore {
         request.resource.data.themeMode in ['light', 'dark', 'system'];
     }
 
+    function validOptionalThemeAccent() {
+      return !request.resource.data.keys().hasAny(['themeAccent']) ||
+        request.resource.data.themeAccent in ['purple', 'blue', 'green', 'rose', 'orange'];
+    }
+
     function validOptionalEmailVerified() {
       return !request.resource.data.keys().hasAny(['emailVerified']) ||
         request.resource.data.emailVerified is bool;
@@ -116,6 +121,7 @@ service cloud.firestore {
         'emailVerified',
         'operatingSystem',
         'themeMode',
+        'themeAccent',
         'bootstrappedAt'
       ]) &&
         request.resource.data.uid is string &&
@@ -128,7 +134,8 @@ service cloud.firestore {
         request.resource.data.createdAt is string &&
         validOptionalEmailVerified() &&
         validOptionalOperatingSystem() &&
-        validOptionalThemeMode();
+        validOptionalThemeMode() &&
+        validOptionalThemeAccent();
     }
 
     function userIdentityIsImmutable() {
@@ -247,12 +254,12 @@ service cloud.firestore {
         validUserProfile() &&
         userIdentityIsImmutable() &&
         (
-          (isAdmin() && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['firstName', 'lastName', 'status', 'operatingSystem', 'themeMode'])) ||
+          (isAdmin() && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['firstName', 'lastName', 'status', 'operatingSystem', 'themeMode', 'themeAccent'])) ||
           (
             request.auth.uid == userId &&
             request.resource.data.status == resource.data.status &&
             (
-              request.resource.data.diff(resource.data).affectedKeys().hasOnly(['firstName', 'lastName', 'operatingSystem', 'themeMode']) ||
+              request.resource.data.diff(resource.data).affectedKeys().hasOnly(['firstName', 'lastName', 'operatingSystem', 'themeMode', 'themeAccent']) ||
               (
                 request.resource.data.diff(resource.data).affectedKeys().hasOnly(['emailVerified']) &&
                 request.resource.data.emailVerified == true &&

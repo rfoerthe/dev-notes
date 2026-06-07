@@ -302,11 +302,11 @@ export const Home: React.FC = () => {
                   }),
               width: placement === 'floating' ? 36 : 34,
               height: placement === 'floating' ? 36 : 34,
-              border: isBookmarked ? '1px solid rgba(20, 184, 166, 0.3)' : '1px solid rgba(139, 92, 246, 0.18)',
+              border: isBookmarked ? '1px solid rgba(20, 184, 166, 0.3)' : '1px solid rgba(var(--theme-primary-main-rgb), 0.18)',
               color: isBookmarked ? 'secondary.main' : 'text.secondary',
               '&:hover': {
                 color: isBookmarked ? 'secondary.main' : 'primary.light',
-                bgcolor: isBookmarked ? 'rgba(20, 184, 166, 0.12)' : 'rgba(139, 92, 246, 0.1)'
+                bgcolor: isBookmarked ? 'rgba(20, 184, 166, 0.12)' : 'rgba(var(--theme-primary-main-rgb), 0.1)'
               }
             }}
           >
@@ -369,8 +369,8 @@ export const Home: React.FC = () => {
               lineHeight: 1.05,
               letterSpacing: 0,
               background: (theme) => theme.palette.mode === 'dark' 
-                ? 'linear-gradient(135deg, #ffffff 0%, #a78bfa 50%, #8b5cf6 100%)' 
-                : 'linear-gradient(135deg, #0f172a 0%, #6d28d9 50%, #7c3aed 100%)',
+                ? 'linear-gradient(135deg, #ffffff 0%, var(--theme-primary-light) 50%, var(--theme-primary-main) 100%)' 
+                : 'linear-gradient(135deg, #0f172a 0%, var(--theme-primary-dark) 50%, var(--theme-primary-main) 100%)',
               WebkitBackgroundClip: 'text',
               WebkitTextFillColor: 'transparent'
             }}
@@ -468,20 +468,20 @@ export const Home: React.FC = () => {
           {hasMoreTags && (
             <Chip
               label={`+ ${availableTagsSorted.length - POPULAR_LIMIT} weitere...`}
-              icon={<ChevronDown size={14} style={{ color: '#8b5cf6' }} />}
+              icon={<ChevronDown size={14} style={{ color: 'var(--theme-primary-main)' }} />}
               clickable
               onClick={handleOpenPopover}
               sx={{
-                bgcolor: 'rgba(139, 92, 246, 0.1)',
-                color: '#8b5cf6',
-                border: '1px solid rgba(139, 92, 246, 0.2)',
+                bgcolor: 'rgba(var(--theme-primary-main-rgb), 0.1)',
+                color: 'var(--theme-primary-main)',
+                border: '1px solid rgba(var(--theme-primary-main-rgb), 0.2)',
                 fontFamily: 'Outfit, sans-serif',
                 fontWeight: 700,
                 '&:hover': {
-                  bgcolor: 'rgba(139, 92, 246, 0.18)'
+                  bgcolor: 'rgba(var(--theme-primary-main-rgb), 0.18)'
                 },
                 '& .MuiChip-icon': {
-                  color: '#8b5cf6 !important'
+                  color: 'var(--theme-primary-main) !important'
                 }
               }}
             />
@@ -557,7 +557,7 @@ export const Home: React.FC = () => {
                       my: 0.5,
                       borderRadius: 2,
                       cursor: 'pointer',
-                      bgcolor: isSelected ? 'rgba(139, 92, 246, 0.08)' : 'transparent',
+                      bgcolor: isSelected ? 'rgba(var(--theme-primary-main-rgb), 0.08)' : 'transparent',
                       color: isSelected ? 'primary.main' : 'text.primary',
                       fontWeight: isSelected ? 600 : 400,
                       transition: 'all 0.2s',
@@ -629,9 +629,9 @@ export const Home: React.FC = () => {
                               px: 1.2,
                               py: 0.4,
                               borderRadius: '6px',
-                              bgcolor: 'rgba(139, 92, 246, 0.08)',
-                              color: '#a78bfa',
-                              border: '1px solid rgba(139, 92, 246, 0.15)',
+                              bgcolor: 'rgba(var(--theme-primary-main-rgb), 0.08)',
+                              color: 'var(--theme-primary-light)',
+                              border: '1px solid rgba(var(--theme-primary-main-rgb), 0.15)',
                               fontFamily: 'Outfit, sans-serif'
                             }}
                           >
@@ -651,7 +651,7 @@ export const Home: React.FC = () => {
                           lineHeight: 1.3,
                           color: 'text.primary',
                           '&:hover': {
-                            color: '#a78bfa'
+                            color: 'var(--theme-primary-light)'
                           }
                         }}
                       >
@@ -684,11 +684,11 @@ export const Home: React.FC = () => {
                           sx={{
                             width: 32,
                             height: 32,
-                            bgcolor: 'rgba(139, 92, 246, 0.2)',
-                            color: '#c084fc',
+                            bgcolor: 'rgba(var(--theme-primary-main-rgb), 0.2)',
+                            color: 'var(--theme-primary-light)',
                             fontSize: 12,
                             fontWeight: 700,
-                            border: '1px solid rgba(139, 92, 246, 0.3)'
+                            border: '1px solid rgba(var(--theme-primary-main-rgb), 0.3)'
                           }}
                         >
                           {getAuthorInitials(blog.authorName)}
@@ -821,13 +821,13 @@ export const Home: React.FC = () => {
                       transition: 'background-color 0.2s ease, color 0.2s ease',
                       outline: 'none',
                       '&:hover': {
-                        bgcolor: (theme) => theme.palette.mode === 'dark' ? 'rgba(139, 92, 246, 0.08)' : 'rgba(139, 92, 246, 0.06)',
+                        bgcolor: (theme) => theme.palette.mode === 'dark' ? 'rgba(var(--theme-primary-main-rgb), 0.08)' : 'rgba(var(--theme-primary-main-rgb), 0.06)',
                         '& .archive-title': {
-                          color: '#a78bfa'
+                          color: 'var(--theme-primary-light)'
                         }
                       },
                       '&:focus-visible': {
-                        boxShadow: 'inset 0 0 0 2px rgba(139, 92, 246, 0.45)'
+                        boxShadow: 'inset 0 0 0 2px rgba(var(--theme-primary-main-rgb), 0.45)'
                       }
                     }}
                   >

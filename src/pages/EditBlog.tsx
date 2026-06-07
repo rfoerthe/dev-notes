@@ -259,8 +259,8 @@ export const EditBlog: React.FC = () => {
           sx={{ 
             p: 1.2, 
             borderRadius: 3, 
-            bgcolor: 'rgba(139, 92, 246, 0.1)', 
-            border: '1px solid rgba(139, 92, 246, 0.3)',
+            bgcolor: 'rgba(var(--theme-primary-main-rgb), 0.1)', 
+            border: '1px solid rgba(var(--theme-primary-main-rgb), 0.3)',
             color: 'primary.main',
             display: 'flex'
           }}

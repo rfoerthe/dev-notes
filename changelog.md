@@ -1,5 +1,21 @@
 # Changelog
 
+## [1.0.12] - 2026-06-07
+
+### Added
+
+- Profile settings now let approved users choose between five accent themes: violet, blue, green, rose, and orange.
+- The new orange accent theme uses `#FF6200` as its primary accent color.
+
+### Changed
+
+- App-wide accent styling now uses shared theme tokens so navigation, article cards, markdown accents, and profile surfaces follow the selected accent color.
+- User profile persistence and Firestore rules now support the selected accent theme alongside the existing light, dark, and system mode preference.
+
+### Fixed
+
+- Accent color labels in the profile settings now wrap the color choices onto additional rows when needed instead of truncating labels.
+
 ## [1.0.11] - 2026-06-07
 
 ### Changed
