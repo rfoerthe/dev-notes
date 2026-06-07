@@ -33,6 +33,20 @@ vi.mock('../context/AppSettingsContext', () => ({
   useAppSettings: () => mocks.settings
 }));
 
+vi.mock('../services/authService', () => ({
+  canAccessApprovedFeatures: (
+    profile: {
+      role: 'admin' | 'user';
+      status: 'pending' | 'approved' | 'rejected';
+      emailVerified?: boolean;
+    } | null
+  ) =>
+    Boolean(
+      profile?.status === 'approved' &&
+        (profile.role === 'admin' || profile.emailVerified !== false)
+    )
+}));
+
 const approvedProfile = {
   uid: 'user-1',
   firstName: 'Ada',
