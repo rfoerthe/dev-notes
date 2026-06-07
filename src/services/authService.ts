@@ -15,7 +15,8 @@ import {
   where,
   getDocs,
   updateDoc,
-  runTransaction
+  runTransaction,
+  deleteField
 } from 'firebase/firestore';
 import { auth, db } from './firebase';
 import { updateAuthorNameForBlogs } from './blogService';
@@ -38,7 +39,6 @@ export interface UserProfile {
   role: 'admin' | 'user';
   status: 'pending' | 'approved' | 'rejected';
   createdAt: string;
-  operatingSystem?: string;
   themeMode?: ThemeMode;
   themeAccent?: ThemeAccent;
 }
@@ -323,7 +323,10 @@ export async function updateUserStatus(uid: string, status: 'approved' | 'reject
 
 export async function updateUserThemeMode(uid: string, themeMode: ThemeMode): Promise<void> {
   const docRef = doc(db, 'users', uid);
-  await updateDoc(docRef, { themeMode });
+  await updateDoc(docRef, {
+    themeMode,
+    operatingSystem: deleteField()
+  });
 }
 
 export async function deleteUserRegistration(): Promise<void> {
@@ -335,7 +338,6 @@ export interface UpdateUserProfileParams {
   firstName: string;
   lastName: string;
   newPassword?: string;
-  operatingSystem?: string;
   themeMode?: ThemeMode;
   themeAccent?: ThemeAccent;
 }
@@ -356,7 +358,7 @@ export async function updateUserProfile(params: UpdateUserProfileParams): Promis
   await updateDoc(docRef, {
     firstName,
     lastName,
-    operatingSystem: params.operatingSystem || null,
+    operatingSystem: deleteField(),
     themeMode: params.themeMode || 'system',
     themeAccent: params.themeAccent || 'purple'
   });

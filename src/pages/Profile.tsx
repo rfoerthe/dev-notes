@@ -14,7 +14,7 @@ import {
   Tooltip,
   MenuItem
 } from '@mui/material';
-import { User, Lock, Eye, EyeOff, ShieldCheck, Mail, AlertCircle, Save, Laptop, Palette } from 'lucide-react';
+import { User, Lock, Eye, EyeOff, ShieldCheck, Mail, AlertCircle, Save, Palette } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { updateUserProfile } from '../services/authService';
 import { themeAccentOptions, useCustomTheme } from '../context/CustomThemeContext';
@@ -27,7 +27,6 @@ export const Profile: React.FC = () => {
 
   const [firstName, setFirstName] = useState<string>('');
   const [lastName, setLastName] = useState<string>('');
-  const [operatingSystem, setOperatingSystem] = useState<string>('mac');
   const [password, setPassword] = useState<string>('');
   const [confirmPassword, setConfirmPassword] = useState<string>('');
   
@@ -44,7 +43,6 @@ export const Profile: React.FC = () => {
       // eslint-disable-next-line react-hooks/set-state-in-effect
       setFirstName(userProfile.firstName || '');
       setLastName(userProfile.lastName || '');
-      setOperatingSystem(userProfile.operatingSystem || 'mac');
     }
   }, [userProfile]);
 
@@ -85,7 +83,6 @@ export const Profile: React.FC = () => {
         firstName: firstName.trim(),
         lastName: lastName.trim(),
         newPassword: password ? password : undefined,
-        operatingSystem,
         themeMode,
         themeAccent
       });
@@ -381,29 +378,6 @@ export const Profile: React.FC = () => {
                       })}
                     </Box>
                   </Box>
-
-                  <TextField
-                    select
-                    label="Betriebssystem"
-                    value={operatingSystem}
-                    onChange={(e) => setOperatingSystem(e.target.value)}
-                    disabled={loading}
-                    fullWidth
-                    slotProps={{
-                      input: {
-                        startAdornment: (
-                          <InputAdornment position="start" sx={{ mr: 1 }}>
-                            <Laptop size={18} color="#64748b" />
-                          </InputAdornment>
-                        )
-                      }
-                    }}
-                  >
-                    <MenuItem value="mac">macOS</MenuItem>
-                    <MenuItem value="windows">Windows</MenuItem>
-                    <MenuItem value="linux">Linux</MenuItem>
-                    <MenuItem value="other">Anderes / Sonstiges</MenuItem>
-                  </TextField>
                 </Stack>
               </Box>
 

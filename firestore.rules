@@ -36,12 +36,6 @@ service cloud.firestore {
       return currentUserProfile().firstName + ' ' + currentUserProfile().lastName;
     }
 
-    function validOptionalOperatingSystem() {
-      return !request.resource.data.keys().hasAny(['operatingSystem']) ||
-        request.resource.data.operatingSystem == null ||
-        (request.resource.data.operatingSystem is string && request.resource.data.operatingSystem.size() <= 50);
-    }
-
     function validOptionalThemeMode() {
       return !request.resource.data.keys().hasAny(['themeMode']) ||
         request.resource.data.themeMode in ['light', 'dark', 'system'];
@@ -119,7 +113,6 @@ service cloud.firestore {
         'status',
         'createdAt',
         'emailVerified',
-        'operatingSystem',
         'themeMode',
         'themeAccent',
         'bootstrappedAt'
@@ -133,7 +126,6 @@ service cloud.firestore {
         request.resource.data.status in ['pending', 'approved', 'rejected'] &&
         request.resource.data.createdAt is string &&
         validOptionalEmailVerified() &&
-        validOptionalOperatingSystem() &&
         validOptionalThemeMode() &&
         validOptionalThemeAccent();
     }

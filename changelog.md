@@ -12,6 +12,7 @@
 - App-wide accent styling now uses shared theme tokens so navigation, article cards, markdown accents, and profile surfaces follow the selected accent color.
 - User profile persistence and Firestore rules now support the selected accent theme alongside the existing light, dark, and system mode preference.
 - The top-bar light/dark/system theme selector now synchronizes the selected theme mode to the signed-in user's profile.
+- Profile settings no longer collect or persist a user's operating system, and profile updates remove the legacy field from existing Firestore profiles.
 
 ### Fixed
 
