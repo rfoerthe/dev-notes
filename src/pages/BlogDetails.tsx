@@ -12,9 +12,10 @@ import {
   CircularProgress,
   IconButton,
   Tooltip,
-  Popover
+  Popover,
+  Portal
 } from '@mui/material';
-import { Bookmark, BookmarkCheck, ChevronDown, ChevronLeft, Calendar, Clock, Download, Edit3, ListTree, Share2 } from 'lucide-react';
+import { Bookmark, BookmarkCheck, ChevronLeft, ChevronUp, Calendar, Clock, Download, Edit3, ListTree, Share2 } from 'lucide-react';
 import { getBlogById } from '../services/blogService';
 import type { BlogPost } from '../services/blogService';
 import { renderMarkdown } from '../components/markdownParser';
@@ -245,7 +246,8 @@ export const BlogDetails: React.FC = () => {
         maxWidth={false}
         sx={{
           maxWidth: hasTableOfContents ? 1320 : 1024,
-          py: 6,
+          pt: 6,
+          pb: hasTableOfContents ? { xs: 14, lg: 6 } : 6,
           display: 'flex',
           flexDirection: 'column',
           alignItems: 'flex-start'
@@ -443,77 +445,87 @@ export const BlogDetails: React.FC = () => {
           <Divider sx={{ borderColor: 'rgba(255, 255, 255, 0.06)' }} />
         </Box>
 
-        {hasTableOfContents && (
-          <Box
-            sx={{
-              display: { xs: 'flex', lg: 'none' },
-              position: 'sticky',
-              top: 72,
-              zIndex: 10,
-              width: '100%',
-              justifyContent: 'flex-start',
-              mb: 2
-            }}
-          >
-            <Button
-              id="mobile-table-of-contents-button"
-              variant="outlined"
-              startIcon={<ListTree size={16} />}
-              endIcon={<ChevronDown size={15} />}
-              aria-haspopup="true"
-              aria-controls={tableOfContentsAnchor ? 'mobile-table-of-contents-menu' : undefined}
-              aria-expanded={tableOfContentsAnchor ? 'true' : undefined}
-              onClick={handleOpenTableOfContents}
+        <Portal>
+          {hasTableOfContents && (
+            <Box
               sx={{
-                borderColor: (theme) => theme.palette.mode === 'dark'
-                  ? 'rgba(255, 255, 255, 0.12)'
-                  : 'rgba(15, 23, 42, 0.14)',
-                bgcolor: (theme) => theme.palette.mode === 'dark'
-                  ? 'rgba(7, 10, 19, 0.82)'
-                  : 'rgba(248, 250, 252, 0.88)',
-                backdropFilter: 'blur(14px)',
-                boxShadow: (theme) => theme.palette.mode === 'dark'
-                  ? '0 12px 28px rgba(0, 0, 0, 0.22)'
-                  : '0 12px 28px rgba(15, 23, 42, 0.1)',
-                color: 'text.primary'
+                display: { xs: 'flex', lg: 'none' },
+                position: 'fixed',
+                left: '50%',
+                bottom: 'calc(env(safe-area-inset-bottom, 0px) + 18px)',
+                zIndex: (theme) => theme.zIndex.appBar + 1,
+                width: { xs: 'calc(100% - 32px)', sm: 'auto' },
+                justifyContent: 'center',
+                pointerEvents: 'none',
+                transform: 'translateX(-50%)'
               }}
             >
-              Inhaltsverzeichnis
-            </Button>
-            <Popover
-              id="mobile-table-of-contents-menu"
-              open={Boolean(tableOfContentsAnchor)}
-              anchorEl={tableOfContentsAnchor}
-              onClose={handleCloseTableOfContents}
-              anchorOrigin={{ vertical: 'bottom', horizontal: 'left' }}
-              transformOrigin={{ vertical: 'top', horizontal: 'left' }}
-              slotProps={{
-                paper: {
-                  sx: {
-                    mt: 1,
-                    borderRadius: 2,
-                    background: (theme) => theme.palette.mode === 'dark'
-                      ? 'rgba(15, 23, 42, 0.96)'
-                      : 'rgba(255, 255, 255, 0.98)',
-                    backdropFilter: 'blur(18px)',
-                    border: (theme) => theme.palette.mode === 'dark'
-                      ? '1px solid rgba(255, 255, 255, 0.08)'
-                      : '1px solid rgba(15, 23, 42, 0.08)',
-                    boxShadow: (theme) => theme.palette.mode === 'dark'
-                      ? '0 22px 50px rgba(0, 0, 0, 0.38)'
-                      : '0 22px 50px rgba(15, 23, 42, 0.16)'
+              <Button
+                id="mobile-table-of-contents-button"
+                variant="outlined"
+                startIcon={<ListTree size={16} />}
+                endIcon={<ChevronUp size={15} />}
+                aria-haspopup="true"
+                aria-controls={tableOfContentsAnchor ? 'mobile-table-of-contents-menu' : undefined}
+                aria-expanded={tableOfContentsAnchor ? 'true' : undefined}
+                onClick={handleOpenTableOfContents}
+                sx={{
+                  pointerEvents: 'auto',
+                  width: { xs: '100%', sm: 'auto' },
+                  maxWidth: 360,
+                  borderColor: (theme) => theme.palette.mode === 'dark'
+                    ? 'rgba(255, 255, 255, 0.12)'
+                    : 'rgba(15, 23, 42, 0.14)',
+                  bgcolor: (theme) => theme.palette.mode === 'dark'
+                    ? 'rgba(7, 10, 19, 0.82)'
+                    : 'rgba(248, 250, 252, 0.88)',
+                  backdropFilter: 'blur(14px)',
+                  boxShadow: (theme) => theme.palette.mode === 'dark'
+                    ? '0 12px 28px rgba(0, 0, 0, 0.22)'
+                    : '0 12px 28px rgba(15, 23, 42, 0.1)',
+                  color: 'text.primary'
+                }}
+              >
+                Inhaltsverzeichnis
+              </Button>
+              <Popover
+                id="mobile-table-of-contents-menu"
+                open={Boolean(tableOfContentsAnchor)}
+                anchorEl={tableOfContentsAnchor}
+                onClose={handleCloseTableOfContents}
+                marginThreshold={16}
+                anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
+                transformOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+                slotProps={{
+                  paper: {
+                    sx: {
+                      mb: 1,
+                      maxWidth: 'calc(100vw - 32px)',
+                      maxHeight: 'min(62vh, 520px)',
+                      borderRadius: 2,
+                      background: (theme) => theme.palette.mode === 'dark'
+                        ? 'rgba(15, 23, 42, 0.96)'
+                        : 'rgba(255, 255, 255, 0.98)',
+                      backdropFilter: 'blur(18px)',
+                      border: (theme) => theme.palette.mode === 'dark'
+                        ? '1px solid rgba(255, 255, 255, 0.08)'
+                        : '1px solid rgba(15, 23, 42, 0.08)',
+                      boxShadow: (theme) => theme.palette.mode === 'dark'
+                        ? '0 22px 50px rgba(0, 0, 0, 0.38)'
+                        : '0 22px 50px rgba(15, 23, 42, 0.16)'
+                    }
                   }
-                }
-              }}
-            >
-              <TableOfContents
-                headings={tableOfContentsHeadings}
-                onNavigate={handleCloseTableOfContents}
-                variant="menu"
-              />
-            </Popover>
-          </Box>
-        )}
+                }}
+              >
+                <TableOfContents
+                  headings={tableOfContentsHeadings}
+                  onNavigate={handleCloseTableOfContents}
+                  variant="menu"
+                />
+              </Popover>
+            </Box>
+          )}
+        </Portal>
 
         {/* FULL BLOG CONTENT */}
         <Box
