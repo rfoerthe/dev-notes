@@ -24,12 +24,13 @@ import {
 import GitHubIcon from '@mui/icons-material/GitHub';
 import { Terminal, PenTool, ShieldAlert, LogOut, Menu as MenuIcon, Settings, Sun, Moon, Monitor, FileText, Bookmark } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
-import { canAccessApprovedFeatures, fetchUsersByStatus } from '../services/authService';
+import { canAccessApprovedFeatures, fetchUsersByStatus, updateUserThemeMode } from '../services/authService';
 import { useCustomTheme } from '../context/CustomThemeContext';
+import type { ThemeMode } from '../context/CustomThemeContext';
 import { useFirebaseEmulator } from '../services/firebase';
 
 export const NavBar: React.FC = () => {
-  const { currentUser, userProfile, logout } = useAuth();
+  const { currentUser, userProfile, logout, refreshProfile } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   
@@ -69,6 +70,7 @@ export const NavBar: React.FC = () => {
 
   const { themeMode, setThemeMode } = useCustomTheme();
   const [themeAnchorEl, setThemeAnchorEl] = useState<null | HTMLElement>(null);
+  const [themeSyncing, setThemeSyncing] = useState(false);
 
   const handleOpenThemeMenu = (event: React.MouseEvent<HTMLElement>) => {
     setThemeAnchorEl(event.currentTarget);
@@ -78,9 +80,23 @@ export const NavBar: React.FC = () => {
     setThemeAnchorEl(null);
   };
 
-  const handleSelectTheme = (mode: 'light' | 'dark' | 'system') => {
+  const handleSelectTheme = async (mode: ThemeMode) => {
     setThemeMode(mode);
     handleCloseThemeMenu();
+
+    if (!currentUser || !userProfile) {
+      return;
+    }
+
+    setThemeSyncing(true);
+    try {
+      await updateUserThemeMode(userProfile.uid, mode);
+      await refreshProfile();
+    } catch (err) {
+      console.error('Failed to synchronize theme mode with user profile:', err);
+    } finally {
+      setThemeSyncing(false);
+    }
   };
 
   const handleLogout = async () => {
@@ -406,6 +422,7 @@ export const NavBar: React.FC = () => {
                 <MenuItem 
                   onClick={() => handleSelectTheme('light')}
                   selected={themeMode === 'light'}
+                  disabled={themeSyncing}
                   sx={{ fontFamily: 'Outfit, sans-serif', fontSize: 14, py: 1, borderRadius: 2 }}
                 >
                   <Sun size={14} style={{ marginRight: 8 }} /> Hell (Light)
@@ -413,6 +430,7 @@ export const NavBar: React.FC = () => {
                 <MenuItem 
                   onClick={() => handleSelectTheme('dark')}
                   selected={themeMode === 'dark'}
+                  disabled={themeSyncing}
                   sx={{ fontFamily: 'Outfit, sans-serif', fontSize: 14, py: 1, borderRadius: 2 }}
                 >
                   <Moon size={14} style={{ marginRight: 8 }} /> Dunkel (Dark)
@@ -420,6 +438,7 @@ export const NavBar: React.FC = () => {
                 <MenuItem 
                   onClick={() => handleSelectTheme('system')}
                   selected={themeMode === 'system'}
+                  disabled={themeSyncing}
                   sx={{ fontFamily: 'Outfit, sans-serif', fontSize: 14, py: 1, borderRadius: 2 }}
                 >
                   <Monitor size={14} style={{ marginRight: 8 }} /> System-Einstellung

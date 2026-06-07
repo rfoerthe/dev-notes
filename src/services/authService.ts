@@ -321,6 +321,11 @@ export async function updateUserStatus(uid: string, status: 'approved' | 'reject
   await updateDoc(docRef, { status });
 }
 
+export async function updateUserThemeMode(uid: string, themeMode: ThemeMode): Promise<void> {
+  const docRef = doc(db, 'users', uid);
+  await updateDoc(docRef, { themeMode });
+}
+
 export async function deleteUserRegistration(): Promise<void> {
   throw new Error('Firebase-Benutzer müssen mit npm run user:delete gelöscht werden.');
 }
