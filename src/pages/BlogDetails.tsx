@@ -19,7 +19,7 @@ import { Bookmark, BookmarkCheck, ChevronLeft, ChevronUp, Calendar, Clock, Downl
 import { getBlogById } from '../services/blogService';
 import type { BlogPost } from '../services/blogService';
 import { renderMarkdown } from '../components/markdownParser';
-import { TableOfContents } from '../components/TableOfContents';
+import { TableOfContents, TABLE_OF_CONTENTS_MENU_MAX_HEIGHT } from '../components/TableOfContents';
 import { extractMarkdownHeadings } from '../components/markdownHeadings';
 import { useAuth } from '../context/AuthContext';
 import { canManageBlogPost } from '../services/blogOwnership';
@@ -501,7 +501,8 @@ export const BlogDetails: React.FC = () => {
                     sx: {
                       mb: 1,
                       maxWidth: 'calc(100vw - 32px)',
-                      maxHeight: 'min(62vh, 520px)',
+                      maxHeight: TABLE_OF_CONTENTS_MENU_MAX_HEIGHT,
+                      overflow: 'hidden',
                       borderRadius: 2,
                       background: (theme) => theme.palette.mode === 'dark'
                         ? 'rgba(15, 23, 42, 0.96)'

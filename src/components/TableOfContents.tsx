@@ -12,6 +12,7 @@ interface TableOfContentsProps {
 
 const getHeadingHash = (id: string): string => `#${encodeURIComponent(id)}`;
 const ACTIVE_LINK_SCROLL_MARGIN = 48;
+export const TABLE_OF_CONTENTS_MENU_MAX_HEIGHT = 'min(62vh, 520px)';
 
 const getCurrentHashId = (): string => {
   if (typeof window === 'undefined' || !window.location.hash) {
@@ -189,8 +190,9 @@ export const TableOfContents = ({ headings, onNavigate, variant = 'sticky' }: Ta
       sx={{
         position: variant === 'sticky' ? 'sticky' : 'static',
         top: variant === 'sticky' ? 84 : 'auto',
-        maxHeight: variant === 'sticky' ? 'calc(100vh - 116px)' : 'min(64vh, 620px)',
+        maxHeight: variant === 'sticky' ? 'calc(100vh - 116px)' : TABLE_OF_CONTENTS_MENU_MAX_HEIGHT,
         overflowY: 'auto',
+        boxSizing: 'border-box',
         pr: variant === 'sticky' ? 1 : 0,
         p: variant === 'menu' ? 1 : 0,
         width: variant === 'menu' ? 'min(360px, calc(100vw - 32px))' : 'auto',

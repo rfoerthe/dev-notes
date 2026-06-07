@@ -16,6 +16,7 @@
 ### Fixed
 
 - Accent color labels in the profile settings now wrap the color choices onto additional rows when needed instead of truncating labels.
+- The mobile article table-of-contents menu now shows only one scrollbar in Chrome.
 
 ## [1.0.11] - 2026-06-07
 
