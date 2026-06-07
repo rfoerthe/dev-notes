@@ -1,6 +1,6 @@
 # DevNotes
 
-DevNotes is a developer-focused blog application built with React, TypeScript, Vite, Material UI, Firebase, React Router, and a production Markdown rendering pipeline. It provides a public article feed, GitHub-flavored Markdown article pages with automatic table-of-contents navigation, user registration with approval workflows, protected authoring tools, bookmarks, profile and theme settings, optional analytics consent, and an admin dashboard for managing developer accounts.
+DevNotes is a developer-focused blog application built with React, TypeScript, Vite, Material UI, Firebase, React Router, and a production Markdown rendering pipeline. It provides an article feed, GitHub-flavored Markdown article pages with automatic table-of-contents navigation, user registration with email verification and approval workflows, protected authoring tools, bookmarks, profile and theme settings, optional analytics consent, and an admin dashboard for managing developer accounts and application settings.
 
 The app can run in two modes:
 
@@ -10,23 +10,24 @@ The app can run in two modes:
 ## Features
 
 - Public blog overview with title/summary/content/author search, dynamic tag filtering, tag counts, a searchable tag popover, featured articles, and paginated older articles.
-- Article cards and detail pages with reading time, German date formatting, author metadata, share links, public raw Markdown downloads, a 1024px article reading width, a scroll progress indicator, and bookmark toggles for approved users.
+- Article cards and detail pages with reading time, German date formatting, author metadata, share links, raw Markdown downloads, a navigation-aligned desktop reading layout, a scroll progress indicator, and bookmark toggles for approved users.
 - Automatic article table-of-contents navigation generated from Markdown headings, shown as sticky desktop side navigation and as a sticky menu button on narrower viewports.
+- Optional closed user group mode that requires visitors to sign in before opening the home feed or article detail pages.
 - GitHub-flavored Markdown rendering with `react-markdown`, `remark-gfm`, and `rehype-sanitize`, including stable linkable heading IDs, blockquotes, lists, tables, task lists, inline formatting, inline code, and renderer tests.
 - Shiki-powered syntax highlighting for fenced code blocks, rendered as compact editor-style code windows with a title bar, language label, horizontal scrolling, and a copy-to-clipboard button.
-- User registration with username reservation, input validation, strong password rules, and pending approval status.
-- Protected login flow that blocks pending or rejected users.
+- User registration with username reservation, input validation, strong password rules, Firebase email verification, and pending approval status.
+- Protected login flow that blocks pending or rejected users and keeps approved users without verified email from authoring unless they are legacy accounts.
 - Approved users can save articles to a private Merkliste and manage saved posts from `/bookmarks`.
-- Admin dashboard for reviewing pending, approved, and rejected users and approving or rejecting registrations.
+- Admin dashboard for reviewing pending, approved, and rejected users, checking email verification status, approving or rejecting registrations, and changing application settings.
 - Approved-user routes for creating, editing, deleting, and managing blog posts, including a personal "My Posts" overview with total reading time.
 - Blog editor with comma/semicolon tag entry, tag sanitization, content length limits, live Markdown preview, live reading-time estimation, and visible bottom-of-screen validation errors on submit.
-- Profile page for account details, operating-system preference, password updates, and author-name propagation across existing posts.
-- Light, dark, and system theme selection from the navbar and profile settings.
+- Profile page for account details, password updates, theme preferences, accent color selection, and author-name propagation across existing posts.
+- Light, dark, and system theme selection from the navbar and profile settings, plus profile-level accent themes for Violett, Blau, Grün, Rose, and Orange.
 - Installed app version display in the footer and in the navbar title tooltip.
 - Local Firebase emulator mode with Auth and Firestore emulators, Admin SDK bootstrap, post seeding, and a visible emulator indicator.
 - Optional Firebase Analytics page tracking that starts only after explicit browser consent.
 - German legal pages for Impressum, Datenschutz, and Nutzungsbedingungen.
-- Firestore security rules for users, username reservations, blog posts, immutable ownership fields, and Admin SDK-only cleanup operations.
+- Firestore security rules for users, username reservations, application settings, blog posts, immutable ownership fields, dynamic article read protection, and Admin SDK-only cleanup operations.
 - Admin SDK maintenance scripts for admin bootstrap, admin/user restore repair, user cleanup, blog post seeding/deletion, and Firestore backup/restore with dry-run and confirmation safeguards.
 - Firebase Hosting configuration with SPA rewrites, security headers, and a strict Content Security Policy. Shiki uses its JavaScript regex engine in the browser so syntax highlighting works under this CSP without enabling `wasm-unsafe-eval`.
 
@@ -49,9 +50,9 @@ The app can run in two modes:
 ```text
 src/
   components/        Navigation, route guards, analytics consent/tracking, Markdown rendering, and table-of-contents UI
-  context/           Authentication and theme context providers
+  context/           Authentication, application settings, and theme context providers
   pages/             Route-level pages for blog, auth, admin, profile, and legal views
-  services/          Firebase setup, analytics consent, auth workflow, and blog data access
+  services/          Firebase setup, app settings, analytics consent, auth workflow, and blog data access
   theme/             Material UI theme configuration
   __tests__/         Service, restore utility, search/filter, analytics, and Markdown renderer tests
 scripts/             Admin/user repair, backup/restore, user cleanup, post maintenance, and Firebase CLI helpers
@@ -275,7 +276,7 @@ Fenced code blocks are highlighted with Shiki. The renderer:
 
 Inline code is styled separately from fenced code blocks and remains safe React output rather than injected HTML.
 
-Public article detail pages include a raw Markdown download that works without signing in. The downloaded `.md` file keeps the article body as stored, prepends the article title as a level 1 heading, and places the teaser below it as italic Markdown text:
+Readable article detail pages include a raw Markdown download. In the default public-read mode this works without signing in; in closed user group mode the article page and its download are available only after login. The downloaded `.md` file keeps the article body as stored, prepends the article title as a level 1 heading, and places the teaser below it as italic Markdown text:
 
 ```markdown
 # Article title
@@ -445,10 +446,23 @@ New registrations are created with:
 
 - `role: "user"`
 - `status: "pending"`
+- `emailVerified: false`
 
-Pending users cannot access authoring tools until an admin approves them. Approved users can create and edit blog posts linked to their `authorUsername`. Admin users can manage registrations and have elevated Firestore permissions.
+Firebase sends a verification email during registration. Pending users cannot access authoring tools until an admin approves them. Approved users can create and edit blog posts linked to their `authorUsername` once their email is verified. Existing approved profiles without an `emailVerified` field are treated as legacy accounts and keep their write access. Admin users can manage registrations, view email verification status, change application settings, and have elevated Firestore permissions.
 
 In Firebase mode, users sign in with their email address and password. Username login is intentionally not used in production because a frontend-only username login would require exposing a public username-to-email mapping.
+
+When closed user group mode is enabled from the admin dashboard, anonymous visitors are redirected to `/login` before they can open `/` or `/blog/:id`. The same setting is enforced in Firestore rules, so article reads are protected even if someone bypasses the client route guard.
+
+## Application Settings
+
+Admins can manage application-wide settings from the `Anwendung` tab in `/admin`. The current setting is stored in `appSettings/public` and is read by both the client route guard and Firestore rules.
+
+The available setting is:
+
+- `closedUserGroupEnabled`: when enabled, the home feed and article detail pages require an approved signed-in user with verified email or legacy access; when disabled, articles are publicly readable.
+
+If the settings document is missing or Firestore does not respond quickly enough during app startup, DevNotes falls back to the default public-read settings until Firestore responds.
 
 ## Deleting Regular Users
 
@@ -499,26 +513,31 @@ The app currently uses these Firestore collections:
 - `usernames`: username reservations used to prevent duplicate usernames without exposing the full user collection.
 - `blogs`: blog post documents with title, summary, content, tags, read time, author metadata, and timestamps.
 - `users/{uid}/bookmarks`: private per-user bookmark documents keyed by blog ID.
+- `appSettings/public`: public application settings such as closed user group mode, with admin-only writes.
 
-Firestore rules enforce role and status checks, immutable ownership fields, profile/email invariants, coupled username reservations, bookmark ownership, field type validation, server-generated blog creation timestamps, tag limits, read-time bounds, and content size limits.
+Firestore rules enforce role and status checks, email verification checks for write access, dynamic article read protection for closed user group mode, immutable ownership fields, profile/email invariants, coupled username reservations, bookmark ownership, field type validation, server-generated blog creation timestamps, tag limits, read-time bounds, and content size limits.
 
 ## Security Hardening
 
 - Firebase Hosting sends a Content Security Policy, clickjacking protection, MIME-sniffing protection, referrer policy, and a restrictive permissions policy.
 - Usernames must be lowercase URL-safe identifiers and are transaction-coupled to the matching user profile.
 - Firebase user profiles must use the authenticated email address from the Firebase Auth token.
+- Application settings are stored in `appSettings/public`; anyone can read the public settings, but only admins can change them.
 - Blog posts created through the browser use a server timestamp and immutable `authorUsername` ownership; new browser-created posts cannot include legacy `authorId`, while older documents remain readable and editable. Admin-only reassignment must target an approved profile behind a non-tombstoned username reservation.
 - Password forms require at least 12 characters with uppercase, lowercase, numeric, and symbol characters.
 - Optional Firebase App Check with reCAPTCHA Enterprise can be enabled with `VITE_FIREBASE_APPCHECK_SITE_KEY`.
 
 ## Routes
 
-Public routes:
+Public routes when closed user group mode is disabled:
 
 - `/`
+- `/blog/:id`
+
+Always-public routes:
+
 - `/login`
 - `/register`
-- `/blog/:id`
 - `/pending-approval`
 - `/impressum`
 - `/datenschutz`
