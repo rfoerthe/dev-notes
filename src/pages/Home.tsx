@@ -34,6 +34,7 @@ import { blogMatchesFilterTag, getBlogFilterTags } from '../services/blogTagFilt
 import { useAuth } from '../context/AuthContext';
 import { getBookmarkedBlogIds, toggleBookmark } from '../services/bookmarkService';
 import { canAccessApprovedFeatures } from '../services/authService';
+import { renderInlineMarkdown } from '../components/markdownParser';
 
 const FEATURED_POST_LIMIT = 6;
 const INITIAL_OLDER_POST_LIMIT = 20;
@@ -655,7 +656,7 @@ export const Home: React.FC = () => {
                           }
                         }}
                       >
-                        {blog.title}
+                        {renderInlineMarkdown(blog.title, true)}
                       </Typography>
 
                       {/* Summary */}
@@ -672,7 +673,7 @@ export const Home: React.FC = () => {
                           WebkitBoxOrient: 'vertical',
                         }}
                       >
-                        {blog.summary}
+                        {renderInlineMarkdown(blog.summary, true)}
                       </Typography>
                     </CardContent>
 
@@ -874,7 +875,7 @@ export const Home: React.FC = () => {
                           WebkitBoxOrient: 'vertical',
                         }}
                       >
-                        {blog.title}
+                        {renderInlineMarkdown(blog.title, true)}
                       </Typography>
                       <Typography
                         variant="body2"
@@ -889,7 +890,7 @@ export const Home: React.FC = () => {
                           WebkitBoxOrient: 'vertical',
                         }}
                       >
-                        {blog.summary}
+                        {renderInlineMarkdown(blog.summary, true)}
                       </Typography>
                     </Box>
 

@@ -2,6 +2,10 @@
 
 ## [1.0.14] - 2026-06-14
 
+### Added
+
+- Blog titles and teaser summaries now support Markdown in create/edit forms, previews, article detail headers, article lists, personal posts, and bookmarks.
+
 ### Changed
 
 - Article detail pages now use a 1280px desktop reading layout and allocate the additional width to the table-of-contents column.

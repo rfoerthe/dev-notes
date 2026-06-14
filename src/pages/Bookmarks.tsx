@@ -20,6 +20,7 @@ import {
 import { ArrowUpRight, Bookmark, Calendar, Clock, Search, Trash2 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { getBookmarks, removeBookmark, type BlogBookmark } from '../services/bookmarkService';
+import { renderInlineMarkdown } from '../components/markdownParser';
 
 export const Bookmarks: React.FC = () => {
   const navigate = useNavigate();
@@ -341,7 +342,7 @@ export const Bookmarks: React.FC = () => {
                         variant="h6"
                         sx={{ fontFamily: 'Outfit, sans-serif', fontWeight: 760, lineHeight: 1.3, color: 'text.primary' }}
                       >
-                        {bookmark.title}
+                        {renderInlineMarkdown(bookmark.title, true)}
                       </Typography>
                       <Typography
                         variant="body2"
@@ -356,7 +357,7 @@ export const Bookmarks: React.FC = () => {
                           WebkitBoxOrient: 'vertical'
                         }}
                       >
-                        {bookmark.summary}
+                        {renderInlineMarkdown(bookmark.summary, true)}
                       </Typography>
 
                       <Divider sx={{ my: 2, borderColor: 'rgba(255, 255, 255, 0.05)' }} />

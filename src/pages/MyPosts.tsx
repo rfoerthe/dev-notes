@@ -24,6 +24,7 @@ import { ArrowUpRight, Calendar, Clock, Edit3, FileText, PenTool, Plus, Trash2 }
 import { useAuth } from '../context/AuthContext';
 import { deleteBlogs, getBlogsByAuthorUsername } from '../services/blogService';
 import type { BlogPost } from '../services/blogService';
+import { renderInlineMarkdown } from '../components/markdownParser';
 
 export const MyPosts: React.FC = () => {
   const navigate = useNavigate();
@@ -354,7 +355,7 @@ export const MyPosts: React.FC = () => {
                         WebkitBoxOrient: 'vertical'
                       }}
                     >
-                      {post.title}
+                      {renderInlineMarkdown(post.title, true)}
                     </Typography>
                     <Typography
                       variant="body2"
@@ -369,7 +370,7 @@ export const MyPosts: React.FC = () => {
                         WebkitBoxOrient: 'vertical'
                       }}
                     >
-                      {post.summary}
+                      {renderInlineMarkdown(post.summary, true)}
                     </Typography>
                   </Box>
 

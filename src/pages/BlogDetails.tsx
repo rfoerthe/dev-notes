@@ -18,7 +18,7 @@ import {
 import { Bookmark, BookmarkCheck, ChevronLeft, ChevronUp, Calendar, Clock, Download, Edit3, ListTree, Share2 } from 'lucide-react';
 import { getBlogById } from '../services/blogService';
 import type { BlogPost } from '../services/blogService';
-import { renderMarkdown } from '../components/markdownParser';
+import { renderInlineMarkdown, renderMarkdown } from '../components/markdownParser';
 import { TableOfContents, TABLE_OF_CONTENTS_MENU_MAX_HEIGHT } from '../components/TableOfContents';
 import { extractMarkdownHeadings } from '../components/markdownHeadings';
 import { useAuth } from '../context/AuthContext';
@@ -310,7 +310,7 @@ export const BlogDetails: React.FC = () => {
               color: 'text.primary'
             }}
           >
-            {blog.title}
+            {renderInlineMarkdown(blog.title)}
           </Typography>
 
           <Typography 
@@ -325,7 +325,7 @@ export const BlogDetails: React.FC = () => {
               mb: 4
             }}
           >
-            {blog.summary}
+            {renderInlineMarkdown(blog.summary)}
           </Typography>
 
           <Divider sx={{ borderColor: 'rgba(255, 255, 255, 0.06)' }} />
@@ -605,7 +605,7 @@ export const BlogDetails: React.FC = () => {
                 color: 'text.primary'
               }}
             >
-              {blog.title}
+              {renderInlineMarkdown(blog.title, true)}
             </Typography>
           </Box>
 

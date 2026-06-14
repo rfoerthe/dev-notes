@@ -31,7 +31,7 @@ import { useAuth } from '../context/AuthContext';
 import { getBlogById, updateBlog, deleteBlog, calculateReadTime } from '../services/blogService';
 import { fetchActiveAuthorProfiles } from '../services/authService';
 import type { UserProfile } from '../services/authService';
-import { renderMarkdown } from '../components/markdownParser';
+import { renderInlineMarkdown, renderMarkdown } from '../components/markdownParser';
 import { BLOG_LIMITS, validateBlogContent } from '../services/securityValidation';
 import { canManageBlogPost } from '../services/blogOwnership';
 
@@ -305,7 +305,13 @@ export const EditBlog: React.FC = () => {
                   value={title}
                   onChange={(e) => setTitle(e.target.value)}
                   disabled={loading}
-                  placeholder="z.B. Einführung in React 19 Server Actions"
+                  placeholder="z.B. **React 19** Server Actions verstehen"
+                  helperText={`${title.length}/${BLOG_LIMITS.titleMaxLength} Zeichen - Markdown möglich`}
+                  slotProps={{
+                    htmlInput: {
+                      maxLength: BLOG_LIMITS.titleMaxLength
+                    }
+                  }}
                 />
 
                 <TextField
@@ -317,8 +323,8 @@ export const EditBlog: React.FC = () => {
                   value={summary}
                   onChange={(e) => setSummary(e.target.value)}
                   disabled={loading}
-                  placeholder="Schreibe einen kurzen Teaser, der das Interesse der Leser weckt."
-                  helperText={`${summary.length}/${BLOG_LIMITS.summaryMaxLength} Zeichen`}
+                  placeholder="Schreibe einen kurzen Teaser mit optionalem Markdown, der das Interesse der Leser weckt."
+                  helperText={`${summary.length}/${BLOG_LIMITS.summaryMaxLength} Zeichen - Markdown möglich`}
                   slotProps={{
                     htmlInput: {
                       maxLength: BLOG_LIMITS.summaryMaxLength
@@ -454,19 +460,19 @@ export const EditBlog: React.FC = () => {
             {/* PREVIEW PANEL */}
             {activeTab === 1 && (
               <Paper sx={{ p: 4, bgcolor: (theme) => theme.palette.mode === 'dark' ? 'rgba(15, 23, 42, 0.5)' : 'rgba(255, 255, 255, 0.55)', borderRadius: 4, minHeight: '300px' }}>
-                {content.trim() ? (
+                {title.trim() || summary.trim() || content.trim() ? (
                   <Box className="markdown-body">
                     <Typography variant="h3" gutterBottom sx={{ fontFamily: 'Outfit, sans-serif', fontWeight: 800, mb: 1 }}>
-                      {title || 'Titel des Beitrags'}
+                      {renderInlineMarkdown(title || 'Titel des Beitrags')}
                     </Typography>
                     
                     {summary && (
                       <Typography variant="subtitle1" color="text.secondary" sx={{ mb: 4, fontStyle: 'italic', borderLeft: '4px solid rgba(255,255,255,0.15)', pl: 2 }}>
-                        {summary}
+                        {renderInlineMarkdown(summary)}
                       </Typography>
                     )}
 
-                    {renderMarkdown(content)}
+                    {content.trim() && renderMarkdown(content)}
                   </Box>
                 ) : (
                   <Box sx={{ py: 10, textAlign: 'center' }}>

@@ -1,11 +1,26 @@
 import { StrictMode, useEffect, useState } from 'react';
 import { describe, expect, it, vi } from 'vitest';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
-import { renderMarkdown } from '../components/markdownParser';
+import { renderInlineMarkdown, renderMarkdown } from '../components/markdownParser';
 import { extractMarkdownHeadings } from '../components/markdownHeadings';
 import { TableOfContents } from '../components/TableOfContents';
 
 describe('Markdown renderer', () => {
+  it('renders inline markdown for compact title and teaser text', () => {
+    const { container } = render(<>{renderInlineMarkdown('Ein **starker** Teaser mit `code`.')}</>);
+
+    expect(container.querySelector('p')).toBeNull();
+    expect(container.querySelector('strong')?.textContent).toBe('starker');
+    expect(container.querySelector('code')?.textContent).toBe('code');
+  });
+
+  it('can render inline markdown links as inert text for clickable cards', () => {
+    const { container } = render(<>{renderInlineMarkdown('Mehr zu [React](https://react.dev)', true)}</>);
+
+    expect(container.querySelector('a')).toBeNull();
+    expect(container.textContent).toBe('Mehr zu React');
+  });
+
   it('renders inline markdown formatting', () => {
     const { container } = render(<>{renderMarkdown('Das ist **fett** und *kursiv* mit `code`.')}</>);
 
