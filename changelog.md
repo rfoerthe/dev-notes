@@ -13,6 +13,8 @@
 ### Fixed
 
 - Desktop article table-of-contents links now wrap long headings instead of requiring horizontal scrolling.
+- App settings now load with one-time Firestore reads instead of a global realtime listener, avoiding a persistent `Listen/channel` request on every page.
+- Safari now uses Firestore's in-memory cache instead of IndexedDB multi-tab persistence to reduce browser-specific Firestore stalls.
 
 ## [1.0.13] - 2026-06-07
 

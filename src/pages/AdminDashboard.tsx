@@ -51,7 +51,7 @@ const CustomTabPanel = (props: TabPanelProps) => {
 
 export const AdminDashboard: React.FC = () => {
   const [tabValue, setTabValue] = useState(0);
-  const { closedUserGroupEnabled, loading: settingsLoading } = useAppSettings();
+  const { closedUserGroupEnabled, loading: settingsLoading, refreshSettings } = useAppSettings();
   
   // Data lists
   const [pendingUsers, setPendingUsers] = useState<UserProfile[]>([]);
@@ -118,6 +118,7 @@ export const AdminDashboard: React.FC = () => {
 
     try {
       await updateClosedUserGroupEnabled(enabled);
+      await refreshSettings();
       setMessage({
         type: 'success',
         text: enabled

@@ -1,8 +1,8 @@
 /* eslint-disable react-refresh/only-export-components */
-import React, { createContext, useContext, useEffect, useState } from 'react';
+import React, { createContext, useCallback, useContext, useEffect, useState } from 'react';
 import {
   DEFAULT_APP_SETTINGS,
-  subscribeToAppSettings,
+  getAppSettings,
   type AppSettings
 } from '../services/appSettingsService';
 
@@ -10,6 +10,7 @@ interface AppSettingsContextType {
   settings: AppSettings;
   loading: boolean;
   closedUserGroupEnabled: boolean;
+  refreshSettings: () => Promise<AppSettings>;
 }
 
 const AppSettingsContext = createContext<AppSettingsContextType | undefined>(undefined);
@@ -19,12 +20,21 @@ export const AppSettingsProvider: React.FC<{ children: React.ReactNode }> = ({ c
   const [settings, setSettings] = useState<AppSettings>(DEFAULT_APP_SETTINGS);
   const [loading, setLoading] = useState(true);
 
+  const refreshSettings = useCallback(async () => {
+    const nextSettings = await getAppSettings();
+    setSettings(nextSettings);
+    return nextSettings;
+  }, []);
+
   useEffect(() => {
     let hasResolvedInitialSettings = false;
+    let isMounted = true;
 
     const finishInitialLoad = () => {
       hasResolvedInitialSettings = true;
-      setLoading(false);
+      if (isMounted) {
+        setLoading(false);
+      }
     };
 
     const fallbackTimer = window.setTimeout(() => {
@@ -34,23 +44,30 @@ export const AppSettingsProvider: React.FC<{ children: React.ReactNode }> = ({ c
       }
     }, SETTINGS_LOAD_TIMEOUT_MS);
 
-    const unsubscribe = subscribeToAppSettings(
-      (nextSettings) => {
+    getAppSettings()
+      .then((nextSettings) => {
+        if (!isMounted) {
+          return;
+        }
+
         setSettings(nextSettings);
         window.clearTimeout(fallbackTimer);
         finishInitialLoad();
-      },
-      (error) => {
+      })
+      .catch((error) => {
+        if (!isMounted) {
+          return;
+        }
+
         console.error('Failed to load application settings:', error);
         setSettings(DEFAULT_APP_SETTINGS);
         window.clearTimeout(fallbackTimer);
         finishInitialLoad();
-      }
-    );
+      });
 
     return () => {
+      isMounted = false;
       window.clearTimeout(fallbackTimer);
-      unsubscribe();
     };
   }, []);
 
@@ -59,7 +76,8 @@ export const AppSettingsProvider: React.FC<{ children: React.ReactNode }> = ({ c
       value={{
         settings,
         loading,
-        closedUserGroupEnabled: settings.closedUserGroupEnabled
+        closedUserGroupEnabled: settings.closedUserGroupEnabled,
+        refreshSettings
       }}
     >
       {children}

@@ -1,10 +1,8 @@
 import {
   doc,
   getDoc,
-  onSnapshot,
   serverTimestamp,
-  setDoc,
-  type Unsubscribe
+  setDoc
 } from 'firebase/firestore';
 import { auth, db } from './firebase';
 
@@ -32,21 +30,6 @@ export async function getAppSettings(): Promise<AppSettings> {
   return snapshot.exists()
     ? normalizeAppSettings(snapshot.data())
     : DEFAULT_APP_SETTINGS;
-}
-
-export function subscribeToAppSettings(
-  onChange: (settings: AppSettings) => void,
-  onError?: (error: Error) => void
-): Unsubscribe {
-  return onSnapshot(
-    appSettingsRef(),
-    (snapshot) => {
-      onChange(snapshot.exists() ? normalizeAppSettings(snapshot.data()) : DEFAULT_APP_SETTINGS);
-    },
-    (error) => {
-      onError?.(error);
-    }
-  );
 }
 
 export async function updateClosedUserGroupEnabled(enabled: boolean): Promise<void> {

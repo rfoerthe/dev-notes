@@ -4,8 +4,10 @@ import {
   connectFirestoreEmulator,
   getFirestore,
   initializeFirestore,
+  memoryLocalCache,
   persistentLocalCache,
   persistentMultipleTabManager,
+  type FirestoreSettings,
   type Firestore
 } from 'firebase/firestore';
 import { initializeAnalytics, isSupported, type Analytics } from 'firebase/analytics';
@@ -65,6 +67,28 @@ let analyticsPromise: Promise<Analytics | null> | null = null;
 let isAnalyticsConfigured = false;
 let isAppCheckConfigured = false;
 
+function isSafariBrowser(): boolean {
+  if (typeof navigator === 'undefined') {
+    return false;
+  }
+
+  return /^((?!chrome|android|crios|fxios|edgios).)*safari/i.test(navigator.userAgent);
+}
+
+function createFirestoreSettings(): FirestoreSettings {
+  if (isSafariBrowser()) {
+    return {
+      localCache: memoryLocalCache()
+    };
+  }
+
+  return {
+    localCache: persistentLocalCache({
+      tabManager: persistentMultipleTabManager()
+    })
+  };
+}
+
 if (!useFirebaseEmulator && firebaseConfig.appCheckSiteKey) {
   initializeAppCheck(app, {
     provider: new ReCaptchaEnterpriseProvider(firebaseConfig.appCheckSiteKey),
@@ -74,12 +98,7 @@ if (!useFirebaseEmulator && firebaseConfig.appCheckSiteKey) {
 }
 
 try {
-  db = initializeFirestore(app, {
-    experimentalAutoDetectLongPolling: true,
-    localCache: persistentLocalCache({
-      tabManager: persistentMultipleTabManager()
-    })
-  });
+  db = initializeFirestore(app, createFirestoreSettings());
 } catch {
   db = getFirestore(app);
 }
