@@ -192,7 +192,10 @@ export const TableOfContents = ({ headings, onNavigate, variant = 'sticky' }: Ta
         top: variant === 'sticky' ? 84 : 'auto',
         maxHeight: variant === 'sticky' ? 'calc(100vh - 116px)' : TABLE_OF_CONTENTS_MENU_MAX_HEIGHT,
         overflowY: 'auto',
+        overflowX: 'hidden',
         boxSizing: 'border-box',
+        minWidth: 0,
+        maxWidth: '100%',
         pr: variant === 'sticky' ? 1 : 0,
         p: variant === 'menu' ? 1 : 0,
         width: variant === 'menu' ? 'min(360px, calc(100vw - 32px))' : 'auto',
@@ -221,18 +224,31 @@ export const TableOfContents = ({ headings, onNavigate, variant = 'sticky' }: Ta
         </Typography>
       </Box>
 
-      <Box component="ol" sx={{ display: 'grid', gap: 0.25, m: 0, p: 0, listStyle: 'none' }}>
+      <Box component="ol" sx={{ display: 'grid', gap: 0.25, m: 0, p: 0, listStyle: 'none', minWidth: 0 }}>
         {items.map((item) => {
           const isActive = item.id === displayedActiveId;
 
           return (
-            <Box key={item.id} component="li" sx={{ m: 0, pl: `${(item.level - minLevel) * 0.9}rem` }}>
+            <Box
+              key={item.id}
+              component="li"
+              sx={{
+                boxSizing: 'border-box',
+                m: 0,
+                minWidth: 0,
+                maxWidth: '100%',
+                pl: `${(item.level - minLevel) * 0.9}rem`,
+              }}
+            >
               <MuiLink
                 href={getHeadingHash(item.id)}
                 aria-current={isActive ? 'location' : undefined}
                 onClick={(event) => handleClick(event, item.id)}
                 sx={{
                   display: 'block',
+                  boxSizing: 'border-box',
+                  width: '100%',
+                  minWidth: 0,
                   borderLeft: '2px solid',
                   borderColor: isActive ? 'secondary.main' : 'transparent',
                   py: 0.65,
@@ -244,6 +260,10 @@ export const TableOfContents = ({ headings, onNavigate, variant = 'sticky' }: Ta
                   fontWeight: isActive ? 750 : 600,
                   lineHeight: 1.35,
                   textDecoration: 'none',
+                  whiteSpace: 'normal',
+                  overflowWrap: 'anywhere',
+                  wordBreak: 'break-word',
+                  hyphens: 'auto',
                   transition: 'background-color 160ms ease, border-color 160ms ease, color 160ms ease',
                   '&:hover, &:focus-visible': {
                     color: 'text.primary',

@@ -28,7 +28,9 @@ import { isBlogBookmarked, toggleBookmark } from '../services/bookmarkService';
 import { canAccessApprovedFeatures } from '../services/authService';
 
 const SCROLL_PROGRESS_VISIBLE_OFFSET = 160;
-const ARTICLE_READING_MAX_WIDTH = 1200;
+const ARTICLE_LAYOUT_MAX_WIDTH = 1280;
+const TABLE_OF_CONTENTS_COLUMN_MIN_WIDTH = 288;
+const TABLE_OF_CONTENTS_COLUMN_MAX_WIDTH = 328;
 
 export const BlogDetails: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -246,7 +248,7 @@ export const BlogDetails: React.FC = () => {
       <Container
         maxWidth={false}
         sx={{
-          maxWidth: ARTICLE_READING_MAX_WIDTH,
+          maxWidth: ARTICLE_LAYOUT_MAX_WIDTH,
           pt: 6,
           pb: hasTableOfContents ? { xs: 14, lg: 6 } : 6,
           display: 'flex',
@@ -534,8 +536,11 @@ export const BlogDetails: React.FC = () => {
           sx={{
             display: 'grid',
             gridTemplateColumns: hasTableOfContents
-              ? { xs: 'minmax(0, 1fr)', lg: 'minmax(0, 1fr) minmax(208px, 248px)' }
-              : `minmax(0, ${ARTICLE_READING_MAX_WIDTH}px)`,
+              ? {
+                  xs: 'minmax(0, 1fr)',
+                  lg: `minmax(0, 1fr) minmax(${TABLE_OF_CONTENTS_COLUMN_MIN_WIDTH}px, ${TABLE_OF_CONTENTS_COLUMN_MAX_WIDTH}px)`,
+                }
+              : `minmax(0, ${ARTICLE_LAYOUT_MAX_WIDTH}px)`,
             columnGap: { xs: 0, lg: 4 },
             rowGap: 2,
             alignItems: 'start',

@@ -1,5 +1,15 @@
 # Changelog
 
+## [1.0.14] - 2026-06-14
+
+### Changed
+
+- Article detail pages now use a 1280px desktop reading layout and allocate the additional width to the table-of-contents column.
+
+### Fixed
+
+- Desktop article table-of-contents links now wrap long headings instead of requiring horizontal scrolling.
+
 ## [1.0.13] - 2026-06-07
 
 ### Added
