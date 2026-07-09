@@ -1,11 +1,29 @@
 import { StrictMode, useEffect, useState } from 'react';
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+
+const mermaidMock = vi.hoisted(() => ({
+  initialize: vi.fn(),
+  render: vi.fn(),
+}));
+
+vi.mock('mermaid', () => ({
+  default: mermaidMock,
+}));
+
 import { renderInlineMarkdown, renderMarkdown } from '../components/markdownParser';
 import { extractMarkdownHeadings } from '../components/markdownHeadings';
 import { TableOfContents } from '../components/TableOfContents';
 
 describe('Markdown renderer', () => {
+  beforeEach(() => {
+    mermaidMock.initialize.mockClear();
+    mermaidMock.render.mockReset();
+    mermaidMock.render.mockResolvedValue({
+      svg: '<svg data-testid="rendered-mermaid-svg" viewBox="0 0 100 40"><text>A</text></svg>',
+    });
+  });
+
   it('renders inline markdown for compact title and teaser text', () => {
     const { container } = render(<>{renderInlineMarkdown('Ein **starker** Teaser mit `code`.')}</>);
 
@@ -558,6 +576,53 @@ describe('Markdown renderer', () => {
     });
 
     expect(container.querySelector('code.language-python')?.textContent).toContain('# comment here');
+  });
+
+  it('renders Mermaid fenced code blocks with Mermaid instead of Shiki', async () => {
+    const markdown = '```mermaid\nflowchart LR\n  A --> B\n```';
+    const { container } = render(<>{renderMarkdown(markdown)}</>);
+
+    await waitFor(() => {
+      expect(mermaidMock.render).toHaveBeenCalledWith(
+        expect.stringMatching(/^mermaid-/),
+        'flowchart LR\n  A --> B',
+      );
+    });
+
+    expect(container.querySelector('[data-testid="mermaid-diagram"] svg')).toBeTruthy();
+    expect(container.querySelector('code.language-mermaid')).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Code kopieren' })).toBeNull();
+  });
+
+  it('does not render Mermaid diagrams again when the parent rerenders unchanged markdown', async () => {
+    const markdown = '```mermaid\nflowchart LR\n  Cached --> Stable\n```';
+    const MarkdownView = ({ tick }: { tick: number }) => (
+      <div data-tick={tick}>{renderMarkdown(markdown)}</div>
+    );
+
+    const { rerender } = render(<MarkdownView tick={0} />);
+
+    await waitFor(() => {
+      expect(mermaidMock.render).toHaveBeenCalledTimes(1);
+    });
+
+    rerender(<MarkdownView tick={1} />);
+    await new Promise((resolve) => window.setTimeout(resolve, 50));
+
+    expect(mermaidMock.render).toHaveBeenCalledTimes(1);
+  });
+
+  it('shows a compact fallback when Mermaid rendering fails', async () => {
+    mermaidMock.render.mockRejectedValueOnce(new Error('Unknown diagram type'));
+    const markdown = '```mermaid\nnot a diagram\n```';
+    const { container } = render(<>{renderMarkdown(markdown)}</>);
+
+    await waitFor(() => {
+      expect(screen.getByRole('alert').textContent).toContain('Mermaid-Diagramm konnte nicht gerendert werden.');
+    });
+
+    expect(screen.getByRole('alert').textContent).toContain('Unknown diagram type');
+    expect(container.querySelector('code.language-mermaid')?.textContent).toContain('not a diagram');
   });
 
   it('copies fenced code blocks to the clipboard', async () => {

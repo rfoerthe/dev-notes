@@ -131,6 +131,11 @@ export const BlogDetails: React.FC = () => {
     () => blog ? extractMarkdownHeadings(blog.content) : [],
     [blog],
   );
+  const blogContent = blog?.content ?? '';
+  const renderedBlogContent = useMemo(
+    () => blogContent ? renderMarkdown(blogContent) : null,
+    [blogContent],
+  );
   const hasTableOfContents = tableOfContentsHeadings.filter((heading) => heading.level <= 4).length >= 2;
 
   const formatDate = (isoString: string) => {
@@ -625,7 +630,7 @@ export const BlogDetails: React.FC = () => {
             }}
           >
             <Box className="markdown-body">
-              {renderMarkdown(blog.content)}
+              {renderedBlogContent}
             </Box>
           </Paper>
 

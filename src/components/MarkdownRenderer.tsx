@@ -4,6 +4,8 @@ import rehypeSanitize from 'rehype-sanitize';
 import remarkGfm from 'remark-gfm';
 import { Box, IconButton, Link as MuiLink, Tooltip, Typography, useTheme } from '@mui/material';
 import { Check, Copy } from 'lucide-react';
+import type mermaid from 'mermaid';
+import type { MermaidConfig } from 'mermaid';
 import { createHighlighterCore } from '@shikijs/core';
 import { createJavaScriptRegexEngine } from '@shikijs/engine-javascript';
 import githubDarkDefault from '@shikijs/themes/github-dark-default';
@@ -15,6 +17,7 @@ import { scrollHeadingIntoView } from './headingScroll';
 
 const LANGUAGE_CLASS_REGEX = /language-([^\s]+)/;
 const DEFAULT_LANGUAGE = 'text';
+const MERMAID_LANGUAGE = 'mermaid';
 
 const themeByMode = {
   dark: 'github-dark-default',
@@ -24,7 +27,10 @@ const themeByMode = {
 const themeRegistrations = [githubDarkDefault, githubLightDefault];
 
 const highlightedCodeCache = new Map<string, Promise<TokensResult>>();
+const renderedMermaidCache = new Map<string, string>();
 let shikiHighlighter: Promise<HighlighterCore> | null = null;
+let mermaidInstance: Promise<typeof mermaid> | null = null;
+let initializedMermaidMode: keyof typeof themeByMode | null = null;
 const loadedLanguages = new Set<string>();
 
 const languageAliases: Record<string, string> = {
@@ -45,6 +51,39 @@ const languageAliases: Record<string, string> = {
 };
 
 const normalizeLanguageLabel = (language?: string) => language?.trim().toLowerCase() || DEFAULT_LANGUAGE;
+
+const hashString = (value: string): string => {
+  let hash = 5381;
+
+  for (let index = 0; index < value.length; index += 1) {
+    hash = ((hash << 5) + hash) ^ value.charCodeAt(index);
+  }
+
+  return (hash >>> 0).toString(36);
+};
+
+const getMermaidConfig = (mode: keyof typeof themeByMode): MermaidConfig => ({
+  darkMode: mode === 'dark',
+  fontFamily: 'Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
+  htmlLabels: false,
+  securityLevel: 'strict',
+  startOnLoad: false,
+  theme: mode === 'dark' ? 'dark' : 'neutral',
+});
+
+const loadMermaid = (): Promise<typeof mermaid> => {
+  mermaidInstance ??= import('mermaid').then((module) => module.default);
+  return mermaidInstance;
+};
+
+const initializeMermaid = (mermaidApi: typeof mermaid, mode: keyof typeof themeByMode) => {
+  if (initializedMermaidMode === mode) {
+    return;
+  }
+
+  mermaidApi.initialize(getMermaidConfig(mode));
+  initializedMermaidMode = mode;
+};
 
 const getShikiHighlighter = (): Promise<HighlighterCore> => {
   shikiHighlighter ??= createHighlighterCore({
@@ -165,6 +204,15 @@ type MarkdownHeadingNode = {
   position?: {
     start?: {
       line?: number;
+    };
+  };
+};
+
+type MarkdownCodeNode = {
+  position?: {
+    start?: {
+      line?: number;
+      offset?: number;
     };
   };
 };
@@ -414,6 +462,166 @@ const CodeBlock = ({ children, className }: CodeBlockProps) => {
   );
 };
 
+interface MermaidDiagramProps {
+  children: React.ReactNode;
+  sourceKey?: string;
+}
+
+const MermaidDiagram = ({ children, sourceKey }: MermaidDiagramProps) => {
+  const theme = useTheme();
+  const mode = theme.palette.mode === 'light' ? 'light' : 'dark';
+  const rawCode = String(children).replace(/\n$/, '');
+  const diagramId = useMemo(
+    () => `mermaid-${hashString(`${sourceKey ?? 'code'}:${rawCode}`)}`,
+    [rawCode, sourceKey],
+  );
+  const renderKey = `${mode}:${diagramId}:${rawCode}`;
+  const cachedSvg = renderedMermaidCache.get(renderKey) ?? null;
+  const [renderState, setRenderState] = useState<{
+    error: string | null;
+    key: string;
+    svg: string | null;
+  }>({
+    error: null,
+    key: renderKey,
+    svg: cachedSvg,
+  });
+  const borderColor = mode === 'dark' ? 'rgba(255,255,255,0.08)' : 'rgba(15,23,42,0.1)';
+  const activeRenderState = renderState.key === renderKey
+    ? renderState
+    : { error: null, key: renderKey, svg: cachedSvg };
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const cachedResult = renderedMermaidCache.get(renderKey);
+
+    if (cachedResult) {
+      return () => {
+        cancelled = true;
+      };
+    }
+
+    loadMermaid()
+      .then((mermaidApi) => {
+        initializeMermaid(mermaidApi, mode);
+        return mermaidApi.render(diagramId, rawCode);
+      })
+      .then(({ svg }) => {
+        if (!cancelled) {
+          renderedMermaidCache.set(renderKey, svg);
+          setRenderState({ error: null, key: renderKey, svg });
+        }
+      })
+      .catch((error: unknown) => {
+        if (!cancelled) {
+          const message = error instanceof Error ? error.message : 'Unbekannter Mermaid-Fehler';
+          setRenderState({ error: message, key: renderKey, svg: null });
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [diagramId, mode, rawCode, renderKey]);
+
+  if (activeRenderState.error) {
+    return (
+      <Box
+        component="figure"
+        sx={{
+          border: `1px solid ${borderColor}`,
+          borderRadius: 1,
+          my: 3,
+          mx: 0,
+          overflow: 'hidden',
+        }}
+      >
+        <Box
+          role="alert"
+          sx={{
+            bgcolor: mode === 'dark' ? 'rgba(239, 68, 68, 0.1)' : 'rgba(220, 38, 38, 0.08)',
+            borderBottom: `1px solid ${borderColor}`,
+            color: mode === 'dark' ? '#fecaca' : '#991b1b',
+            px: 2,
+            py: 1.5,
+          }}
+        >
+          <Typography component="p" sx={{ m: 0, fontSize: 14, fontWeight: 700 }}>
+            Mermaid-Diagramm konnte nicht gerendert werden.
+          </Typography>
+          <Typography component="p" sx={{ m: 0, mt: 0.5, fontSize: 13, lineHeight: 1.5 }}>
+            {activeRenderState.error}
+          </Typography>
+        </Box>
+        <Box sx={{ px: 2, pb: 2 }}>
+          <CodeBlock className="language-mermaid">{rawCode}</CodeBlock>
+        </Box>
+      </Box>
+    );
+  }
+
+  return (
+    <Box
+      component="figure"
+      data-testid="mermaid-diagram"
+      sx={{
+        bgcolor: mode === 'dark' ? '#060913' : '#f8fafc',
+        border: `1px solid ${borderColor}`,
+        borderRadius: 1,
+        my: 3,
+        mx: 0,
+        overflow: 'hidden',
+      }}
+    >
+      <Box
+        sx={{
+          borderBottom: `1px solid ${borderColor}`,
+          bgcolor: mode === 'dark' ? '#111827' : '#e2e8f0',
+          color: 'text.secondary',
+          fontSize: 10,
+          fontWeight: 700,
+          lineHeight: 1,
+          minHeight: 34,
+          px: 1.25,
+          py: 1.25,
+          textTransform: 'uppercase',
+        }}
+      >
+        Mermaid
+      </Box>
+      <Box
+        sx={{
+          minHeight: 120,
+          overflowX: 'auto',
+          p: 2.5,
+          '& svg': {
+            display: 'block',
+            height: 'auto',
+            maxWidth: '100%',
+            mx: 'auto',
+          },
+        }}
+      >
+        {activeRenderState.svg ? (
+          <Box dangerouslySetInnerHTML={{ __html: activeRenderState.svg }} />
+        ) : (
+          <Typography
+            component="p"
+            sx={{
+              color: 'text.secondary',
+              fontSize: 14,
+              m: 0,
+            }}
+          >
+            Diagramm wird gerendert...
+          </Typography>
+        )}
+      </Box>
+    </Box>
+  );
+};
+
 interface MarkdownRendererProps {
   markdown: string;
 }
@@ -482,7 +690,7 @@ export const InlineMarkdownRenderer = ({ markdown, disableLinks = false }: Inlin
   );
 };
 
-export const MarkdownRenderer = ({ markdown }: MarkdownRendererProps) => {
+const MarkdownRendererComponent = ({ markdown }: MarkdownRendererProps) => {
   const headingIdsByLine = useMemo(() => createHeadingIdsByLine(markdown), [markdown]);
   const getHeadingId = (children: React.ReactNode, node?: MarkdownHeadingNode) => {
     const line = node?.position?.start?.line;
@@ -766,8 +974,18 @@ export const MarkdownRenderer = ({ markdown }: MarkdownRendererProps) => {
           {children}
         </Box>
       ),
-      code: ({ children, className }) => {
-        const isCodeBlock = Boolean(className?.match(LANGUAGE_CLASS_REGEX));
+      code: ({ children, className, node }) => {
+        const languageLabel = className?.match(LANGUAGE_CLASS_REGEX)?.[1];
+        const normalizedLanguageLabel = normalizeLanguageLabel(languageLabel);
+        const isCodeBlock = Boolean(languageLabel);
+
+        if (normalizedLanguageLabel === MERMAID_LANGUAGE) {
+          const codeNode = node as MarkdownCodeNode | undefined;
+          const start = codeNode?.position?.start;
+          const sourceKey = start ? `${start.line ?? 'line'}:${start.offset ?? 'offset'}` : undefined;
+
+          return <MermaidDiagram sourceKey={sourceKey}>{children}</MermaidDiagram>;
+        }
 
         if (isCodeBlock) {
           return <CodeBlock className={className}>{children}</CodeBlock>;
@@ -802,3 +1020,5 @@ export const MarkdownRenderer = ({ markdown }: MarkdownRendererProps) => {
     </ReactMarkdown>
   );
 };
+
+export const MarkdownRenderer = React.memo(MarkdownRendererComponent);
