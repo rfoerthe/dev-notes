@@ -1,8 +1,11 @@
 import { StrictMode, useEffect, useState } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { createTheme, ThemeProvider } from '@mui/material/styles';
 
 const mermaidMock = vi.hoisted(() => ({
+  currentDarkMode: false,
+  currentTheme: 'neutral',
   initialize: vi.fn(),
   render: vi.fn(),
 }));
@@ -17,11 +20,17 @@ import { TableOfContents } from '../components/TableOfContents';
 
 describe('Markdown renderer', () => {
   beforeEach(() => {
+    mermaidMock.currentDarkMode = false;
+    mermaidMock.currentTheme = 'neutral';
     mermaidMock.initialize.mockClear();
-    mermaidMock.render.mockReset();
-    mermaidMock.render.mockResolvedValue({
-      svg: '<svg data-testid="rendered-mermaid-svg" viewBox="0 0 100 40"><text>A</text></svg>',
+    mermaidMock.initialize.mockImplementation((config?: { darkMode?: boolean; theme?: string }) => {
+      mermaidMock.currentDarkMode = Boolean(config?.darkMode);
+      mermaidMock.currentTheme = config?.theme ?? 'neutral';
     });
+    mermaidMock.render.mockReset();
+    mermaidMock.render.mockImplementation((id: string) => Promise.resolve({
+      svg: `<svg data-dark-mode="${mermaidMock.currentDarkMode}" data-render-id="${id}" data-testid="rendered-mermaid-svg" data-theme="${mermaidMock.currentTheme}" viewBox="0 0 100 40"><text>A</text></svg>`,
+    }));
   });
 
   it('renders inline markdown for compact title and teaser text', () => {
@@ -658,6 +667,41 @@ describe('Markdown renderer', () => {
       x: 10,
       y: 20,
     });
+    vi.spyOn(SVGElement.prototype, 'getBoundingClientRect').mockImplementation(function getMockSvgBounds(
+      this: SVGElement,
+    ) {
+      if (!this.closest('[data-testid="mermaid-zoom-content"]')) {
+        return {
+          bottom: 0,
+          height: 0,
+          left: 0,
+          right: 0,
+          toJSON: () => undefined,
+          top: 0,
+          width: 0,
+          x: 0,
+          y: 0,
+        };
+      }
+
+      const scale = Number(zoomContent.getAttribute('data-zoom-scale') ?? '1');
+      const width = 400 * scale;
+      const height = 300 * scale;
+      const left = 20 - zoomArea.scrollLeft;
+      const top = 30 - zoomArea.scrollTop;
+
+      return {
+        bottom: top + height,
+        height,
+        left,
+        right: left + width,
+        toJSON: () => undefined,
+        top,
+        width,
+        x: left,
+        y: top,
+      };
+    });
     zoomArea.scrollLeft = 100;
     zoomArea.scrollTop = 50;
     const zoomOutButton = screen.getByRole('button', { name: 'Mermaid-Diagramm herauszoomen' });
@@ -698,8 +742,8 @@ describe('Markdown renderer', () => {
     expect(headerItems.indexOf(zoomLevel)).toBeLessThan(headerItems.indexOf(zoomOutButton.parentElement as Element));
     expect(headerItems.indexOf(zoomLevel)).toBeLessThan(headerItems.indexOf(zoomInButton.parentElement as Element));
     await waitFor(() => {
-      expect(zoomArea.scrollLeft).toBeCloseTo(130);
-      expect(zoomArea.scrollTop).toBeCloseTo(65);
+      expect(zoomArea.scrollLeft).toBeCloseTo(129);
+      expect(zoomArea.scrollTop).toBeCloseTo(64);
     });
 
     fireEvent.click(screen.getByRole('button', { name: 'Mermaid-Diagramm hineinzoomen' }));
@@ -710,6 +754,9 @@ describe('Markdown renderer', () => {
     expect(zoomContent.getAttribute('data-zoom-scale')).toBe('1.10');
     expect(screen.getByLabelText('Mermaid-Diagramm Zoomlevel').textContent).toBe('110%');
 
+    const panStartLeft = zoomArea.scrollLeft;
+    const panStartTop = zoomArea.scrollTop;
+
     fireEvent.pointerDown(zoomArea, { button: 0, clientX: 300, clientY: 220, pointerId: 7 });
     expect(setPointerCapture).toHaveBeenCalledWith(7);
     const panCursor = window.getComputedStyle(zoomArea).cursor;
@@ -717,8 +764,8 @@ describe('Markdown renderer', () => {
     expect(panCursor).toContain('grabbing');
 
     fireEvent.pointerMove(zoomArea, { clientX: 250, clientY: 180, pointerId: 7 });
-    expect(zoomArea.scrollLeft).toBeCloseTo(180);
-    expect(zoomArea.scrollTop).toBeCloseTo(105);
+    expect(zoomArea.scrollLeft).toBeCloseTo(panStartLeft + 50);
+    expect(zoomArea.scrollTop).toBeCloseTo(panStartTop + 40);
 
     fireEvent.pointerUp(zoomArea, { pointerId: 7 });
     expect(releasePointerCapture).toHaveBeenCalledWith(7);
@@ -737,7 +784,7 @@ describe('Markdown renderer', () => {
     });
   });
 
-  it('downloads rendered Mermaid diagrams as SVG files', async () => {
+  it('downloads rendered Mermaid diagrams as light themed SVG files', async () => {
     const createObjectURL = vi.fn((file: Blob | MediaSource) => {
       void file;
       return 'blob:mermaid-diagram';
@@ -754,20 +801,32 @@ describe('Markdown renderer', () => {
     });
 
     try {
+      const darkTheme = createTheme({ palette: { mode: 'dark' } });
       const markdown = '```mermaid\nflowchart LR\n  A --> B\n```';
-      render(<>{renderMarkdown(markdown)}</>);
+      const { container } = render(
+        <ThemeProvider theme={darkTheme}>
+          {renderMarkdown(markdown)}
+        </ThemeProvider>,
+      );
 
       await waitFor(() => {
         expect(screen.getByRole('button', { name: 'Mermaid-Diagramm als SVG herunterladen' })).toBeTruthy();
       });
+      expect(container.querySelector('svg[data-testid="rendered-mermaid-svg"]')?.getAttribute('data-theme')).toBe('dark');
+      expect(container.querySelector('svg[data-testid="rendered-mermaid-svg"]')?.getAttribute('data-dark-mode')).toBe('true');
 
       fireEvent.click(screen.getByRole('button', { name: 'Mermaid-Diagramm als SVG herunterladen' }));
 
-      expect(click).toHaveBeenCalled();
-      expect(createObjectURL).toHaveBeenCalledWith(expect.any(Blob));
+      await waitFor(() => {
+        expect(click).toHaveBeenCalled();
+        expect(createObjectURL).toHaveBeenCalledWith(expect.any(Blob));
+      });
       const svgBlob = createObjectURL.mock.calls[0][0] as Blob;
       expect(svgBlob.type).toBe('image/svg+xml;charset=utf-8');
       await expect(svgBlob.text()).resolves.toContain('<svg');
+      await expect(svgBlob.text()).resolves.toContain('data-theme="neutral"');
+      await expect(svgBlob.text()).resolves.toContain('data-dark-mode="false"');
+      await expect(svgBlob.text()).resolves.toContain('-export-light');
     } finally {
       click.mockRestore();
     }

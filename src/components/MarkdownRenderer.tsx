@@ -46,6 +46,9 @@ const MERMAID_PAN_CURSOR = createSvgCursor(MERMAID_PAN_CURSOR_SVG, 'grabbing');
 const clampMermaidZoomScale = (scale: number) => (
   Math.min(MERMAID_ZOOM_MAX, Math.max(MERMAID_ZOOM_MIN, Number(scale.toFixed(2))))
 );
+const clampNumber = (value: number, min: number, max: number) => (
+  Math.min(max, Math.max(min, value))
+);
 
 const themeByMode = {
   dark: 'github-dark-default',
@@ -56,6 +59,7 @@ const themeRegistrations = [githubDarkDefault, githubLightDefault];
 
 const highlightedCodeCache = new Map<string, Promise<TokensResult>>();
 const renderedMermaidCache = new Map<string, string>();
+const exportedLightMermaidCache = new Map<string, Promise<string>>();
 let shikiHighlighter: Promise<HighlighterCore> | null = null;
 let mermaidInstance: Promise<typeof mermaid> | null = null;
 let initializedMermaidMode: keyof typeof themeByMode | null = null;
@@ -142,6 +146,49 @@ const initializeMermaid = (mermaidApi: typeof mermaid, mode: keyof typeof themeB
 
   mermaidApi.initialize(getMermaidConfig(mode));
   initializedMermaidMode = mode;
+};
+
+const renderMermaidSvg = async (
+  mermaidApi: typeof mermaid,
+  id: string,
+  code: string,
+  mode: keyof typeof themeByMode,
+) => {
+  initializeMermaid(mermaidApi, mode);
+  const { svg } = await mermaidApi.render(id, code);
+
+  return svg;
+};
+
+const getLightMermaidExportSvg = (
+  diagramId: string,
+  code: string,
+  restoreMode: keyof typeof themeByMode,
+): Promise<string> => {
+  const cacheKey = `light-export:${diagramId}:${code}`;
+  const cachedResult = exportedLightMermaidCache.get(cacheKey);
+
+  if (cachedResult) {
+    return cachedResult;
+  }
+
+  const exportResult = loadMermaid()
+    .then(async (mermaidApi) => {
+      try {
+        return await renderMermaidSvg(mermaidApi, `${diagramId}-export-light`, code, 'light');
+      } finally {
+        if (restoreMode !== 'light') {
+          initializeMermaid(mermaidApi, restoreMode);
+        }
+      }
+    })
+    .catch((error: unknown) => {
+      exportedLightMermaidCache.delete(cacheKey);
+      throw error;
+    });
+
+  exportedLightMermaidCache.set(cacheKey, exportResult);
+  return exportResult;
 };
 
 const getShikiHighlighter = (): Promise<HighlighterCore> => {
@@ -582,14 +629,19 @@ const MermaidDiagram = ({ children, sourceKey }: MermaidDiagramProps) => {
   const isZoomedIn = zoomScale > MERMAID_ZOOM_DEFAULT;
   const measuredZoomWidth = fitSvgSize ? `${fitSvgSize.width * zoomScale}px` : `${zoomScale * 100}%`;
   const measuredZoomHeight = fitSvgSize ? `${fitSvgSize.height * zoomScale}px` : `${zoomScale * 100}%`;
-  const handleDownloadSvg = (event?: React.MouseEvent) => {
+  const handleDownloadSvg = async (event?: React.MouseEvent) => {
     event?.stopPropagation();
 
     if (!activeRenderState.svg) {
       return;
     }
 
-    downloadTextFile(activeRenderState.svg, `${diagramId}.svg`, 'image/svg+xml;charset=utf-8');
+    try {
+      const lightSvg = await getLightMermaidExportSvg(diagramId, rawCode, mode);
+      downloadTextFile(lightSvg, `${diagramId}.svg`, 'image/svg+xml;charset=utf-8');
+    } catch {
+      downloadTextFile(activeRenderState.svg, `${diagramId}.svg`, 'image/svg+xml;charset=utf-8');
+    }
   };
   const handleOpenZoom = () => {
     if (activeRenderState.svg) {
@@ -638,15 +690,21 @@ const MermaidDiagram = ({ children, sourceKey }: MermaidDiagramProps) => {
   };
   const updateZoomScale = (getNextScale: (currentScale: number) => number, anchor?: { x: number; y: number }) => {
     const zoomArea = zoomAreaRef.current;
-    const bounds = zoomArea?.getBoundingClientRect();
-    const pointerX = zoomArea && bounds
-      ? (anchor ? anchor.x - bounds.left : zoomArea.clientWidth / 2)
+    const zoomSvg = zoomContentRef.current?.querySelector('svg') ?? null;
+    const areaBounds = zoomArea?.getBoundingClientRect();
+    const svgBounds = zoomSvg?.getBoundingClientRect();
+    const anchorX = areaBounds
+      ? (anchor?.x ?? areaBounds.left + (zoomArea?.clientWidth ?? areaBounds.width) / 2)
       : 0;
-    const pointerY = zoomArea && bounds
-      ? (anchor ? anchor.y - bounds.top : zoomArea.clientHeight / 2)
+    const anchorY = areaBounds
+      ? (anchor?.y ?? areaBounds.top + (zoomArea?.clientHeight ?? areaBounds.height) / 2)
       : 0;
-    const scrollLeft = zoomArea?.scrollLeft ?? 0;
-    const scrollTop = zoomArea?.scrollTop ?? 0;
+    const svgAnchor = svgBounds && svgBounds.width > 0 && svgBounds.height > 0
+      ? {
+        x: clampNumber(anchorX - svgBounds.left, 0, svgBounds.width),
+        y: clampNumber(anchorY - svgBounds.top, 0, svgBounds.height),
+      }
+      : null;
 
     setZoomScale((currentScale) => {
       if (currentScale === MERMAID_ZOOM_DEFAULT && !fitSvgSize) {
@@ -657,10 +715,21 @@ const MermaidDiagram = ({ children, sourceKey }: MermaidDiagramProps) => {
 
       if (nextScale !== currentScale && zoomArea) {
         const zoomRatio = nextScale / currentScale;
+        const restoreAnchor = () => {
+          const nextSvg = zoomContentRef.current?.querySelector('svg');
+          const nextSvgBounds = nextSvg?.getBoundingClientRect();
+
+          if (svgAnchor && nextSvgBounds) {
+            zoomArea.scrollLeft += (nextSvgBounds.left + (svgAnchor.x * zoomRatio)) - anchorX;
+            zoomArea.scrollTop += (nextSvgBounds.top + (svgAnchor.y * zoomRatio)) - anchorY;
+          }
+        };
 
         window.requestAnimationFrame(() => {
-          zoomArea.scrollLeft = ((scrollLeft + pointerX) * zoomRatio) - pointerX;
-          zoomArea.scrollTop = ((scrollTop + pointerY) * zoomRatio) - pointerY;
+          restoreAnchor();
+          window.requestAnimationFrame(restoreAnchor);
+          window.setTimeout(restoreAnchor, 0);
+          window.setTimeout(restoreAnchor, 50);
         });
       }
 
@@ -752,10 +821,9 @@ const MermaidDiagram = ({ children, sourceKey }: MermaidDiagramProps) => {
 
     loadMermaid()
       .then((mermaidApi) => {
-        initializeMermaid(mermaidApi, mode);
-        return mermaidApi.render(diagramId, rawCode);
+        return renderMermaidSvg(mermaidApi, diagramId, rawCode, mode);
       })
-      .then(({ svg }) => {
+      .then((svg) => {
         if (!cancelled) {
           renderedMermaidCache.set(renderKey, svg);
           setRenderState({ error: null, key: renderKey, svg });

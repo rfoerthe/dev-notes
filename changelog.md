@@ -1,5 +1,23 @@
 # Changelog
 
+## [1.0.15] - 2026-07-09
+
+### Added
+
+- Markdown blog content now supports Mermaid fenced code blocks that render as diagrams in article details and create/edit previews.
+- Mermaid diagrams can be opened in a zoom popup with mouse-wheel zooming, drag-to-pan navigation, zoom controls, zoom percentage display, and a fit-to-view reset.
+- Rendered Mermaid diagrams can be downloaded as SVG files from the diagram toolbar or zoom popup.
+
+### Changed
+
+- Mermaid SVG downloads are always rendered with the light Mermaid theme, regardless of the active application theme.
+- Mermaid diagram rendering is cached so unchanged diagrams are not re-rendered during normal article scrolling or parent rerenders.
+
+### Fixed
+
+- Invalid Mermaid syntax now shows a compact fallback with the original code instead of breaking the page.
+- Mermaid zooming now preserves the viewport around the mouse position and keeps scrollbars visible in the zoom popup.
+
 ## [1.0.14] - 2026-06-14
 
 ### Added
