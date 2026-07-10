@@ -1,5 +1,17 @@
 # Changelog
 
+## [1.0.16] - 2026-07-10
+
+### Changed
+
+- Mermaid zoom popups now process mouse-wheel and trackpad input continuously with a short GPU-accelerated animation, without rebuilding the SVG DOM on every frame.
+
+### Fixed
+
+- Zooming into Mermaid diagrams now keeps the exact diagram point beneath the mouse cursor stable throughout the animation.
+- Mermaid zoom no longer competes with native dialog scrolling or delayed stale scroll corrections during rapid wheel input.
+- Popup scrollbars, drag-to-pan navigation, resize handling, and fit-to-view reset now stay synchronized with the zoom transform.
+
 ## [1.0.15] - 2026-07-09
 
 ### Added

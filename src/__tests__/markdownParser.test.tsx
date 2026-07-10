@@ -625,7 +625,7 @@ describe('Markdown renderer', () => {
     expect(screen.queryByLabelText('Mermaid-Diagramm Zoomlevel')).toBeNull();
   });
 
-  it('zooms Mermaid popup diagrams with the mouse wheel and resets them to fit view', async () => {
+  it('zooms Mermaid popup diagrams smoothly around the pointer and resets them to fit view', async () => {
     const markdown = '```mermaid\nflowchart LR\n  A --> B\n```';
     render(<>{renderMarkdown(markdown)}</>);
 
@@ -637,6 +637,7 @@ describe('Markdown renderer', () => {
 
     const zoomArea = screen.getByLabelText('Mermaid-Diagramm Zoom-Bereich');
     const zoomContent = screen.getByTestId('mermaid-zoom-content');
+    const zoomSvg = zoomContent.querySelector('svg');
     const setPointerCapture = vi.fn();
     const releasePointerCapture = vi.fn();
     const hasPointerCapture = vi.fn(() => true);
@@ -667,95 +668,115 @@ describe('Markdown renderer', () => {
       x: 10,
       y: 20,
     });
-    vi.spyOn(SVGElement.prototype, 'getBoundingClientRect').mockImplementation(function getMockSvgBounds(
-      this: SVGElement,
-    ) {
-      if (!this.closest('[data-testid="mermaid-zoom-content"]')) {
-        return {
-          bottom: 0,
-          height: 0,
-          left: 0,
-          right: 0,
-          toJSON: () => undefined,
-          top: 0,
-          width: 0,
-          x: 0,
-          y: 0,
-        };
-      }
-
-      const scale = Number(zoomContent.getAttribute('data-zoom-scale') ?? '1');
-      const width = 400 * scale;
-      const height = 300 * scale;
-      const left = 20 - zoomArea.scrollLeft;
-      const top = 30 - zoomArea.scrollTop;
-
-      return {
-        bottom: top + height,
-        height,
-        left,
-        right: left + width,
-        toJSON: () => undefined,
-        top,
-        width,
-        x: left,
-        y: top,
-      };
-    });
-    zoomArea.scrollLeft = 100;
-    zoomArea.scrollTop = 50;
     const zoomOutButton = screen.getByRole('button', { name: 'Mermaid-Diagramm herauszoomen' });
     const zoomInButton = screen.getByRole('button', { name: 'Mermaid-Diagramm hineinzoomen' });
     expect(zoomContent.getAttribute('data-zoom-scale')).toBe('1.00');
+    expect(zoomContent.getAttribute('data-zoom-x')).toBe('0.000');
+    expect(zoomContent.getAttribute('data-zoom-y')).toBe('0.000');
     expect(window.getComputedStyle(zoomArea).overflowY).toBe('hidden');
     expect(window.getComputedStyle(zoomArea).overflowX).toBe('hidden');
     expect(screen.queryByLabelText('Mermaid-Diagramm Zoomlevel')).toBeNull();
 
     fireEvent.click(zoomOutButton);
-    expect(zoomContent.getAttribute('data-zoom-scale')).toBe('0.90');
-    expect(screen.getByLabelText('Mermaid-Diagramm Zoomlevel').textContent).toBe('90%');
+    await waitFor(() => {
+      expect(zoomContent.getAttribute('data-zoom-scale')).toBe('0.90');
+      expect(screen.getByLabelText('Mermaid-Diagramm Zoomlevel').textContent).toBe('90%');
+    });
 
     fireEvent.click(zoomInButton);
-    expect(zoomContent.getAttribute('data-zoom-scale')).toBe('1.00');
-    expect(screen.queryByLabelText('Mermaid-Diagramm Zoomlevel')).toBeNull();
+    await waitFor(() => {
+      expect(zoomContent.getAttribute('data-zoom-scale')).toBe('1.00');
+      expect(screen.queryByLabelText('Mermaid-Diagramm Zoomlevel')).toBeNull();
+    });
 
     for (let index = 0; index < 9; index += 1) {
       fireEvent.click(zoomOutButton);
     }
-    expect(zoomContent.getAttribute('data-zoom-scale')).toBe('0.10');
-    expect(screen.getByLabelText('Mermaid-Diagramm Zoomlevel').textContent).toBe('10%');
-    expect((zoomOutButton as HTMLButtonElement).disabled).toBe(true);
+    await waitFor(() => {
+      expect(zoomContent.getAttribute('data-zoom-scale')).toBe('0.10');
+      expect(screen.getByLabelText('Mermaid-Diagramm Zoomlevel').textContent).toBe('10%');
+      expect((zoomOutButton as HTMLButtonElement).disabled).toBe(true);
+    });
 
     fireEvent.click(screen.getByRole('button', { name: 'Mermaid-Diagramm formatfüllend anzeigen' }));
-    zoomArea.scrollLeft = 100;
-    zoomArea.scrollTop = 50;
     expect(zoomContent.getAttribute('data-zoom-scale')).toBe('1.00');
+    expect(zoomContent.getAttribute('data-zoom-x')).toBe('0.000');
+    expect(zoomContent.getAttribute('data-zoom-y')).toBe('0.000');
     expect(screen.queryByLabelText('Mermaid-Diagramm Zoomlevel')).toBeNull();
 
-    fireEvent.wheel(zoomArea, { clientX: 210, clientY: 120, deltaY: -120 });
-    expect(zoomContent.getAttribute('data-zoom-scale')).toBe('1.10');
+    const zeroDeltaWheel = new WheelEvent('wheel', {
+      bubbles: true,
+      cancelable: true,
+      clientX: 210,
+      clientY: 120,
+      deltaY: 0,
+    });
+    fireEvent(zoomArea, zeroDeltaWheel);
+    expect(zoomContent.getAttribute('data-zoom-scale')).toBe('1.00');
+
+    const requestAnimationFrameSpy = vi.spyOn(window, 'requestAnimationFrame');
+    for (let index = 0; index < 12; index += 1) {
+      fireEvent.wheel(zoomArea, { clientX: 210, clientY: 120, deltaY: -2 });
+    }
+    expect(requestAnimationFrameSpy).toHaveBeenCalledTimes(1);
+    requestAnimationFrameSpy.mockRestore();
+    await waitFor(() => {
+      expect(zoomContent.getAttribute('data-zoom-scale')).toBe('1.04');
+    });
+
+    const burstScale = Number(zoomContent.style.transform.match(/scale\(([^)]+)\)/)?.[1]);
+    const burstX = Number(zoomContent.getAttribute('data-zoom-x'));
+    const burstY = Number(zoomContent.getAttribute('data-zoom-y'));
+    const pointerX = 210 - 10;
+    const pointerY = 120 - 20;
+    expect(burstX + (pointerX * burstScale)).toBeCloseTo(pointerX, 1);
+    expect(burstY + (pointerY * burstScale)).toBeCloseTo(pointerY, 1);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Mermaid-Diagramm formatfüllend anzeigen' }));
+
+    const wheelEvent = new WheelEvent('wheel', {
+      bubbles: true,
+      cancelable: true,
+      clientX: 210,
+      clientY: 120,
+      deltaY: -120,
+    });
+    fireEvent(zoomArea, wheelEvent);
+    expect(wheelEvent.defaultPrevented).toBe(true);
+
+    await waitFor(() => {
+      expect(zoomContent.getAttribute('data-zoom-scale')).toBe('1.20');
+      expect(screen.getByLabelText('Mermaid-Diagramm Zoomlevel').textContent).toBe('120%');
+    });
     expect(window.getComputedStyle(zoomArea).overflowY).toBe('auto');
     expect(window.getComputedStyle(zoomArea).overflowX).toBe('auto');
     const zoomLevel = screen.getByLabelText('Mermaid-Diagramm Zoomlevel');
     const headerItems = Array.from(zoomLevel.parentElement?.children ?? []);
-    expect(zoomLevel.textContent).toBe('110%');
+    expect(zoomLevel.textContent).toBe('120%');
     expect(headerItems.indexOf(zoomLevel)).toBeLessThan(headerItems.indexOf(zoomOutButton.parentElement as Element));
     expect(headerItems.indexOf(zoomLevel)).toBeLessThan(headerItems.indexOf(zoomInButton.parentElement as Element));
-    await waitFor(() => {
-      expect(zoomArea.scrollLeft).toBeCloseTo(129);
-      expect(zoomArea.scrollTop).toBeCloseTo(64);
-    });
+    expect(zoomContent.querySelector('svg')).toBe(zoomSvg);
+
+    const anchoredScale = Number(zoomContent.style.transform.match(/scale\(([^)]+)\)/)?.[1]);
+    const anchoredX = Number(zoomContent.getAttribute('data-zoom-x'));
+    const anchoredY = Number(zoomContent.getAttribute('data-zoom-y'));
+    expect(anchoredX + (pointerX * anchoredScale)).toBeCloseTo(pointerX, 1);
+    expect(anchoredY + (pointerY * anchoredScale)).toBeCloseTo(pointerY, 1);
 
     fireEvent.click(screen.getByRole('button', { name: 'Mermaid-Diagramm hineinzoomen' }));
-    expect(zoomContent.getAttribute('data-zoom-scale')).toBe('1.20');
-    expect(screen.getByLabelText('Mermaid-Diagramm Zoomlevel').textContent).toBe('120%');
+    await waitFor(() => {
+      expect(zoomContent.getAttribute('data-zoom-scale')).toBe('1.30');
+      expect(screen.getByLabelText('Mermaid-Diagramm Zoomlevel').textContent).toBe('130%');
+    });
 
     fireEvent.click(screen.getByRole('button', { name: 'Mermaid-Diagramm herauszoomen' }));
-    expect(zoomContent.getAttribute('data-zoom-scale')).toBe('1.10');
-    expect(screen.getByLabelText('Mermaid-Diagramm Zoomlevel').textContent).toBe('110%');
+    await waitFor(() => {
+      expect(zoomContent.getAttribute('data-zoom-scale')).toBe('1.20');
+      expect(screen.getByLabelText('Mermaid-Diagramm Zoomlevel').textContent).toBe('120%');
+    });
 
-    const panStartLeft = zoomArea.scrollLeft;
-    const panStartTop = zoomArea.scrollTop;
+    const panStartX = Number(zoomContent.getAttribute('data-zoom-x'));
+    const panStartY = Number(zoomContent.getAttribute('data-zoom-y'));
 
     fireEvent.pointerDown(zoomArea, { button: 0, clientX: 300, clientY: 220, pointerId: 7 });
     expect(setPointerCapture).toHaveBeenCalledWith(7);
@@ -764,8 +785,8 @@ describe('Markdown renderer', () => {
     expect(panCursor).toContain('grabbing');
 
     fireEvent.pointerMove(zoomArea, { clientX: 250, clientY: 180, pointerId: 7 });
-    expect(zoomArea.scrollLeft).toBeCloseTo(panStartLeft + 50);
-    expect(zoomArea.scrollTop).toBeCloseTo(panStartTop + 40);
+    expect(Number(zoomContent.getAttribute('data-zoom-x'))).toBeCloseTo(panStartX - 50);
+    expect(Number(zoomContent.getAttribute('data-zoom-y'))).toBeCloseTo(panStartY - 40);
 
     fireEvent.pointerUp(zoomArea, { pointerId: 7 });
     expect(releasePointerCapture).toHaveBeenCalledWith(7);
@@ -775,13 +796,11 @@ describe('Markdown renderer', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Mermaid-Diagramm formatfüllend anzeigen' }));
     expect(zoomContent.getAttribute('data-zoom-scale')).toBe('1.00');
+    expect(zoomContent.getAttribute('data-zoom-x')).toBe('0.000');
+    expect(zoomContent.getAttribute('data-zoom-y')).toBe('0.000');
     expect(window.getComputedStyle(zoomArea).overflowY).toBe('hidden');
     expect(window.getComputedStyle(zoomArea).overflowX).toBe('hidden');
     expect(screen.queryByLabelText('Mermaid-Diagramm Zoomlevel')).toBeNull();
-    await waitFor(() => {
-      expect(zoomArea.scrollLeft).toBe(0);
-      expect(zoomArea.scrollTop).toBe(0);
-    });
   });
 
   it('downloads rendered Mermaid diagrams as light themed SVG files', async () => {

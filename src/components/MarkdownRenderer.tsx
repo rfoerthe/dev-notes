@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import ReactMarkdown, { type Components } from 'react-markdown';
 import rehypeSanitize from 'rehype-sanitize';
 import remarkGfm from 'remark-gfm';
@@ -22,6 +22,12 @@ const MERMAID_ZOOM_DEFAULT = 1;
 const MERMAID_ZOOM_MIN = 0.1;
 const MERMAID_ZOOM_MAX = 4;
 const MERMAID_ZOOM_STEP = 0.1;
+const MERMAID_ZOOM_SCALE_EPSILON = 0.000001;
+const MERMAID_ZOOM_ANIMATION_MS = 120;
+const MERMAID_ZOOM_UI_UPDATE_MS = 50;
+const MERMAID_WHEEL_DELTA_LIMIT = 240;
+const MERMAID_WHEEL_LINE_HEIGHT = 16;
+const MERMAID_WHEEL_ZOOM_SENSITIVITY = 0.0015;
 const createSvgCursor = (svg: string, fallback: string, hotspot = 16) => (
   `url("data:image/svg+xml,${encodeURIComponent(svg)}") ${hotspot} ${hotspot}, ${fallback}`
 );
@@ -43,12 +49,87 @@ const MERMAID_PAN_CURSOR_SVG = `
 `;
 const MERMAID_SCROLL_ZOOM_CURSOR = createSvgCursor(MERMAID_SCROLL_ZOOM_CURSOR_SVG, 'ns-resize');
 const MERMAID_PAN_CURSOR = createSvgCursor(MERMAID_PAN_CURSOR_SVG, 'grabbing');
-const clampMermaidZoomScale = (scale: number) => (
-  Math.min(MERMAID_ZOOM_MAX, Math.max(MERMAID_ZOOM_MIN, Number(scale.toFixed(2))))
-);
+const clampMermaidZoomScale = (scale: number) => {
+  if (scale <= MERMAID_ZOOM_MIN + MERMAID_ZOOM_SCALE_EPSILON) {
+    return MERMAID_ZOOM_MIN;
+  }
+
+  if (scale >= MERMAID_ZOOM_MAX - MERMAID_ZOOM_SCALE_EPSILON) {
+    return MERMAID_ZOOM_MAX;
+  }
+
+  return scale;
+};
 const clampNumber = (value: number, min: number, max: number) => (
   Math.min(max, Math.max(min, value))
 );
+
+interface MermaidZoomTransform {
+  scale: number;
+  x: number;
+  y: number;
+}
+
+const createDefaultMermaidZoomTransform = (): MermaidZoomTransform => ({
+  scale: MERMAID_ZOOM_DEFAULT,
+  x: 0,
+  y: 0,
+});
+
+const getAnchoredMermaidZoomTransform = (
+  current: MermaidZoomTransform,
+  nextScale: number,
+  anchor: { x: number; y: number },
+): MermaidZoomTransform => {
+  const ratio = nextScale / current.scale;
+
+  return {
+    scale: nextScale,
+    x: anchor.x - ((anchor.x - current.x) * ratio),
+    y: anchor.y - ((anchor.y - current.y) * ratio),
+  };
+};
+
+const getNormalizedWheelDelta = (event: WheelEvent, viewportHeight: number) => {
+  const multiplier = event.deltaMode === WheelEvent.DOM_DELTA_LINE
+    ? MERMAID_WHEEL_LINE_HEIGHT
+    : event.deltaMode === WheelEvent.DOM_DELTA_PAGE
+      ? viewportHeight
+      : 1;
+
+  return clampNumber(
+    event.deltaY * multiplier,
+    -MERMAID_WHEEL_DELTA_LIMIT,
+    MERMAID_WHEEL_DELTA_LIMIT,
+  );
+};
+
+const getMermaidZoomViewport = (element: HTMLDivElement) => {
+  const bounds = element.getBoundingClientRect();
+
+  return {
+    bounds,
+    height: element.clientHeight || bounds.height,
+    width: element.clientWidth || bounds.width,
+  };
+};
+
+const constrainMermaidPan = (
+  transform: MermaidZoomTransform,
+  viewportWidth: number,
+  viewportHeight: number,
+  contentWidth = viewportWidth,
+  contentHeight = viewportHeight,
+): MermaidZoomTransform => {
+  const remainingWidth = viewportWidth - (contentWidth * transform.scale);
+  const remainingHeight = viewportHeight - (contentHeight * transform.scale);
+
+  return {
+    ...transform,
+    x: clampNumber(transform.x, Math.min(0, remainingWidth), Math.max(0, remainingWidth)),
+    y: clampNumber(transform.y, Math.min(0, remainingHeight), Math.max(0, remainingHeight)),
+  };
+};
 
 const themeByMode = {
   dark: 'github-dark-default',
@@ -591,14 +672,23 @@ const MermaidDiagram = ({ children, sourceKey }: MermaidDiagramProps) => {
   const mode = theme.palette.mode === 'light' ? 'light' : 'dark';
   const zoomAreaRef = useRef<HTMLDivElement | null>(null);
   const zoomContentRef = useRef<HTMLDivElement | null>(null);
+  const zoomStageRef = useRef<HTMLDivElement | null>(null);
+  const zoomViewportSizeRef = useRef({ height: 0, width: 0 });
+  const zoomExpectedScrollRef = useRef({ left: 0, top: 0 });
   const panStateRef = useRef({
     active: false,
     pointerId: -1,
-    scrollLeft: 0,
-    scrollTop: 0,
+    transformX: 0,
+    transformY: 0,
     x: 0,
     y: 0,
   });
+  const zoomAnimationFrameRef = useRef<number | null>(null);
+  const zoomAnimationFromRef = useRef<MermaidZoomTransform>(createDefaultMermaidZoomTransform());
+  const zoomAnimationStartTimeRef = useRef<number | null>(null);
+  const zoomLastUiUpdateTimeRef = useRef(0);
+  const zoomTransformRef = useRef<MermaidZoomTransform>(createDefaultMermaidZoomTransform());
+  const zoomTargetTransformRef = useRef<MermaidZoomTransform>(createDefaultMermaidZoomTransform());
   const rawCode = String(children).replace(/\n$/, '');
   const diagramId = useMemo(
     () => `mermaid-${hashString(`${sourceKey ?? 'code'}:${rawCode}`)}`,
@@ -619,16 +709,143 @@ const MermaidDiagram = ({ children, sourceKey }: MermaidDiagramProps) => {
   const activeRenderState = renderState.key === renderKey
     ? renderState
     : { error: null, key: renderKey, svg: cachedSvg };
+  const activeSvgMarkup = useMemo(
+    () => activeRenderState.svg ? { __html: activeRenderState.svg } : undefined,
+    [activeRenderState.svg],
+  );
   const [isZoomOpen, setIsZoomOpen] = useState(false);
+  const [zoomAreaElement, setZoomAreaElement] = useState<HTMLDivElement | null>(null);
   const [zoomScale, setZoomScale] = useState(MERMAID_ZOOM_DEFAULT);
   const [isPanning, setIsPanning] = useState(false);
-  const [fitSvgSize, setFitSvgSize] = useState<{ height: number; width: number } | null>(null);
   const zoomPercent = Math.round(zoomScale * 100);
   const showZoomPercent = zoomPercent !== 100;
-  const isFitZoom = zoomScale === MERMAID_ZOOM_DEFAULT;
-  const isZoomedIn = zoomScale > MERMAID_ZOOM_DEFAULT;
-  const measuredZoomWidth = fitSvgSize ? `${fitSvgSize.width * zoomScale}px` : `${zoomScale * 100}%`;
-  const measuredZoomHeight = fitSvgSize ? `${fitSvgSize.height * zoomScale}px` : `${zoomScale * 100}%`;
+  const syncZoomTransformElement = useCallback((transform: MermaidZoomTransform) => {
+    const zoomArea = zoomAreaRef.current;
+    const zoomContent = zoomContentRef.current;
+    const zoomStage = zoomStageRef.current;
+
+    if (!zoomArea || !zoomContent || !zoomStage) {
+      return;
+    }
+
+    let { height, width } = zoomViewportSizeRef.current;
+
+    if (width <= 0 || height <= 0) {
+      const viewport = getMermaidZoomViewport(zoomArea);
+
+      height = viewport.height;
+      width = viewport.width;
+      zoomViewportSizeRef.current = { height, width };
+    }
+
+    const usesNativeScroll = transform.scale > MERMAID_ZOOM_DEFAULT;
+    const stageScale = Math.max(MERMAID_ZOOM_DEFAULT, transform.scale);
+    const translateX = usesNativeScroll ? 0 : transform.x;
+    const translateY = usesNativeScroll ? 0 : transform.y;
+
+    zoomArea.style.overflowX = usesNativeScroll ? 'auto' : 'hidden';
+    zoomArea.style.overflowY = usesNativeScroll ? 'auto' : 'hidden';
+    zoomStage.style.height = `${height * stageScale}px`;
+    zoomStage.style.width = `${width * stageScale}px`;
+    zoomContent.style.height = `${height}px`;
+    zoomContent.style.width = `${width}px`;
+    zoomContent.style.transform = `translate3d(${translateX}px, ${translateY}px, 0) scale(${transform.scale})`;
+    zoomContent.dataset.zoomScale = transform.scale.toFixed(2);
+    zoomContent.dataset.zoomX = transform.x.toFixed(3);
+    zoomContent.dataset.zoomY = transform.y.toFixed(3);
+
+    const expectedScroll = {
+      left: usesNativeScroll ? -transform.x : 0,
+      top: usesNativeScroll ? -transform.y : 0,
+    };
+
+    zoomExpectedScrollRef.current = expectedScroll;
+    zoomArea.scrollLeft = expectedScroll.left;
+    zoomArea.scrollTop = expectedScroll.top;
+  }, []);
+  const stopZoomAnimation = useCallback(() => {
+    if (zoomAnimationFrameRef.current !== null) {
+      window.cancelAnimationFrame(zoomAnimationFrameRef.current);
+    }
+
+    zoomAnimationFrameRef.current = null;
+    zoomAnimationFromRef.current = zoomTransformRef.current;
+    zoomAnimationStartTimeRef.current = null;
+    zoomTargetTransformRef.current = zoomTransformRef.current;
+  }, []);
+  const startZoomAnimation = useCallback(() => {
+    if (zoomAnimationFrameRef.current !== null) {
+      return;
+    }
+
+    const animate = (timestamp: number) => {
+      const startedAt = zoomAnimationStartTimeRef.current ?? timestamp;
+      const progress = clampNumber((timestamp - startedAt) / MERMAID_ZOOM_ANIMATION_MS, 0, 1);
+      const easedProgress = 1 - ((1 - progress) ** 3);
+      const from = zoomAnimationFromRef.current;
+      const target = zoomTargetTransformRef.current;
+      const scale = from.scale + ((target.scale - from.scale) * easedProgress);
+      const x = from.x + ((target.x - from.x) * easedProgress);
+      const y = from.y + ((target.y - from.y) * easedProgress);
+      const isComplete = progress >= 1;
+      const nextTransform = isComplete ? target : { scale, x, y };
+
+      zoomAnimationStartTimeRef.current = startedAt;
+      zoomTransformRef.current = nextTransform;
+      syncZoomTransformElement(nextTransform);
+
+      if (isComplete || (progress > 0 && timestamp - zoomLastUiUpdateTimeRef.current >= MERMAID_ZOOM_UI_UPDATE_MS)) {
+        zoomLastUiUpdateTimeRef.current = timestamp;
+        setZoomScale(nextTransform.scale);
+      }
+
+      if (isComplete) {
+        zoomAnimationFrameRef.current = null;
+        zoomAnimationStartTimeRef.current = null;
+        return;
+      }
+
+      zoomAnimationFrameRef.current = window.requestAnimationFrame(animate);
+    };
+
+    zoomAnimationFrameRef.current = window.requestAnimationFrame(animate);
+  }, [syncZoomTransformElement]);
+  const queueZoomScale = useCallback((nextScale: number, anchor: { x: number; y: number }) => {
+    const clampedScale = clampMermaidZoomScale(nextScale);
+
+    if (Math.abs(clampedScale - zoomTargetTransformRef.current.scale) < Number.EPSILON) {
+      return;
+    }
+
+    const current = zoomTransformRef.current;
+    let target = getAnchoredMermaidZoomTransform(
+      current,
+      clampedScale,
+      anchor,
+    );
+
+    if (zoomAreaRef.current) {
+      const viewport = getMermaidZoomViewport(zoomAreaRef.current);
+      const contentSize = zoomViewportSizeRef.current;
+
+      target = constrainMermaidPan(
+        target,
+        viewport.width,
+        viewport.height,
+        contentSize.width || viewport.width,
+        contentSize.height || viewport.height,
+      );
+    }
+
+    zoomAnimationFromRef.current = current;
+    zoomAnimationStartTimeRef.current = null;
+    zoomTargetTransformRef.current = target;
+    startZoomAnimation();
+  }, [startZoomAnimation]);
+  const handleZoomAreaRef = useCallback((element: HTMLDivElement | null) => {
+    zoomAreaRef.current = element;
+    setZoomAreaElement(element);
+  }, []);
   const handleDownloadSvg = async (event?: React.MouseEvent) => {
     event?.stopPropagation();
 
@@ -645,111 +862,64 @@ const MermaidDiagram = ({ children, sourceKey }: MermaidDiagramProps) => {
   };
   const handleOpenZoom = () => {
     if (activeRenderState.svg) {
-      setZoomScale(MERMAID_ZOOM_DEFAULT);
-      setFitSvgSize(null);
+      stopZoomAnimation();
+      const defaultTransform = createDefaultMermaidZoomTransform();
+
+      zoomAnimationFromRef.current = defaultTransform;
+      zoomLastUiUpdateTimeRef.current = 0;
+      zoomTransformRef.current = defaultTransform;
+      zoomTargetTransformRef.current = defaultTransform;
+      syncZoomTransformElement(defaultTransform);
+      setZoomScale(defaultTransform.scale);
       setIsPanning(false);
       setIsZoomOpen(true);
     }
   };
   const handleCloseZoom = () => {
+    stopZoomAnimation();
     panStateRef.current.active = false;
     setIsPanning(false);
     setIsZoomOpen(false);
   };
   const resetZoom = () => {
+    stopZoomAnimation();
     panStateRef.current.active = false;
     setIsPanning(false);
-    setZoomScale(MERMAID_ZOOM_DEFAULT);
-    setFitSvgSize(null);
-    window.requestAnimationFrame(() => {
-      const zoomArea = zoomAreaRef.current;
+    const defaultTransform = createDefaultMermaidZoomTransform();
 
-      if (zoomArea) {
-        zoomArea.scrollLeft = 0;
-        zoomArea.scrollTop = 0;
-      }
-    });
-  };
-  const measureFitSvgSize = () => {
-    const svg = zoomContentRef.current?.querySelector('svg');
-
-    if (!svg) {
-      return null;
-    }
-
-    const bounds = svg.getBoundingClientRect();
-
-    if (bounds.width <= 0 || bounds.height <= 0) {
-      return null;
-    }
-
-    const nextSize = { height: bounds.height, width: bounds.width };
-
-    setFitSvgSize(nextSize);
-    return nextSize;
-  };
-  const updateZoomScale = (getNextScale: (currentScale: number) => number, anchor?: { x: number; y: number }) => {
-    const zoomArea = zoomAreaRef.current;
-    const zoomSvg = zoomContentRef.current?.querySelector('svg') ?? null;
-    const areaBounds = zoomArea?.getBoundingClientRect();
-    const svgBounds = zoomSvg?.getBoundingClientRect();
-    const anchorX = areaBounds
-      ? (anchor?.x ?? areaBounds.left + (zoomArea?.clientWidth ?? areaBounds.width) / 2)
-      : 0;
-    const anchorY = areaBounds
-      ? (anchor?.y ?? areaBounds.top + (zoomArea?.clientHeight ?? areaBounds.height) / 2)
-      : 0;
-    const svgAnchor = svgBounds && svgBounds.width > 0 && svgBounds.height > 0
-      ? {
-        x: clampNumber(anchorX - svgBounds.left, 0, svgBounds.width),
-        y: clampNumber(anchorY - svgBounds.top, 0, svgBounds.height),
-      }
-      : null;
-
-    setZoomScale((currentScale) => {
-      if (currentScale === MERMAID_ZOOM_DEFAULT && !fitSvgSize) {
-        measureFitSvgSize();
-      }
-
-      const nextScale = clampMermaidZoomScale(getNextScale(currentScale));
-
-      if (nextScale !== currentScale && zoomArea) {
-        const zoomRatio = nextScale / currentScale;
-        const restoreAnchor = () => {
-          const nextSvg = zoomContentRef.current?.querySelector('svg');
-          const nextSvgBounds = nextSvg?.getBoundingClientRect();
-
-          if (svgAnchor && nextSvgBounds) {
-            zoomArea.scrollLeft += (nextSvgBounds.left + (svgAnchor.x * zoomRatio)) - anchorX;
-            zoomArea.scrollTop += (nextSvgBounds.top + (svgAnchor.y * zoomRatio)) - anchorY;
-          }
-        };
-
-        window.requestAnimationFrame(() => {
-          restoreAnchor();
-          window.requestAnimationFrame(restoreAnchor);
-          window.setTimeout(restoreAnchor, 0);
-          window.setTimeout(restoreAnchor, 50);
-        });
-      }
-
-      return nextScale;
-    });
+    zoomAnimationFromRef.current = defaultTransform;
+    zoomLastUiUpdateTimeRef.current = 0;
+    zoomTransformRef.current = defaultTransform;
+    zoomTargetTransformRef.current = defaultTransform;
+    syncZoomTransformElement(defaultTransform);
+    setZoomScale(defaultTransform.scale);
   };
   const handleZoomIn = () => {
-    updateZoomScale((currentScale) => currentScale + MERMAID_ZOOM_STEP);
+    const zoomArea = zoomAreaRef.current;
+
+    if (!zoomArea) {
+      return;
+    }
+
+    const viewport = getMermaidZoomViewport(zoomArea);
+
+    queueZoomScale(
+      zoomTargetTransformRef.current.scale + MERMAID_ZOOM_STEP,
+      { x: viewport.width / 2, y: viewport.height / 2 },
+    );
   };
   const handleZoomOut = () => {
-    updateZoomScale((currentScale) => currentScale - MERMAID_ZOOM_STEP);
-  };
-  const handleZoomWheel = (event: React.WheelEvent) => {
-    event.preventDefault();
+    const zoomArea = zoomAreaRef.current;
 
-    const direction = event.deltaY > 0 ? -1 : 1;
+    if (!zoomArea) {
+      return;
+    }
 
-    updateZoomScale(
-      (currentScale) => currentScale + (direction * MERMAID_ZOOM_STEP),
-      { x: event.clientX, y: event.clientY },
+    const viewport = getMermaidZoomViewport(zoomArea);
+
+    queueZoomScale(
+      zoomTargetTransformRef.current.scale - MERMAID_ZOOM_STEP,
+      { x: viewport.width / 2, y: viewport.height / 2 },
     );
   };
   const handlePanStart = (event: React.PointerEvent<HTMLDivElement>) => {
@@ -764,12 +934,13 @@ const MermaidDiagram = ({ children, sourceKey }: MermaidDiagramProps) => {
     }
 
     event.preventDefault();
+    stopZoomAnimation();
     event.currentTarget.setPointerCapture(event.pointerId);
     panStateRef.current = {
       active: true,
       pointerId: event.pointerId,
-      scrollLeft: zoomArea.scrollLeft,
-      scrollTop: zoomArea.scrollTop,
+      transformX: zoomTransformRef.current.x,
+      transformY: zoomTransformRef.current.y,
       x: event.clientX,
       y: event.clientY,
     };
@@ -789,8 +960,24 @@ const MermaidDiagram = ({ children, sourceKey }: MermaidDiagramProps) => {
     }
 
     event.preventDefault();
-    zoomArea.scrollLeft = panState.scrollLeft - (event.clientX - panState.x);
-    zoomArea.scrollTop = panState.scrollTop - (event.clientY - panState.y);
+    const viewport = getMermaidZoomViewport(zoomArea);
+    const contentSize = zoomViewportSizeRef.current;
+    const nextTransform = constrainMermaidPan(
+      {
+        scale: zoomTransformRef.current.scale,
+        x: panState.transformX + (event.clientX - panState.x),
+        y: panState.transformY + (event.clientY - panState.y),
+      },
+      viewport.width,
+      viewport.height,
+      contentSize.width || viewport.width,
+      contentSize.height || viewport.height,
+    );
+
+    zoomTransformRef.current = nextTransform;
+    zoomTargetTransformRef.current = nextTransform;
+    zoomAnimationFromRef.current = nextTransform;
+    syncZoomTransformElement(nextTransform);
   };
   const handlePanEnd = (event: React.PointerEvent<HTMLDivElement>) => {
     const panState = panStateRef.current;
@@ -807,6 +994,77 @@ const MermaidDiagram = ({ children, sourceKey }: MermaidDiagramProps) => {
 
     setIsPanning(false);
   };
+  const handleZoomAreaScroll = () => {
+    const zoomArea = zoomAreaRef.current;
+    const current = zoomTransformRef.current;
+
+    if (!zoomArea || current.scale <= MERMAID_ZOOM_DEFAULT) {
+      return;
+    }
+
+    const expected = zoomExpectedScrollRef.current;
+
+    if (
+      Math.abs(zoomArea.scrollLeft - expected.left) < 0.75
+      && Math.abs(zoomArea.scrollTop - expected.top) < 0.75
+    ) {
+      return;
+    }
+
+    stopZoomAnimation();
+
+    const viewport = getMermaidZoomViewport(zoomArea);
+    const contentSize = zoomViewportSizeRef.current;
+    const nextTransform = constrainMermaidPan(
+      {
+        ...current,
+        x: -zoomArea.scrollLeft,
+        y: -zoomArea.scrollTop,
+      },
+      viewport.width,
+      viewport.height,
+      contentSize.width || viewport.width,
+      contentSize.height || viewport.height,
+    );
+
+    zoomAnimationFromRef.current = nextTransform;
+    zoomTransformRef.current = nextTransform;
+    zoomTargetTransformRef.current = nextTransform;
+    syncZoomTransformElement(nextTransform);
+  };
+
+  useLayoutEffect(() => {
+    if (!isZoomOpen || !zoomAreaElement || !zoomContentRef.current || !zoomStageRef.current) {
+      return undefined;
+    }
+
+    const updateViewport = () => {
+      const viewport = getMermaidZoomViewport(zoomAreaElement);
+      const current = constrainMermaidPan(
+        zoomTransformRef.current,
+        viewport.width,
+        viewport.height,
+      );
+
+      zoomViewportSizeRef.current = { height: viewport.height, width: viewport.width };
+      zoomAnimationFromRef.current = current;
+      zoomTransformRef.current = current;
+      zoomTargetTransformRef.current = current;
+      syncZoomTransformElement(current);
+    };
+
+    updateViewport();
+
+    if (typeof ResizeObserver === 'undefined') {
+      return undefined;
+    }
+
+    const resizeObserver = new ResizeObserver(updateViewport);
+
+    resizeObserver.observe(zoomAreaElement, { box: 'border-box' });
+
+    return () => resizeObserver.disconnect();
+  }, [isZoomOpen, syncZoomTransformElement, zoomAreaElement]);
 
   useEffect(() => {
     let cancelled = false;
@@ -842,16 +1100,51 @@ const MermaidDiagram = ({ children, sourceKey }: MermaidDiagramProps) => {
   }, [diagramId, mode, rawCode, renderKey]);
 
   useEffect(() => {
-    if (!isZoomOpen || !activeRenderState.svg || !isFitZoom) {
+    if (!isZoomOpen) {
       return undefined;
     }
 
-    const frame = window.requestAnimationFrame(() => {
-      measureFitSvgSize();
-    });
+    if (!zoomAreaElement) {
+      return undefined;
+    }
 
-    return () => window.cancelAnimationFrame(frame);
-  }, [activeRenderState.svg, isFitZoom, isZoomOpen]);
+    const zoomArea = zoomAreaElement;
+    const handleWheel = (event: WheelEvent) => {
+      if (event.deltaY === 0) {
+        return;
+      }
+
+      event.preventDefault();
+      event.stopPropagation();
+
+      if (panStateRef.current.active) {
+        return;
+      }
+
+      const viewport = getMermaidZoomViewport(zoomArea);
+      const delta = getNormalizedWheelDelta(event, viewport.height);
+
+      if (delta === 0) {
+        return;
+      }
+
+      const factor = Math.exp(-delta * MERMAID_WHEEL_ZOOM_SENSITIVITY);
+      const nextScale = zoomTargetTransformRef.current.scale * factor;
+
+      queueZoomScale(nextScale, {
+        x: clampNumber(event.clientX - viewport.bounds.left, 0, viewport.width),
+        y: clampNumber(event.clientY - viewport.bounds.top, 0, viewport.height),
+      });
+    };
+
+    zoomArea.addEventListener('wheel', handleWheel, { passive: false });
+
+    return () => zoomArea.removeEventListener('wheel', handleWheel);
+  }, [isZoomOpen, queueZoomScale, zoomAreaElement]);
+
+  useEffect(() => () => {
+    stopZoomAnimation();
+  }, [stopZoomAnimation]);
 
   if (activeRenderState.error) {
     return (
@@ -965,7 +1258,7 @@ const MermaidDiagram = ({ children, sourceKey }: MermaidDiagramProps) => {
         }}
       >
         {activeRenderState.svg ? (
-          <Box dangerouslySetInnerHTML={{ __html: activeRenderState.svg }} />
+          <Box dangerouslySetInnerHTML={activeSvgMarkup} />
         ) : (
           <Typography
             component="p"
@@ -1114,23 +1407,21 @@ const MermaidDiagram = ({ children, sourceKey }: MermaidDiagramProps) => {
           </Box>
           <Box
             aria-label="Mermaid-Diagramm Zoom-Bereich"
+            onLostPointerCapture={handlePanEnd}
             onPointerCancel={handlePanEnd}
             onPointerDown={handlePanStart}
-            onPointerLeave={handlePanEnd}
             onPointerMove={handlePanMove}
             onPointerUp={handlePanEnd}
-            onWheel={handleZoomWheel}
-            ref={zoomAreaRef}
+            onScroll={handleZoomAreaScroll}
+            ref={handleZoomAreaRef}
             sx={{
-              alignItems: isZoomedIn ? 'flex-start' : 'center',
               boxSizing: 'border-box',
               cursor: isPanning ? MERMAID_PAN_CURSOR : MERMAID_SCROLL_ZOOM_CURSOR,
-              display: isZoomedIn ? 'block' : 'flex',
               height: { xs: '52vh', md: '64vh' },
-              justifyContent: isZoomedIn ? 'flex-start' : 'center',
-              overflowX: isFitZoom ? 'hidden' : 'auto',
-              overflowY: isFitZoom ? 'hidden' : 'auto',
-              pt: 2,
+              overflowX: 'hidden',
+              overflowY: 'hidden',
+              overscrollBehavior: 'contain',
+              position: 'relative',
               scrollbarGutter: 'stable',
               touchAction: 'none',
               userSelect: 'none',
@@ -1140,19 +1431,41 @@ const MermaidDiagram = ({ children, sourceKey }: MermaidDiagramProps) => {
               ...getMermaidScrollbarStyles(mode),
             }}
           >
+            <Box
+              aria-hidden="true"
+              ref={zoomStageRef}
+              sx={{
+                height: '100%',
+                pointerEvents: 'none',
+                width: '100%',
+              }}
+            />
             {activeRenderState.svg ? (
               <Box
                 data-testid="mermaid-zoom-content"
-                data-zoom-scale={zoomScale.toFixed(2)}
-                dangerouslySetInnerHTML={{ __html: activeRenderState.svg }}
+                data-zoom-scale="1.00"
+                data-zoom-x="0.000"
+                data-zoom-y="0.000"
+                dangerouslySetInnerHTML={activeSvgMarkup}
                 ref={zoomContentRef}
+                style={{
+                  transform: 'translate3d(0px, 0px, 0) scale(1)',
+                }}
                 sx={{
                   alignItems: 'center',
+                  backfaceVisibility: 'hidden',
+                  boxSizing: 'border-box',
+                  contain: 'layout paint',
                   display: 'flex',
-                  height: isFitZoom ? '100%' : measuredZoomHeight,
+                  height: '100%',
                   justifyContent: 'center',
-                  mx: isZoomedIn ? 'auto' : 0,
-                  width: isFitZoom ? '100%' : measuredZoomWidth,
+                  left: 0,
+                  p: 2,
+                  position: 'absolute',
+                  top: 0,
+                  transformOrigin: '0 0',
+                  width: '100%',
+                  willChange: 'transform',
                   '& svg': {
                     display: 'block',
                     height: 'auto !important',
