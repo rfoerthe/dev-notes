@@ -620,9 +620,44 @@ describe('Markdown renderer', () => {
     expect(screen.getByRole('dialog', { name: 'Mermaid-Diagramm vergrößert' })).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Mermaid-Diagramm herauszoomen' })).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Mermaid-Diagramm hineinzoomen' })).toBeTruthy();
-    expect(screen.getByRole('button', { name: 'Mermaid-Diagramm formatfüllend anzeigen' })).toBeTruthy();
+    const fitButton = screen.getByRole('button', { name: 'Mermaid-Diagramm formatfüllend anzeigen' });
+    const maximizeButton = screen.getByRole('button', { name: 'Mermaid-Popup maximieren' });
+    expect(fitButton.querySelector('.lucide-rotate-ccw')).toBeTruthy();
+    expect(maximizeButton.querySelector('.lucide-maximize')).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Vergrößertes Mermaid-Diagramm schließen' })).toBeTruthy();
     expect(screen.queryByLabelText('Mermaid-Diagramm Zoomlevel')).toBeNull();
+  });
+
+  it('maximizes the Mermaid popup and restores its original size with matching icons', async () => {
+    const markdown = '```mermaid\nflowchart LR\n  A --> B\n```';
+    render(<>{renderMarkdown(markdown)}</>);
+
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: 'Mermaid-Diagramm vergrößern' })).toBeTruthy();
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Mermaid-Diagramm vergrößern' }));
+
+    const dialog = screen.getByRole('dialog', { name: 'Mermaid-Diagramm vergrößert' });
+    const maximizeButton = screen.getByRole('button', { name: 'Mermaid-Popup maximieren' });
+
+    expect(dialog.classList.contains('MuiDialog-paperFullScreen')).toBe(false);
+    expect(maximizeButton.getAttribute('aria-pressed')).toBe('false');
+    expect(maximizeButton.querySelector('.lucide-maximize')).toBeTruthy();
+
+    fireEvent.click(maximizeButton);
+
+    const restoreButton = screen.getByRole('button', {
+      name: 'Mermaid-Popup ursprüngliche Größe wiederherstellen',
+    });
+    expect(dialog.classList.contains('MuiDialog-paperFullScreen')).toBe(true);
+    expect(restoreButton.getAttribute('aria-pressed')).toBe('true');
+    expect(restoreButton.querySelector('.lucide-minimize-2')).toBeTruthy();
+
+    fireEvent.click(restoreButton);
+
+    expect(dialog.classList.contains('MuiDialog-paperFullScreen')).toBe(false);
+    expect(screen.getByRole('button', { name: 'Mermaid-Popup maximieren' })).toBeTruthy();
   });
 
   it('zooms Mermaid popup diagrams smoothly around the pointer and resets them to fit view', async () => {

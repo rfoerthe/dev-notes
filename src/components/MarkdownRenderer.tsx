@@ -3,7 +3,7 @@ import ReactMarkdown, { type Components } from 'react-markdown';
 import rehypeSanitize from 'rehype-sanitize';
 import remarkGfm from 'remark-gfm';
 import { Box, Dialog, DialogContent, IconButton, Link as MuiLink, Tooltip, Typography, useTheme } from '@mui/material';
-import { Check, Copy, Download, Maximize2, X, ZoomIn, ZoomOut } from 'lucide-react';
+import { Check, Copy, Download, Maximize, Minimize2, RotateCcw, X, ZoomIn, ZoomOut } from 'lucide-react';
 import type mermaid from 'mermaid';
 import type { MermaidConfig } from 'mermaid';
 import { createHighlighterCore } from '@shikijs/core';
@@ -714,6 +714,7 @@ const MermaidDiagram = ({ children, sourceKey }: MermaidDiagramProps) => {
     [activeRenderState.svg],
   );
   const [isZoomOpen, setIsZoomOpen] = useState(false);
+  const [isZoomMaximized, setIsZoomMaximized] = useState(false);
   const [zoomAreaElement, setZoomAreaElement] = useState<HTMLDivElement | null>(null);
   const [zoomScale, setZoomScale] = useState(MERMAID_ZOOM_DEFAULT);
   const [isPanning, setIsPanning] = useState(false);
@@ -872,6 +873,7 @@ const MermaidDiagram = ({ children, sourceKey }: MermaidDiagramProps) => {
       syncZoomTransformElement(defaultTransform);
       setZoomScale(defaultTransform.scale);
       setIsPanning(false);
+      setIsZoomMaximized(false);
       setIsZoomOpen(true);
     }
   };
@@ -879,7 +881,11 @@ const MermaidDiagram = ({ children, sourceKey }: MermaidDiagramProps) => {
     stopZoomAnimation();
     panStateRef.current.active = false;
     setIsPanning(false);
+    setIsZoomMaximized(false);
     setIsZoomOpen(false);
+  };
+  const toggleZoomMaximized = () => {
+    setIsZoomMaximized((isMaximized) => !isMaximized);
   };
   const resetZoom = () => {
     stopZoomAnimation();
@@ -1064,7 +1070,7 @@ const MermaidDiagram = ({ children, sourceKey }: MermaidDiagramProps) => {
     resizeObserver.observe(zoomAreaElement, { box: 'border-box' });
 
     return () => resizeObserver.disconnect();
-  }, [isZoomOpen, syncZoomTransformElement, zoomAreaElement]);
+  }, [isZoomMaximized, isZoomOpen, syncZoomTransformElement, zoomAreaElement]);
 
   useEffect(() => {
     let cancelled = false;
@@ -1273,6 +1279,7 @@ const MermaidDiagram = ({ children, sourceKey }: MermaidDiagramProps) => {
         )}
       </Box>
       <Dialog
+        fullScreen={isZoomMaximized}
         fullWidth
         maxWidth="lg"
         onClose={handleCloseZoom}
@@ -1282,17 +1289,23 @@ const MermaidDiagram = ({ children, sourceKey }: MermaidDiagramProps) => {
             'aria-label': 'Mermaid-Diagramm vergrößert',
             sx: {
               bgcolor: mode === 'dark' ? '#060913' : '#f8fafc',
-              border: `1px solid ${borderColor}`,
-              borderRadius: 1,
-              maxHeight: '92vh',
+              border: isZoomMaximized ? 0 : `1px solid ${borderColor}`,
+              borderRadius: isZoomMaximized ? 0 : 1,
+              height: isZoomMaximized ? '100%' : 'auto',
+              maxHeight: isZoomMaximized ? '100%' : '92vh',
+              maxWidth: isZoomMaximized ? '100vw' : undefined,
+              width: isZoomMaximized ? '100vw' : undefined,
             },
           },
         }}
       >
         <DialogContent
           sx={{
+            display: 'flex',
+            flexDirection: 'column',
+            height: isZoomMaximized ? '100%' : 'auto',
             minHeight: { xs: '60vh', md: '72vh' },
-            overflow: 'auto',
+            overflow: isZoomMaximized ? 'hidden' : 'auto',
             p: { xs: 2, md: 4 },
             position: 'relative',
             ...getMermaidScrollbarStyles(mode),
@@ -1303,6 +1316,7 @@ const MermaidDiagram = ({ children, sourceKey }: MermaidDiagramProps) => {
               alignItems: 'center',
               display: 'flex',
               gap: 1,
+              flexShrink: 0,
               position: 'sticky',
               top: 0,
               justifyContent: 'flex-end',
@@ -1375,7 +1389,23 @@ const MermaidDiagram = ({ children, sourceKey }: MermaidDiagramProps) => {
                   border: `1px solid ${borderColor}`,
                 }}
               >
-                <Maximize2 size={16} />
+                <RotateCcw size={16} />
+              </IconButton>
+            </Tooltip>
+            <Tooltip title={isZoomMaximized ? 'Ursprüngliche Popup-Größe wiederherstellen' : 'Popup maximieren'}>
+              <IconButton
+                aria-label={isZoomMaximized
+                  ? 'Mermaid-Popup ursprüngliche Größe wiederherstellen'
+                  : 'Mermaid-Popup maximieren'}
+                aria-pressed={isZoomMaximized}
+                onClick={toggleZoomMaximized}
+                size="small"
+                sx={{
+                  bgcolor: mode === 'dark' ? 'rgba(15, 23, 42, 0.86)' : 'rgba(255, 255, 255, 0.86)',
+                  border: `1px solid ${borderColor}`,
+                }}
+              >
+                {isZoomMaximized ? <Minimize2 size={16} /> : <Maximize size={16} />}
               </IconButton>
             </Tooltip>
             <Tooltip title="SVG herunterladen">
@@ -1386,6 +1416,7 @@ const MermaidDiagram = ({ children, sourceKey }: MermaidDiagramProps) => {
                 sx={{
                   bgcolor: mode === 'dark' ? 'rgba(15, 23, 42, 0.86)' : 'rgba(255, 255, 255, 0.86)',
                   border: `1px solid ${borderColor}`,
+                  ml: 1,
                 }}
               >
                 <Download size={16} />
@@ -1417,7 +1448,9 @@ const MermaidDiagram = ({ children, sourceKey }: MermaidDiagramProps) => {
             sx={{
               boxSizing: 'border-box',
               cursor: isPanning ? MERMAID_PAN_CURSOR : MERMAID_SCROLL_ZOOM_CURSOR,
-              height: { xs: '52vh', md: '64vh' },
+              flex: isZoomMaximized ? '1 1 auto' : '0 0 auto',
+              height: isZoomMaximized ? 'auto' : { xs: '52vh', md: '64vh' },
+              minHeight: 0,
               overflowX: 'hidden',
               overflowY: 'hidden',
               overscrollBehavior: 'contain',

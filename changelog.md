@@ -1,5 +1,15 @@
 # Changelog
 
+## [1.0.17] - 2026-07-10
+
+### Added
+
+- Mermaid zoom popups can now be maximized to the available browser window and restored to their original responsive size with a dedicated icon toggle.
+
+### Changed
+
+- Mermaid popup controls now use clearly distinct icons for fit-to-view and window maximization, with additional spacing before the SVG download action.
+
 ## [1.0.16] - 2026-07-10
 
 ### Changed
