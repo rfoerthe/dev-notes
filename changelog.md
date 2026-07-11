@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.0.20] - 2026-07-12
+
+### Changed
+
+- Completed Mermaid zoom gestures now settle the SVG at the selected layout scale for a sharp rendering while preserving the current zoom position.
+- Settled Mermaid SVG dimensions now remain responsive when the popup or browser window is resized.
+- Mermaid diagrams can now be zoomed up to 800% instead of 400%.
+
 ## [1.0.19] - 2026-07-11
 
 ### Added

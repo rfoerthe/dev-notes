@@ -20,7 +20,7 @@ const DEFAULT_LANGUAGE = 'text';
 const MERMAID_LANGUAGE = 'mermaid';
 const MERMAID_ZOOM_DEFAULT = 1;
 const MERMAID_ZOOM_MIN = 0.1;
-const MERMAID_ZOOM_MAX = 4;
+const MERMAID_ZOOM_MAX = 8;
 const MERMAID_ZOOM_STEP = 0.1;
 const MERMAID_ZOOM_SCALE_EPSILON = 0.000001;
 const MERMAID_ZOOM_ANIMATION_MS = 120;
@@ -687,6 +687,8 @@ const MermaidDiagram = ({ children, sourceKey }: MermaidDiagramProps) => {
   const zoomContentRef = useRef<HTMLDivElement | null>(null);
   const zoomStageRef = useRef<HTMLDivElement | null>(null);
   const zoomViewportSizeRef = useRef({ height: 0, width: 0 });
+  const zoomRenderedScaleRef = useRef(MERMAID_ZOOM_DEFAULT);
+  const zoomRenderedSvgSizeRef = useRef({ height: 0, width: 0 });
   const zoomExpectedScrollRef = useRef({ left: 0, top: 0 });
   const panStateRef = useRef({
     active: false,
@@ -760,6 +762,8 @@ const MermaidDiagram = ({ children, sourceKey }: MermaidDiagramProps) => {
       zoomViewportSizeRef.current = { height, width };
     }
 
+    const renderedScale = zoomRenderedScaleRef.current;
+    const transientScale = transform.scale / renderedScale;
     const usesNativeScroll = transform.scale > MERMAID_ZOOM_DEFAULT;
     const stageScale = Math.max(MERMAID_ZOOM_DEFAULT, transform.scale);
     const translateX = usesNativeScroll ? 0 : transform.x;
@@ -769,10 +773,13 @@ const MermaidDiagram = ({ children, sourceKey }: MermaidDiagramProps) => {
     zoomArea.style.overflowY = usesNativeScroll ? 'auto' : 'hidden';
     zoomStage.style.height = `${height * stageScale}px`;
     zoomStage.style.width = `${width * stageScale}px`;
-    zoomContent.style.height = `${height}px`;
-    zoomContent.style.width = `${width}px`;
-    zoomContent.style.transform = `translate3d(${translateX}px, ${translateY}px, 0) scale(${transform.scale})`;
+    zoomContent.style.height = `${height * renderedScale}px`;
+    zoomContent.style.width = `${width * renderedScale}px`;
+    zoomContent.style.transform = `translate3d(${translateX}px, ${translateY}px, 0) scale(${transientScale})`;
+    zoomContent.dataset.zoomRenderedScale = renderedScale.toFixed(2);
     zoomContent.dataset.zoomScale = transform.scale.toFixed(2);
+    zoomContent.dataset.zoomScaleExact = transform.scale.toFixed(6);
+    zoomContent.dataset.zoomTransientScale = transientScale.toFixed(3);
     zoomContent.dataset.zoomX = transform.x.toFixed(3);
     zoomContent.dataset.zoomY = transform.y.toFixed(3);
 
@@ -785,6 +792,76 @@ const MermaidDiagram = ({ children, sourceKey }: MermaidDiagramProps) => {
     zoomArea.scrollLeft = expectedScroll.left;
     zoomArea.scrollTop = expectedScroll.top;
   }, []);
+  const resetZoomRendering = useCallback(() => {
+    const zoomContent = zoomContentRef.current;
+    const zoomSvg = zoomContent?.querySelector('svg');
+
+    zoomRenderedScaleRef.current = MERMAID_ZOOM_DEFAULT;
+    zoomRenderedSvgSizeRef.current = { height: 0, width: 0 };
+
+    if (zoomSvg) {
+      zoomSvg.style.removeProperty('height');
+      zoomSvg.style.removeProperty('max-height');
+      zoomSvg.style.removeProperty('max-width');
+      zoomSvg.style.removeProperty('width');
+    }
+
+    if (zoomContent) {
+      zoomContent.dataset.zoomRenderMode = 'layout';
+      zoomContent.style.willChange = 'auto';
+    }
+  }, []);
+  const prepareZoomRendering = useCallback(() => {
+    const zoomContent = zoomContentRef.current;
+
+    if (zoomContent) {
+      zoomContent.dataset.zoomRenderMode = 'transform';
+      zoomContent.style.willChange = 'transform';
+    }
+  }, []);
+  const settleZoomRendering = useCallback((transform = zoomTransformRef.current) => {
+    const zoomContent = zoomContentRef.current;
+    const zoomSvg = zoomContent?.querySelector('svg');
+
+    if (!zoomContent || !zoomSvg) {
+      return;
+    }
+
+    if (Math.abs(transform.scale - MERMAID_ZOOM_DEFAULT) < MERMAID_ZOOM_SCALE_EPSILON) {
+      resetZoomRendering();
+      syncZoomTransformElement(transform);
+      return;
+    }
+
+    const svgBounds = zoomSvg.getBoundingClientRect();
+    const contentBounds = zoomContent.getBoundingClientRect();
+    const viewportSize = zoomViewportSizeRef.current;
+    const targetContentSize = {
+      height: viewportSize.height * transform.scale,
+      width: viewportSize.width * transform.scale,
+    };
+    const settledSvgSize = {
+      height: contentBounds.height > 0
+        ? (svgBounds.height / contentBounds.height) * targetContentSize.height
+        : svgBounds.height,
+      width: contentBounds.width > 0
+        ? (svgBounds.width / contentBounds.width) * targetContentSize.width
+        : svgBounds.width,
+    };
+
+    if (settledSvgSize.width > 0 && settledSvgSize.height > 0) {
+      zoomRenderedSvgSizeRef.current = settledSvgSize;
+      zoomSvg.style.setProperty('height', `${settledSvgSize.height}px`, 'important');
+      zoomSvg.style.setProperty('max-height', 'none', 'important');
+      zoomSvg.style.setProperty('max-width', 'none', 'important');
+      zoomSvg.style.setProperty('width', `${settledSvgSize.width}px`, 'important');
+    }
+
+    zoomRenderedScaleRef.current = transform.scale;
+    syncZoomTransformElement(transform);
+    zoomContent.dataset.zoomRenderMode = 'layout';
+    zoomContent.style.willChange = 'auto';
+  }, [resetZoomRendering, syncZoomTransformElement]);
   const stopZoomAnimation = useCallback(() => {
     if (zoomAnimationFrameRef.current !== null) {
       window.cancelAnimationFrame(zoomAnimationFrameRef.current);
@@ -824,6 +901,7 @@ const MermaidDiagram = ({ children, sourceKey }: MermaidDiagramProps) => {
       if (isComplete) {
         zoomAnimationFrameRef.current = null;
         zoomAnimationStartTimeRef.current = null;
+        settleZoomRendering(nextTransform);
         return;
       }
 
@@ -831,7 +909,7 @@ const MermaidDiagram = ({ children, sourceKey }: MermaidDiagramProps) => {
     };
 
     zoomAnimationFrameRef.current = window.requestAnimationFrame(animate);
-  }, [syncZoomTransformElement]);
+  }, [settleZoomRendering, syncZoomTransformElement]);
   const queueZoomScale = useCallback((nextScale: number, anchor: { x: number; y: number }) => {
     const clampedScale = clampMermaidZoomScale(nextScale);
 
@@ -862,8 +940,9 @@ const MermaidDiagram = ({ children, sourceKey }: MermaidDiagramProps) => {
     zoomAnimationFromRef.current = current;
     zoomAnimationStartTimeRef.current = null;
     zoomTargetTransformRef.current = target;
+    prepareZoomRendering();
     startZoomAnimation();
-  }, [startZoomAnimation]);
+  }, [prepareZoomRendering, startZoomAnimation]);
   const handleZoomAreaRef = useCallback((element: HTMLDivElement | null) => {
     zoomAreaRef.current = element;
     setZoomAreaElement(element);
@@ -890,6 +969,7 @@ const MermaidDiagram = ({ children, sourceKey }: MermaidDiagramProps) => {
       touchPointersRef.current.clear();
       pinchStateRef.current.active = false;
       pinchStateRef.current.pointerIds = null;
+      resetZoomRendering();
       zoomAnimationFromRef.current = defaultTransform;
       zoomLastUiUpdateTimeRef.current = 0;
       zoomTransformRef.current = defaultTransform;
@@ -907,6 +987,7 @@ const MermaidDiagram = ({ children, sourceKey }: MermaidDiagramProps) => {
     touchPointersRef.current.clear();
     pinchStateRef.current.active = false;
     pinchStateRef.current.pointerIds = null;
+    resetZoomRendering();
     setIsPanning(false);
     setIsZoomMaximized(false);
     setIsZoomOpen(false);
@@ -920,6 +1001,7 @@ const MermaidDiagram = ({ children, sourceKey }: MermaidDiagramProps) => {
     touchPointersRef.current.clear();
     pinchStateRef.current.active = false;
     pinchStateRef.current.pointerIds = null;
+    resetZoomRendering();
     setIsPanning(false);
     const defaultTransform = createDefaultMermaidZoomTransform();
 
@@ -978,6 +1060,7 @@ const MermaidDiagram = ({ children, sourceKey }: MermaidDiagramProps) => {
     const viewport = getMermaidZoomViewport(zoomArea);
 
     stopZoomAnimation();
+    prepareZoomRendering();
     panStateRef.current.active = false;
     pinchStateRef.current = {
       active: true,
@@ -1006,6 +1089,7 @@ const MermaidDiagram = ({ children, sourceKey }: MermaidDiagramProps) => {
 
     event.preventDefault();
     stopZoomAnimation();
+    settleZoomRendering();
     event.currentTarget.setPointerCapture(event.pointerId);
 
     if (event.pointerType === 'touch') {
@@ -1134,12 +1218,14 @@ const MermaidDiagram = ({ children, sourceKey }: MermaidDiagramProps) => {
       if (pinchState.active && endedPinchPointer) {
         pinchState.active = false;
         pinchState.pointerIds = null;
-        setZoomScale(zoomTransformRef.current.scale);
 
         if (touchPointersRef.current.size >= 2) {
           startPinchGesture(event.currentTarget);
           return;
         }
+
+        settleZoomRendering();
+        setZoomScale(zoomTransformRef.current.scale);
 
         const remainingTouch = touchPointersRef.current.entries().next().value as
           | [number, MermaidTouchPoint]
@@ -1198,6 +1284,7 @@ const MermaidDiagram = ({ children, sourceKey }: MermaidDiagramProps) => {
     }
 
     stopZoomAnimation();
+    settleZoomRendering();
 
     const viewport = getMermaidZoomViewport(zoomArea);
     const contentSize = zoomViewportSizeRef.current;
@@ -1226,6 +1313,31 @@ const MermaidDiagram = ({ children, sourceKey }: MermaidDiagramProps) => {
 
     const updateViewport = () => {
       const viewport = getMermaidZoomViewport(zoomAreaElement);
+      const previousViewport = zoomViewportSizeRef.current;
+      const renderedSvgSize = zoomRenderedSvgSizeRef.current;
+      const zoomSvg = zoomContentRef.current?.querySelector('svg');
+
+      if (
+        zoomSvg
+        && renderedSvgSize.width > 0
+        && renderedSvgSize.height > 0
+        && previousViewport.width > 0
+        && previousViewport.height > 0
+      ) {
+        const resizeRatio = Math.min(
+          viewport.width / previousViewport.width,
+          viewport.height / previousViewport.height,
+        );
+        const nextSvgSize = {
+          height: renderedSvgSize.height * resizeRatio,
+          width: renderedSvgSize.width * resizeRatio,
+        };
+
+        zoomRenderedSvgSizeRef.current = nextSvgSize;
+        zoomSvg.style.setProperty('height', `${nextSvgSize.height}px`, 'important');
+        zoomSvg.style.setProperty('width', `${nextSvgSize.width}px`, 'important');
+      }
+
       const current = constrainMermaidPan(
         zoomTransformRef.current,
         viewport.width,
@@ -1656,7 +1768,11 @@ const MermaidDiagram = ({ children, sourceKey }: MermaidDiagramProps) => {
             {activeRenderState.svg ? (
               <Box
                 data-testid="mermaid-zoom-content"
+                data-zoom-render-mode="layout"
+                data-zoom-rendered-scale="1.00"
                 data-zoom-scale="1.00"
+                data-zoom-scale-exact="1.000000"
+                data-zoom-transient-scale="1.000"
                 data-zoom-x="0.000"
                 data-zoom-y="0.000"
                 dangerouslySetInnerHTML={activeSvgMarkup}
@@ -1681,6 +1797,7 @@ const MermaidDiagram = ({ children, sourceKey }: MermaidDiagramProps) => {
                   willChange: 'transform',
                   '& svg': {
                     display: 'block',
+                    flexShrink: 0,
                     height: 'auto !important',
                     maxHeight: '100% !important',
                     maxWidth: '100% !important',

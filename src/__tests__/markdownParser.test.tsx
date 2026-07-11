@@ -703,6 +703,36 @@ describe('Markdown renderer', () => {
       x: 10,
       y: 20,
     });
+    vi.spyOn(zoomContent, 'getBoundingClientRect').mockImplementation(() => {
+      const scale = Number(zoomContent.getAttribute('data-zoom-scale')) || 1;
+
+      return {
+        bottom: 20 + (500 * scale),
+        height: 500 * scale,
+        left: 10,
+        right: 10 + (1000 * scale),
+        toJSON: () => undefined,
+        top: 20,
+        width: 1000 * scale,
+        x: 10,
+        y: 20,
+      };
+    });
+    vi.spyOn(zoomSvg as SVGSVGElement, 'getBoundingClientRect').mockImplementation(() => {
+      const scale = Number(zoomContent.getAttribute('data-zoom-scale')) || 1;
+
+      return {
+        bottom: 190 + (160 * scale),
+        height: 160 * scale,
+        left: 310,
+        right: 310 + (400 * scale),
+        toJSON: () => undefined,
+        top: 190,
+        width: 400 * scale,
+        x: 310,
+        y: 190,
+      };
+    });
     const zoomOutButton = screen.getByRole('button', { name: 'Mermaid-Diagramm herauszoomen' });
     const zoomInButton = screen.getByRole('button', { name: 'Mermaid-Diagramm hineinzoomen' });
     expect(zoomContent.getAttribute('data-zoom-scale')).toBe('1.00');
@@ -739,6 +769,18 @@ describe('Markdown renderer', () => {
     expect(zoomContent.getAttribute('data-zoom-y')).toBe('0.000');
     expect(screen.queryByLabelText('Mermaid-Diagramm Zoomlevel')).toBeNull();
 
+    for (let index = 0; index < 70; index += 1) {
+      fireEvent.click(zoomInButton);
+    }
+    await waitFor(() => {
+      expect(zoomContent.getAttribute('data-zoom-scale')).toBe('8.00');
+      expect(screen.getByLabelText('Mermaid-Diagramm Zoomlevel').textContent).toBe('800%');
+      expect((zoomInButton as HTMLButtonElement).disabled).toBe(true);
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Mermaid-Diagramm formatfüllend anzeigen' }));
+    expect(zoomContent.getAttribute('data-zoom-scale')).toBe('1.00');
+
     const zeroDeltaWheel = new WheelEvent('wheel', {
       bubbles: true,
       cancelable: true,
@@ -757,15 +799,21 @@ describe('Markdown renderer', () => {
     requestAnimationFrameSpy.mockRestore();
     await waitFor(() => {
       expect(zoomContent.getAttribute('data-zoom-scale')).toBe('1.04');
+      expect(zoomContent.getAttribute('data-zoom-render-mode')).toBe('layout');
+      expect(zoomContent.getAttribute('data-zoom-rendered-scale')).toBe('1.04');
     });
 
-    const burstScale = Number(zoomContent.style.transform.match(/scale\(([^)]+)\)/)?.[1]);
+    const burstScale = Number(zoomContent.getAttribute('data-zoom-scale-exact'));
     const burstX = Number(zoomContent.getAttribute('data-zoom-x'));
     const burstY = Number(zoomContent.getAttribute('data-zoom-y'));
     const pointerX = 210 - 10;
     const pointerY = 120 - 20;
     expect(burstX + (pointerX * burstScale)).toBeCloseTo(pointerX, 1);
     expect(burstY + (pointerY * burstScale)).toBeCloseTo(pointerY, 1);
+    expect(zoomContent.getAttribute('data-zoom-transient-scale')).toBe('1.000');
+    expect(zoomContent.style.transform).toContain('scale(1)');
+    expect(Number.parseFloat((zoomSvg as SVGSVGElement).style.width)).toBeCloseTo(400 * burstScale);
+    expect(Number.parseFloat((zoomSvg as SVGSVGElement).style.height)).toBeCloseTo(160 * burstScale);
 
     fireEvent.click(screen.getByRole('button', { name: 'Mermaid-Diagramm formatfüllend anzeigen' }));
 
@@ -781,6 +829,7 @@ describe('Markdown renderer', () => {
 
     await waitFor(() => {
       expect(zoomContent.getAttribute('data-zoom-scale')).toBe('1.20');
+      expect(zoomContent.getAttribute('data-zoom-rendered-scale')).toBe('1.20');
       expect(screen.getByLabelText('Mermaid-Diagramm Zoomlevel').textContent).toBe('120%');
     });
     expect(window.getComputedStyle(zoomArea).overflowY).toBe('auto');
@@ -792,21 +841,25 @@ describe('Markdown renderer', () => {
     expect(headerItems.indexOf(zoomLevel)).toBeLessThan(headerItems.indexOf(zoomInButton.parentElement as Element));
     expect(zoomContent.querySelector('svg')).toBe(zoomSvg);
 
-    const anchoredScale = Number(zoomContent.style.transform.match(/scale\(([^)]+)\)/)?.[1]);
+    const anchoredScale = Number(zoomContent.getAttribute('data-zoom-scale-exact'));
     const anchoredX = Number(zoomContent.getAttribute('data-zoom-x'));
     const anchoredY = Number(zoomContent.getAttribute('data-zoom-y'));
     expect(anchoredX + (pointerX * anchoredScale)).toBeCloseTo(pointerX, 1);
     expect(anchoredY + (pointerY * anchoredScale)).toBeCloseTo(pointerY, 1);
+    expect(zoomContent.style.transform).toContain('scale(1)');
+    expect(Number.parseFloat((zoomSvg as SVGSVGElement).style.width)).toBeCloseTo(400 * anchoredScale);
 
     fireEvent.click(screen.getByRole('button', { name: 'Mermaid-Diagramm hineinzoomen' }));
     await waitFor(() => {
       expect(zoomContent.getAttribute('data-zoom-scale')).toBe('1.30');
+      expect(zoomContent.getAttribute('data-zoom-rendered-scale')).toBe('1.30');
       expect(screen.getByLabelText('Mermaid-Diagramm Zoomlevel').textContent).toBe('130%');
     });
 
     fireEvent.click(screen.getByRole('button', { name: 'Mermaid-Diagramm herauszoomen' }));
     await waitFor(() => {
       expect(zoomContent.getAttribute('data-zoom-scale')).toBe('1.20');
+      expect(zoomContent.getAttribute('data-zoom-rendered-scale')).toBe('1.20');
       expect(screen.getByLabelText('Mermaid-Diagramm Zoomlevel').textContent).toBe('120%');
     });
 
@@ -836,6 +889,8 @@ describe('Markdown renderer', () => {
     expect(window.getComputedStyle(zoomArea).overflowY).toBe('hidden');
     expect(window.getComputedStyle(zoomArea).overflowX).toBe('hidden');
     expect(screen.queryByLabelText('Mermaid-Diagramm Zoomlevel')).toBeNull();
+    expect(zoomContent.getAttribute('data-zoom-rendered-scale')).toBe('1.00');
+    expect((zoomSvg as SVGSVGElement).style.width).toBe('');
 
     fireEvent.pointerDown(zoomArea, {
       button: 0,
@@ -876,7 +931,13 @@ describe('Markdown renderer', () => {
     fireEvent.pointerUp(zoomArea, { pointerId: 12, pointerType: 'touch' });
     await waitFor(() => {
       expect(screen.getByLabelText('Mermaid-Diagramm Zoomlevel').textContent).toBe('150%');
+      expect(zoomContent.getAttribute('data-zoom-render-mode')).toBe('layout');
+      expect(zoomContent.getAttribute('data-zoom-rendered-scale')).toBe('1.50');
     });
+    expect(zoomContent.getAttribute('data-zoom-x')).toBe('-250.000');
+    expect(zoomContent.getAttribute('data-zoom-y')).toBe('-100.000');
+    expect(zoomContent.style.transform).toContain('scale(1)');
+    expect((zoomSvg as SVGSVGElement).style.width).toBe('600px');
 
     fireEvent.pointerMove(zoomArea, {
       clientX: 230,
