@@ -1,7 +1,7 @@
 {
   "name": "dev-notes",
   "private": true,
-  "version": "1.0.17",
+  "version": "1.0.18",
   "license": "MIT",
   "type": "module",
   "scripts": {
@@ -65,6 +65,13 @@
     "vitest": "^4.1.7"
   },
   "overrides": {
-    "uuid": "11.1.1"
+    "uuid": "11.1.1",
+    "@opentelemetry/core": "^2.8.0"
+  },
+  "allowScripts": {
+    "@firebase/util@1.15.1": true,
+    "fsevents@2.3.3": true,
+    "protobufjs@7.6.5": true,
+    "re2@1.26.0": true
   }
 }

@@ -1,5 +1,15 @@
 # Changelog
 
+## [1.0.18] - 2026-07-11
+
+### Changed
+
+- Updated the npm install-script allowlist to match the currently resolved package versions.
+
+### Security
+
+- Resolved the moderate npm audit findings in the `firebase-tools` dependency chain by applying Firebase's patched `@opentelemetry/core` override at the project root.
+
 ## [1.0.17] - 2026-07-10
 
 ### Added
