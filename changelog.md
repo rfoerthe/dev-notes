@@ -1,5 +1,15 @@
 # Changelog
 
+## [1.0.19] - 2026-07-11
+
+### Added
+
+- Mermaid zoom popups now support smooth two-finger pinch-to-zoom on touch devices while keeping the gesture midpoint anchored to the diagram.
+
+### Changed
+
+- Releasing one finger after a Mermaid pinch gesture now transitions directly into one-finger panning without interrupting navigation.
+
 ## [1.0.18] - 2026-07-11
 
 ### Changed

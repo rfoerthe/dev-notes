@@ -836,6 +836,62 @@ describe('Markdown renderer', () => {
     expect(window.getComputedStyle(zoomArea).overflowY).toBe('hidden');
     expect(window.getComputedStyle(zoomArea).overflowX).toBe('hidden');
     expect(screen.queryByLabelText('Mermaid-Diagramm Zoomlevel')).toBeNull();
+
+    fireEvent.pointerDown(zoomArea, {
+      button: 0,
+      clientX: 310,
+      clientY: 220,
+      pointerId: 11,
+      pointerType: 'touch',
+    });
+    fireEvent.pointerDown(zoomArea, {
+      button: 0,
+      clientX: 510,
+      clientY: 220,
+      pointerId: 12,
+      pointerType: 'touch',
+    });
+    fireEvent.pointerMove(zoomArea, {
+      clientX: 410,
+      clientY: 220,
+      pointerId: 11,
+      pointerType: 'touch',
+    });
+
+    expect(zoomContent.getAttribute('data-zoom-scale')).toBe('0.50');
+    expect(Number(zoomContent.getAttribute('data-zoom-x'))).toBeCloseTo(250);
+    expect(Number(zoomContent.getAttribute('data-zoom-y'))).toBeCloseTo(100);
+
+    fireEvent.pointerMove(zoomArea, {
+      clientX: 210,
+      clientY: 220,
+      pointerId: 11,
+      pointerType: 'touch',
+    });
+
+    expect(zoomContent.getAttribute('data-zoom-scale')).toBe('1.50');
+    expect(Number(zoomContent.getAttribute('data-zoom-x'))).toBeCloseTo(-250);
+    expect(Number(zoomContent.getAttribute('data-zoom-y'))).toBeCloseTo(-100);
+
+    fireEvent.pointerUp(zoomArea, { pointerId: 12, pointerType: 'touch' });
+    await waitFor(() => {
+      expect(screen.getByLabelText('Mermaid-Diagramm Zoomlevel').textContent).toBe('150%');
+    });
+
+    fireEvent.pointerMove(zoomArea, {
+      clientX: 230,
+      clientY: 240,
+      pointerId: 11,
+      pointerType: 'touch',
+    });
+    expect(Number(zoomContent.getAttribute('data-zoom-x'))).toBeCloseTo(-230);
+    expect(Number(zoomContent.getAttribute('data-zoom-y'))).toBeCloseTo(-80);
+
+    fireEvent.pointerUp(zoomArea, { pointerId: 11, pointerType: 'touch' });
+    expect(setPointerCapture).toHaveBeenCalledWith(11);
+    expect(setPointerCapture).toHaveBeenCalledWith(12);
+    expect(releasePointerCapture).toHaveBeenCalledWith(11);
+    expect(releasePointerCapture).toHaveBeenCalledWith(12);
   });
 
   it('downloads rendered Mermaid diagrams as light themed SVG files', async () => {

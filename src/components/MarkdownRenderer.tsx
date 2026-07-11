@@ -70,6 +70,19 @@ interface MermaidZoomTransform {
   y: number;
 }
 
+interface MermaidTouchPoint {
+  x: number;
+  y: number;
+}
+
+interface MermaidPinchState {
+  active: boolean;
+  pointerIds: [number, number] | null;
+  startDistance: number;
+  startMidpoint: { x: number; y: number };
+  startTransform: MermaidZoomTransform;
+}
+
 const createDefaultMermaidZoomTransform = (): MermaidZoomTransform => ({
   scale: MERMAID_ZOOM_DEFAULT,
   x: 0,
@@ -683,6 +696,14 @@ const MermaidDiagram = ({ children, sourceKey }: MermaidDiagramProps) => {
     x: 0,
     y: 0,
   });
+  const touchPointersRef = useRef(new Map<number, MermaidTouchPoint>());
+  const pinchStateRef = useRef<MermaidPinchState>({
+    active: false,
+    pointerIds: null,
+    startDistance: 0,
+    startMidpoint: { x: 0, y: 0 },
+    startTransform: createDefaultMermaidZoomTransform(),
+  });
   const zoomAnimationFrameRef = useRef<number | null>(null);
   const zoomAnimationFromRef = useRef<MermaidZoomTransform>(createDefaultMermaidZoomTransform());
   const zoomAnimationStartTimeRef = useRef<number | null>(null);
@@ -866,6 +887,9 @@ const MermaidDiagram = ({ children, sourceKey }: MermaidDiagramProps) => {
       stopZoomAnimation();
       const defaultTransform = createDefaultMermaidZoomTransform();
 
+      touchPointersRef.current.clear();
+      pinchStateRef.current.active = false;
+      pinchStateRef.current.pointerIds = null;
       zoomAnimationFromRef.current = defaultTransform;
       zoomLastUiUpdateTimeRef.current = 0;
       zoomTransformRef.current = defaultTransform;
@@ -880,6 +904,9 @@ const MermaidDiagram = ({ children, sourceKey }: MermaidDiagramProps) => {
   const handleCloseZoom = () => {
     stopZoomAnimation();
     panStateRef.current.active = false;
+    touchPointersRef.current.clear();
+    pinchStateRef.current.active = false;
+    pinchStateRef.current.pointerIds = null;
     setIsPanning(false);
     setIsZoomMaximized(false);
     setIsZoomOpen(false);
@@ -890,6 +917,9 @@ const MermaidDiagram = ({ children, sourceKey }: MermaidDiagramProps) => {
   const resetZoom = () => {
     stopZoomAnimation();
     panStateRef.current.active = false;
+    touchPointersRef.current.clear();
+    pinchStateRef.current.active = false;
+    pinchStateRef.current.pointerIds = null;
     setIsPanning(false);
     const defaultTransform = createDefaultMermaidZoomTransform();
 
@@ -928,6 +958,41 @@ const MermaidDiagram = ({ children, sourceKey }: MermaidDiagramProps) => {
       { x: viewport.width / 2, y: viewport.height / 2 },
     );
   };
+  const startPinchGesture = (zoomArea: HTMLDivElement) => {
+    const touchEntries = Array.from(touchPointersRef.current.entries()).slice(0, 2);
+
+    if (touchEntries.length < 2) {
+      return false;
+    }
+
+    const [[firstPointerId, firstPoint], [secondPointerId, secondPoint]] = touchEntries;
+    const distance = Math.hypot(
+      secondPoint.x - firstPoint.x,
+      secondPoint.y - firstPoint.y,
+    );
+
+    if (distance <= 0) {
+      return false;
+    }
+
+    const viewport = getMermaidZoomViewport(zoomArea);
+
+    stopZoomAnimation();
+    panStateRef.current.active = false;
+    pinchStateRef.current = {
+      active: true,
+      pointerIds: [firstPointerId, secondPointerId],
+      startDistance: distance,
+      startMidpoint: {
+        x: ((firstPoint.x + secondPoint.x) / 2) - viewport.bounds.left,
+        y: ((firstPoint.y + secondPoint.y) / 2) - viewport.bounds.top,
+      },
+      startTransform: zoomTransformRef.current,
+    };
+    zoomLastUiUpdateTimeRef.current = 0;
+    setIsPanning(false);
+    return true;
+  };
   const handlePanStart = (event: React.PointerEvent<HTMLDivElement>) => {
     if (event.button !== 0) {
       return;
@@ -942,6 +1007,19 @@ const MermaidDiagram = ({ children, sourceKey }: MermaidDiagramProps) => {
     event.preventDefault();
     stopZoomAnimation();
     event.currentTarget.setPointerCapture(event.pointerId);
+
+    if (event.pointerType === 'touch') {
+      touchPointersRef.current.set(event.pointerId, {
+        x: event.clientX,
+        y: event.clientY,
+      });
+
+      if (touchPointersRef.current.size >= 2) {
+        startPinchGesture(zoomArea);
+        return;
+      }
+    }
+
     panStateRef.current = {
       active: true,
       pointerId: event.pointerId,
@@ -953,15 +1031,72 @@ const MermaidDiagram = ({ children, sourceKey }: MermaidDiagramProps) => {
     setIsPanning(true);
   };
   const handlePanMove = (event: React.PointerEvent<HTMLDivElement>) => {
-    const panState = panStateRef.current;
-
-    if (!panState.active || panState.pointerId !== event.pointerId) {
-      return;
-    }
-
     const zoomArea = zoomAreaRef.current;
 
     if (!zoomArea) {
+      return;
+    }
+
+    if (event.pointerType === 'touch' && touchPointersRef.current.has(event.pointerId)) {
+      touchPointersRef.current.set(event.pointerId, {
+        x: event.clientX,
+        y: event.clientY,
+      });
+
+      const pinchState = pinchStateRef.current;
+
+      if (pinchState.active && pinchState.pointerIds) {
+        const firstPoint = touchPointersRef.current.get(pinchState.pointerIds[0]);
+        const secondPoint = touchPointersRef.current.get(pinchState.pointerIds[1]);
+
+        if (!firstPoint || !secondPoint) {
+          return;
+        }
+
+        event.preventDefault();
+        const viewport = getMermaidZoomViewport(zoomArea);
+        const distance = Math.hypot(
+          secondPoint.x - firstPoint.x,
+          secondPoint.y - firstPoint.y,
+        );
+        const nextScale = clampMermaidZoomScale(
+          pinchState.startTransform.scale * (distance / pinchState.startDistance),
+        );
+        const scaleRatio = nextScale / pinchState.startTransform.scale;
+        const midpoint = {
+          x: ((firstPoint.x + secondPoint.x) / 2) - viewport.bounds.left,
+          y: ((firstPoint.y + secondPoint.y) / 2) - viewport.bounds.top,
+        };
+        const contentSize = zoomViewportSizeRef.current;
+        const nextTransform = constrainMermaidPan(
+          {
+            scale: nextScale,
+            x: midpoint.x - ((pinchState.startMidpoint.x - pinchState.startTransform.x) * scaleRatio),
+            y: midpoint.y - ((pinchState.startMidpoint.y - pinchState.startTransform.y) * scaleRatio),
+          },
+          viewport.width,
+          viewport.height,
+          contentSize.width || viewport.width,
+          contentSize.height || viewport.height,
+        );
+
+        zoomAnimationFromRef.current = nextTransform;
+        zoomTransformRef.current = nextTransform;
+        zoomTargetTransformRef.current = nextTransform;
+        syncZoomTransformElement(nextTransform);
+
+        if (event.timeStamp - zoomLastUiUpdateTimeRef.current >= MERMAID_ZOOM_UI_UPDATE_MS) {
+          zoomLastUiUpdateTimeRef.current = event.timeStamp;
+          setZoomScale(nextTransform.scale);
+        }
+
+        return;
+      }
+    }
+
+    const panState = panStateRef.current;
+
+    if (!panState.active || panState.pointerId !== event.pointerId) {
       return;
     }
 
@@ -986,6 +1121,51 @@ const MermaidDiagram = ({ children, sourceKey }: MermaidDiagramProps) => {
     syncZoomTransformElement(nextTransform);
   };
   const handlePanEnd = (event: React.PointerEvent<HTMLDivElement>) => {
+    if (event.pointerType === 'touch' && touchPointersRef.current.has(event.pointerId)) {
+      touchPointersRef.current.delete(event.pointerId);
+
+      if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+        event.currentTarget.releasePointerCapture(event.pointerId);
+      }
+
+      const pinchState = pinchStateRef.current;
+      const endedPinchPointer = pinchState.pointerIds?.includes(event.pointerId) ?? false;
+
+      if (pinchState.active && endedPinchPointer) {
+        pinchState.active = false;
+        pinchState.pointerIds = null;
+        setZoomScale(zoomTransformRef.current.scale);
+
+        if (touchPointersRef.current.size >= 2) {
+          startPinchGesture(event.currentTarget);
+          return;
+        }
+
+        const remainingTouch = touchPointersRef.current.entries().next().value as
+          | [number, MermaidTouchPoint]
+          | undefined;
+
+        if (remainingTouch) {
+          const [pointerId, point] = remainingTouch;
+
+          panStateRef.current = {
+            active: true,
+            pointerId,
+            transformX: zoomTransformRef.current.x,
+            transformY: zoomTransformRef.current.y,
+            x: point.x,
+            y: point.y,
+          };
+          setIsPanning(true);
+        } else {
+          panStateRef.current.active = false;
+          setIsPanning(false);
+        }
+
+        return;
+      }
+    }
+
     const panState = panStateRef.current;
 
     if (!panState.active || panState.pointerId !== event.pointerId) {
