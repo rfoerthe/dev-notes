@@ -26,14 +26,15 @@ import {
   FormHelperText
 } from '@mui/material';
 import type { SelectChangeEvent } from '@mui/material/Select';
-import { BookOpen, Eye, Edit3, Save, Plus, ArrowLeft, Trash2 } from 'lucide-react';
+import { BookOpen, Eye, Edit3, Save, Plus, ArrowLeft, Trash2, History, Send } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
-import { getBlogById, updateBlog, deleteBlog, calculateReadTime } from '../services/blogService';
+import { getBlogById, updateBlog, deleteBlog, calculateReadTime, type BlogPost, type BlogPostStatus } from '../services/blogService';
 import { fetchActiveAuthorProfiles } from '../services/authService';
 import type { UserProfile } from '../services/authService';
 import { renderInlineMarkdown, renderMarkdown } from '../components/markdownParser';
-import { BLOG_LIMITS, validateBlogContent } from '../services/securityValidation';
+import { BLOG_LIMITS, validateBlogContent, validateBlogDraft } from '../services/securityValidation';
 import { canManageBlogPost } from '../services/blogOwnership';
+import { RevisionHistoryDialog } from '../components/RevisionHistoryDialog';
 
 export const EditBlog: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -45,6 +46,7 @@ export const EditBlog: React.FC = () => {
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
   const [errorSnackbarOpen, setErrorSnackbarOpen] = useState<boolean>(false);
+  const [success, setSuccess] = useState<string | null>(null);
 
   // Input states
   const [title, setTitle] = useState<string>('');
@@ -59,6 +61,9 @@ export const EditBlog: React.FC = () => {
   const [loadedBlog, setLoadedBlog] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState<boolean>(false);
   const [authorsLoading, setAuthorsLoading] = useState<boolean>(false);
+  const [currentStatus, setCurrentStatus] = useState<BlogPostStatus>('draft');
+  const [historyOpen, setHistoryOpen] = useState(false);
+  const [saveAction, setSaveAction] = useState<BlogPostStatus>('published');
   
   // UI states
   const [activeTab, setActiveTab] = useState<number>(0);
@@ -68,15 +73,17 @@ export const EditBlog: React.FC = () => {
     setErrorSnackbarOpen(true);
   }, []);
 
-  const handleErrorSnackbarClose = (_event?: React.SyntheticEvent | Event, reason?: string) => {
+  const handleFeedbackSnackbarClose = (_event?: React.SyntheticEvent | Event, reason?: string) => {
     if (reason === 'clickaway') {
       return;
     }
 
     setErrorSnackbarOpen(false);
+    setSuccess(null);
   };
 
   useEffect(() => {
+    let redirectTimer: number | undefined;
     const loadBlog = async () => {
       if (!id) return;
       try {
@@ -91,7 +98,7 @@ export const EditBlog: React.FC = () => {
           showError('Zugriff verweigert. Du bist weder Autor noch Admin dieses Beitrags.');
           setFetching(false);
           // Redirect after 3 seconds
-          setTimeout(() => navigate('/'), 3000);
+          redirectTimer = window.setTimeout(() => navigate('/'), 3000);
           return;
         }
 
@@ -102,6 +109,7 @@ export const EditBlog: React.FC = () => {
         setOriginalAuthorName(blog.authorName);
         setOriginalAuthorUsername(blog.authorUsername);
         setSelectedAuthorUsername(blog.authorUsername);
+        setCurrentStatus(blog.status);
         setLoadedBlog(true);
 
         if (userProfile?.role === 'admin') {
@@ -124,6 +132,11 @@ export const EditBlog: React.FC = () => {
     };
 
     loadBlog();
+    return () => {
+      if (redirectTimer !== undefined) {
+        window.clearTimeout(redirectTimer);
+      }
+    };
   }, [id, userProfile, navigate, showError]);
 
   const canManageBlog = loadedBlog;
@@ -177,14 +190,27 @@ export const EditBlog: React.FC = () => {
     setTags(tags.filter(t => t !== tagToRemove));
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const applyBlogToEditor = useCallback((blog: BlogPost) => {
+    setTitle(blog.title);
+    setSummary(blog.summary);
+    setContent(blog.content);
+    setTags(blog.tags);
+    setOriginalAuthorName(blog.authorName);
+    setOriginalAuthorUsername(blog.authorUsername);
+    setSelectedAuthorUsername(blog.authorUsername);
+    setCurrentStatus(blog.status);
+  }, []);
+
+  const handleSave = async (status: BlogPostStatus) => {
     setError(null);
+    setSuccess(null);
     setErrorSnackbarOpen(false);
 
-    if (!id) return;
+    if (!id || !userProfile) return;
 
-    const validationErrors = validateBlogContent(title, summary, content, tags);
+    const validationErrors = status === 'draft'
+      ? validateBlogDraft(title, summary, content, tags)
+      : validateBlogContent(title, summary, content, tags);
     if (validationErrors.length > 0) {
       showError(validationErrors[0]);
       return;
@@ -204,25 +230,55 @@ export const EditBlog: React.FC = () => {
     }
 
     setLoading(true);
+    setSaveAction(status);
     try {
-      await updateBlog({
+      const updatedBlog = await updateBlog({
         id,
         title: title.trim(),
         summary: summary.trim(),
         content: content.trim(),
         tags,
+        status,
+        savedBy: userProfile.uid,
+        savedByName: `${userProfile.firstName} ${userProfile.lastName}`.trim() || userProfile.username,
         ...(isAdmin ? {
           authorName: nextAuthorName,
           authorUsername: nextAuthorUsername
         } : {})
       });
 
-      navigate(`/blog/${id}`);
+      if (status === 'published') {
+        navigate(`/blog/${updatedBlog.id}`, {
+          state: {
+            feedback: {
+              severity: 'success',
+              message: currentStatus === 'published'
+                ? 'Die Änderungen wurden veröffentlicht.'
+                : 'Der Beitrag wurde veröffentlicht.'
+            }
+          }
+        });
+        return;
+      }
+
+      applyBlogToEditor(updatedBlog);
+      setSuccess('Der Entwurf wurde gespeichert.');
     } catch (err) {
       showError(err instanceof Error ? err.message : 'Speichern fehlgeschlagen.');
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleSubmit = (event: React.FormEvent) => {
+    event.preventDefault();
+    void handleSave('published');
+  };
+
+  const handleRevisionRestored = (blog: BlogPost) => {
+    applyBlogToEditor(blog);
+    setHistoryOpen(false);
+    setSuccess('Die gewählte Version wurde wiederhergestellt. Die zuvor aktuelle Fassung bleibt in der Historie erhalten.');
   };
 
   const handleDelete = async () => {
@@ -275,6 +331,11 @@ export const EditBlog: React.FC = () => {
             Aktualisiere deinen Beitrag für die Developer-Community.
           </Typography>
         </Box>
+        <Chip
+          size="small"
+          color={currentStatus === 'published' ? 'success' : 'default'}
+          label={currentStatus === 'published' ? 'Veröffentlicht' : 'Entwurf'}
+        />
         <Button 
           variant="text" 
           startIcon={<ArrowLeft size={16} />}
@@ -387,11 +448,13 @@ export const EditBlog: React.FC = () => {
                       size="small"
                       value={tagInput}
                       onChange={(e) => setTagInput(e.target.value)}
-                      onKeyPress={handleKeyPress}
+                      onKeyDown={handleKeyPress}
                       disabled={loading}
                       sx={{ flexGrow: 1 }}
                     />
                     <Button 
+                      type="button"
+                      aria-label="Tags hinzufügen"
                       variant="outlined" 
                       onClick={handleAddTag}
                       disabled={loading}
@@ -485,20 +548,34 @@ export const EditBlog: React.FC = () => {
             )}
 
             {/* Submit Action */}
-            <Box sx={{ display: 'flex', justifyContent: 'space-between', gap: 2, flexWrap: 'wrap' }}>
-              <Button 
-                variant="outlined"
-                color="error"
-                startIcon={<Trash2 size={16} />}
-                onClick={() => setDeleteDialogOpen(true)}
-                disabled={loading}
-                sx={{ borderRadius: 3, px: 3 }}
-              >
-                Beitrag löschen
-              </Button>
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', gap: 2, flexWrap: 'wrap', alignItems: 'center' }}>
+              <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap' }}>
+                <Button
+                  type="button"
+                  variant="outlined"
+                  startIcon={<History size={16} />}
+                  onClick={() => setHistoryOpen(true)}
+                  disabled={loading}
+                  sx={{ borderRadius: 3, px: 3 }}
+                >
+                  Versionshistorie
+                </Button>
+                <Button
+                  type="button"
+                  variant="outlined"
+                  color="error"
+                  startIcon={<Trash2 size={16} />}
+                  onClick={() => setDeleteDialogOpen(true)}
+                  disabled={loading}
+                  sx={{ borderRadius: 3, px: 3 }}
+                >
+                  Beitrag löschen
+                </Button>
+              </Stack>
 
-              <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 2 }}>
+              <Box sx={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 2, flexWrap: 'wrap' }}>
                 <Button 
+                  type="button"
                   variant="outlined" 
                   onClick={() => navigate(`/blog/${id}`)}
                   disabled={loading}
@@ -507,13 +584,23 @@ export const EditBlog: React.FC = () => {
                   Abbrechen
                 </Button>
                 <Button
+                  type="button"
+                  variant="outlined"
+                  disabled={loading}
+                  startIcon={loading && saveAction === 'draft' ? <CircularProgress size={16} color="inherit" /> : <Save size={16} />}
+                  onClick={() => void handleSave('draft')}
+                  sx={{ borderRadius: 3, px: 3 }}
+                >
+                  {currentStatus === 'published' ? 'Als Entwurf zurückziehen' : 'Entwurf speichern'}
+                </Button>
+                <Button
                   type="submit"
                   variant="contained"
                   disabled={loading}
-                  startIcon={loading ? <CircularProgress size={16} color="inherit" /> : <Save size={16} />}
+                  startIcon={loading && saveAction === 'published' ? <CircularProgress size={16} color="inherit" /> : <Send size={16} />}
                   sx={{ borderRadius: 3, px: 4 }}
                 >
-                  Beitrag speichern
+                  {currentStatus === 'published' ? 'Änderungen veröffentlichen' : 'Veröffentlichen'}
                 </Button>
               </Box>
             </Box>
@@ -546,19 +633,29 @@ export const EditBlog: React.FC = () => {
           </Button>
         </DialogActions>
       </Dialog>
+      {id && userProfile && (
+        <RevisionHistoryDialog
+          blogId={id}
+          open={historyOpen}
+          savedBy={userProfile.uid}
+          savedByName={`${userProfile.firstName} ${userProfile.lastName}`.trim() || userProfile.username}
+          onClose={() => setHistoryOpen(false)}
+          onRestored={handleRevisionRestored}
+        />
+      )}
       <Snackbar
-        open={errorSnackbarOpen && Boolean(error)}
+        open={Boolean(success) || (errorSnackbarOpen && Boolean(error))}
         autoHideDuration={7000}
-        onClose={handleErrorSnackbarClose}
+        onClose={handleFeedbackSnackbarClose}
         anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
       >
         <Alert
-          severity="error"
+          severity={success ? 'success' : 'error'}
           variant="filled"
-          onClose={handleErrorSnackbarClose}
+          onClose={handleFeedbackSnackbarClose}
           sx={{ borderRadius: 2, boxShadow: '0 16px 40px rgba(0, 0, 0, 0.28)' }}
         >
-          {error}
+          {success || error}
         </Alert>
       </Snackbar>
     </Container>

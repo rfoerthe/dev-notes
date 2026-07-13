@@ -66,6 +66,8 @@ export const MyPosts: React.FC = () => {
   const totalReadTime = useMemo(() => {
     return posts.reduce((sum, post) => sum + post.readTime, 0);
   }, [posts]);
+  const publishedCount = posts.filter(post => post.status === 'published').length;
+  const draftCount = posts.length - publishedCount;
 
   const selectedPosts = useMemo(() => {
     const selectedIds = new Set(selectedPostIds);
@@ -150,7 +152,7 @@ export const MyPosts: React.FC = () => {
               Meine Beiträge
             </Typography>
             <Typography variant="body2" color="text.secondary">
-              Behalte deine veröffentlichten Artikel im Blick.
+              Verwalte deine Entwürfe und veröffentlichten Artikel.
             </Typography>
           </Box>
         </Stack>
@@ -240,6 +242,8 @@ export const MyPosts: React.FC = () => {
             sx={{ alignItems: { xs: 'flex-start', sm: 'center' }, color: 'text.secondary' }}
           >
             <Chip label={`${posts.length} ${posts.length === 1 ? 'Beitrag' : 'Beiträge'}`} color="primary" />
+            <Chip label={`${publishedCount} veröffentlicht`} color="success" variant="outlined" />
+            <Chip label={`${draftCount} Entwürfe`} variant="outlined" />
             <Stack direction="row" spacing={0.75} sx={{ alignItems: 'center' }}>
               <Clock size={14} />
               <Typography variant="body2" sx={{ fontWeight: 700 }}>
@@ -320,6 +324,11 @@ export const MyPosts: React.FC = () => {
                           {formatDate(post.createdAt)}
                         </Typography>
                       </Stack>
+                      <Chip
+                        size="small"
+                        color={post.status === 'published' ? 'success' : 'default'}
+                        label={post.status === 'published' ? 'Veröffentlicht' : 'Entwurf'}
+                      />
                       {post.tags.slice(0, 4).map(tag => (
                         <Box
                           key={tag}
@@ -355,7 +364,7 @@ export const MyPosts: React.FC = () => {
                         WebkitBoxOrient: 'vertical'
                       }}
                     >
-                      {renderInlineMarkdown(post.title, true)}
+                      {renderInlineMarkdown(post.title || 'Unbenannter Entwurf', true)}
                     </Typography>
                     <Typography
                       variant="body2"
@@ -390,7 +399,7 @@ export const MyPosts: React.FC = () => {
                         {post.readTime} min
                       </Typography>
                     </Stack>
-                    <Tooltip title="Artikel lesen">
+                    <Tooltip title={post.status === 'published' ? 'Artikel lesen' : 'Entwurf ansehen'}>
                       <IconButton
                         onClick={() => navigate(`/blog/${post.id}`)}
                         sx={{

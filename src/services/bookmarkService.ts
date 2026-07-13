@@ -106,7 +106,16 @@ export async function getBookmarks(uid: string): Promise<BlogBookmark[]> {
   const bookmarksRef = collection(db, 'users', uid, 'bookmarks');
   const q = query(bookmarksRef, orderBy('createdAt', 'desc'));
   const snapshot = await getDocs(q);
-  return snapshotToBookmarks(snapshot);
+  const bookmarks = snapshotToBookmarks(snapshot);
+  const visibleBookmarks = await Promise.all(bookmarks.map(async bookmark => {
+    try {
+      const blogSnapshot = await getDoc(doc(db, 'blogs', bookmark.blogId));
+      return blogSnapshot.exists() && blogSnapshot.data().status === 'published' ? bookmark : null;
+    } catch {
+      return null;
+    }
+  }));
+  return visibleBookmarks.filter((bookmark): bookmark is BlogBookmark => bookmark !== null);
 }
 
 export async function isBlogBookmarked(uid: string, blogId: string): Promise<boolean> {

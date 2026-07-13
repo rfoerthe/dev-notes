@@ -8,6 +8,7 @@ import { NavBar } from './components/NavBar';
 import { AnalyticsRouteTracker } from './components/AnalyticsRouteTracker';
 import { AnalyticsConsentBanner } from './components/AnalyticsConsentBanner';
 import { RouteScrollReset } from './components/RouteScrollReset';
+import { RouteFeedbackSnackbar } from './components/RouteFeedbackSnackbar';
 import { Home } from './pages/Home';
 import { Login } from './pages/Login';
 import { Register } from './pages/Register';
@@ -54,6 +55,7 @@ const App: React.FC = () => {
           <BrowserRouter>
             <RouteScrollReset />
             <AnalyticsRouteTracker />
+            <RouteFeedbackSnackbar />
             <Box sx={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
               <NavBar />
               

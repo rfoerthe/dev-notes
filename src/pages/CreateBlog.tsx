@@ -15,11 +15,11 @@ import {
   CircularProgress,
   Snackbar
 } from '@mui/material';
-import { BookOpen, Eye, Edit3, Send, Plus } from 'lucide-react';
+import { BookOpen, Eye, Edit3, Send, Plus, Save } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
-import { createBlog, calculateReadTime } from '../services/blogService';
+import { createBlog, calculateReadTime, type BlogPostStatus } from '../services/blogService';
 import { renderInlineMarkdown, renderMarkdown } from '../components/markdownParser';
-import { BLOG_LIMITS, validateBlogContent } from '../services/securityValidation';
+import { BLOG_LIMITS, validateBlogContent, validateBlogDraft } from '../services/securityValidation';
 
 export const CreateBlog: React.FC = () => {
   // Input states
@@ -34,6 +34,7 @@ export const CreateBlog: React.FC = () => {
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
   const [errorSnackbarOpen, setErrorSnackbarOpen] = useState<boolean>(false);
+  const [saveAction, setSaveAction] = useState<BlogPostStatus>('published');
 
   const { userProfile } = useAuth();
   const navigate = useNavigate();
@@ -86,12 +87,13 @@ export const CreateBlog: React.FC = () => {
     setErrorSnackbarOpen(false);
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSave = async (status: BlogPostStatus) => {
     setError(null);
     setErrorSnackbarOpen(false);
 
-    const validationErrors = validateBlogContent(title, summary, content, tags);
+    const validationErrors = status === 'draft'
+      ? validateBlogDraft(title, summary, content, tags)
+      : validateBlogContent(title, summary, content, tags);
     if (validationErrors.length > 0) {
       showError(validationErrors[0]);
       return;
@@ -103,22 +105,38 @@ export const CreateBlog: React.FC = () => {
     }
 
     setLoading(true);
+    setSaveAction(status);
     try {
-      await createBlog({
+      const blog = await createBlog({
         title: title.trim(),
         summary: summary.trim(),
         content: content.trim(),
         tags,
         authorName: `${userProfile.firstName} ${userProfile.lastName}`,
-        authorUsername: userProfile.username
+        authorUsername: userProfile.username,
+        status
       });
 
-      navigate('/');
+      navigate(status === 'published' ? `/blog/${blog.id}` : `/edit/${blog.id}`, {
+        state: {
+          feedback: {
+            severity: 'success',
+            message: status === 'published'
+              ? 'Der Beitrag wurde veröffentlicht.'
+              : 'Der Entwurf wurde gespeichert.'
+          }
+        }
+      });
     } catch (err) {
-      showError(err instanceof Error ? err.message : 'Veröffentlichung fehlgeschlagen.');
+      showError(err instanceof Error ? err.message : 'Speichern fehlgeschlagen.');
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleSubmit = (event: React.FormEvent) => {
+    event.preventDefault();
+    void handleSave('published');
   };
 
   const estimatedReadTime = calculateReadTime(content);
@@ -219,11 +237,13 @@ export const CreateBlog: React.FC = () => {
                     size="small"
                     value={tagInput}
                     onChange={(e) => setTagInput(e.target.value)}
-                    onKeyPress={handleKeyPress}
+                    onKeyDown={handleKeyPress}
                     disabled={loading}
                     sx={{ flexGrow: 1 }}
                   />
                   <Button 
+                    type="button"
+                    aria-label="Tags hinzufügen"
                     variant="outlined" 
                     onClick={handleAddTag}
                     disabled={loading}
@@ -331,8 +351,9 @@ const greet = (name: string): string => {
           )}
 
           {/* Submit Action */}
-          <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 2 }}>
+          <Box sx={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 2, flexWrap: 'wrap' }}>
             <Button 
+              type="button"
               variant="outlined" 
               onClick={() => navigate('/')}
               disabled={loading}
@@ -341,10 +362,20 @@ const greet = (name: string): string => {
               Abbrechen
             </Button>
             <Button
+              type="button"
+              variant="outlined"
+              disabled={loading}
+              startIcon={loading && saveAction === 'draft' ? <CircularProgress size={16} color="inherit" /> : <Save size={16} />}
+              onClick={() => void handleSave('draft')}
+              sx={{ borderRadius: 3, px: 3 }}
+            >
+              Als Entwurf speichern
+            </Button>
+            <Button
               type="submit"
               variant="contained"
               disabled={loading}
-              startIcon={loading ? <CircularProgress size={16} color="inherit" /> : <Send size={16} />}
+              startIcon={loading && saveAction === 'published' ? <CircularProgress size={16} color="inherit" /> : <Send size={16} />}
               sx={{ borderRadius: 3, px: 4 }}
             >
               Beitrag veröffentlichen

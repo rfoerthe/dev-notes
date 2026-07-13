@@ -1,5 +1,65 @@
 # Changelog
 
+## [1.1.6] - 2026-07-13
+
+### Changed
+
+- Successful publication from the edit workflow now opens the article reader and reports whether the article or its changes were published through the global snackbar.
+
+## [1.1.5] - 2026-07-13
+
+### Changed
+
+- Draft and publish confirmations now appear as visible bottom-of-window snackbars instead of success alerts at the top of long editor pages.
+- Creation confirmations survive navigation to the saved draft or published article and are consumed after being displayed once.
+
+## [1.1.4] - 2026-07-13
+
+### Removed
+
+- Removed automatic editor saves, automatic restoration, and their Firestore permissions from the create and edit workflows.
+- Drafts remain available through explicit manual saving, and the protected revision history remains unchanged.
+
+## [1.1.3] - 2026-07-13
+
+### Fixed
+
+- Preserve the raw Firestore `publishedAt` timestamp during published-post updates instead of writing its UI-normalized ISO string back to Firestore.
+- Restored atomic post-and-revision saves from the real editor flow while keeping the original publication date unchanged.
+
+## [1.1.2] - 2026-07-13
+
+### Fixed
+
+- Compacted each Firestore tag validation into one equivalent bounded regular expression, keeping atomic post-and-revision updates with the maximum ten tags below the 1,000-expression evaluation limit.
+- Expanded the emulator workflow smoke test to cover ten tags, full editor update payloads, and admins editing posts owned by another author.
+
+## [1.1.1] - 2026-07-13
+
+### Fixed
+
+- Reduced revision documents to the editorial fields required for restore to lower Firestore rules evaluation cost.
+- Cached repeated user-profile lookups inside Firestore rule helpers to further reduce authorization evaluation cost.
+
+### Added
+
+- Added a reproducible emulator smoke test covering authentication, post creation, atomic revision writes, reads, and cleanup through the client SDK.
+
+## [1.1.0] - 2026-07-12
+
+### Added
+
+- Authors can save incomplete posts as private drafts, publish them later, or withdraw published posts back into draft status.
+- Create and edit forms now persist debounced per-user Firestore autosaves and restore newer unsaved work when the editor is reopened.
+- Every manual update archives the previous post state in a protected revision history with Markdown preview and lossless restore support.
+- Added a guarded Admin SDK migration for existing blog posts and a composite Firestore index for the published feed.
+
+### Changed
+
+- Public feeds, bookmarks, and article reads now expose published posts only, while authors and admins retain access to draft previews.
+- The personal posts page now displays draft and published counts and marks each post with its workflow status.
+- Firestore rules now validate workflow timestamps, protect draft visibility, and scope autosaves and revisions to their authorized owners.
+
 ## [1.0.20] - 2026-07-12
 
 ### Changed

@@ -1,4 +1,4 @@
-import { getFirestore } from 'firebase-admin/firestore';
+import { getFirestore, Timestamp } from 'firebase-admin/firestore';
 import { exitWithKnownSetupError, initializeAdminApp } from './firebase-admin-utils.mjs';
 import {
   createExamplePosts,
@@ -20,7 +20,13 @@ const seedFirestorePosts = async (posts) => {
   for (const chunk of chunks) {
     const batch = db.batch();
     chunk.forEach((post) => {
-      batch.set(db.collection('blogs').doc(post.id), withoutDocumentId(post));
+      const data = withoutDocumentId(post);
+      batch.set(db.collection('blogs').doc(post.id), {
+        ...data,
+        createdAt: Timestamp.fromDate(new Date(data.createdAt)),
+        updatedAt: Timestamp.fromDate(new Date(data.updatedAt)),
+        publishedAt: Timestamp.fromDate(new Date(data.publishedAt))
+      });
     });
     await batch.commit();
   }

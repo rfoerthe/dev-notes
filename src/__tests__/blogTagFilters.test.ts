@@ -12,6 +12,9 @@ const baseBlog: BlogPost = {
   authorName: 'Jane Doe',
   authorUsername: 'janedoe',
   createdAt: '2024-01-01T12:00:00.000Z',
+  updatedAt: '2024-01-01T12:00:00.000Z',
+  publishedAt: '2024-01-01T12:00:00.000Z',
+  status: 'published',
   readTime: 1
 };
 

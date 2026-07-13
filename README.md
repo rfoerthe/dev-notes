@@ -20,6 +20,8 @@ The app can run in two modes:
 - Approved users can save articles to a private Merkliste and manage saved posts from `/bookmarks`.
 - Admin dashboard for reviewing pending, approved, and rejected users, checking email verification status, approving or rejecting registrations, and changing application settings.
 - Approved-user routes for creating, editing, deleting, and managing blog posts, including a personal "My Posts" overview with total reading time.
+- Private draft workflow with explicit manual saving, publishing, and withdrawal.
+- Protected per-post revision history that previews earlier Markdown versions and restores them while preserving the replaced current version.
 - Blog editor with comma/semicolon tag entry, tag sanitization, content length limits, live Markdown preview, live reading-time estimation, and visible bottom-of-screen validation errors on submit.
 - Profile page for account details, password updates, theme preferences, accent color selection, and author-name propagation across existing posts.
 - Light, dark, and system theme selection from the navbar and profile settings, plus profile-level accent themes for Violett, Blau, Grün, Rose, and Orange.
@@ -152,6 +154,7 @@ npm run dev:emulator              # Start Vite connected to the local emulators
 npm run emulator:bootstrap-admin  # Create or repair the local admin account
 npm run emulator:seed             # Seed example posts into the Firestore emulator
 npm run emulator:delete-posts     # Delete all posts from the Firestore emulator
+npm run emulator:smoke-blog-workflow # Verify post and revision writes against running emulators
 ```
 
 Common Firebase project maintenance commands:
@@ -163,6 +166,8 @@ npm run restore:user
 npm run user:delete
 npm run posts:seed -- --target firestore
 npm run posts:delete -- --target firestore --yes
+npm run blogs:migrate-workflow -- --dry-run
+npm run blogs:migrate-workflow -- --yes
 npm run firestore:backup
 npm run firestore:restore
 ```
@@ -258,6 +263,20 @@ The editor supports:
 - Editor and preview tabs using the same GitHub-flavored Markdown renderer as the public article page.
 - Live word count and estimated reading time.
 - Immediate validation feedback in a snackbar near the submit action, while keeping the persistent alert at the top of the form.
+- Saving incomplete work as a private draft and publishing or withdrawing it explicitly.
+- A revision browser with rendered Markdown previews and restoration; every manual update stores the previously current version first.
+
+### Blog Workflow Migration
+
+Version 1.1.0 adds required `status`, `updatedAt`, and `publishedAt` fields to blog documents. Existing Firebase projects must migrate current posts before deploying the new rules and client:
+
+```bash
+npm run blogs:migrate-workflow -- --dry-run
+npm run blogs:migrate-workflow -- --yes
+npm run deploy:rules
+```
+
+The migration treats existing posts as published and normalizes legacy string timestamps to Firestore timestamps. Back up Firestore before applying it in production.
 
 ## Markdown and Code Blocks
 

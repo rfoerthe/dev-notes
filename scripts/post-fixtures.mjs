@@ -279,6 +279,9 @@ export const createExamplePosts = () => {
       authorName: 'Blog Admin',
       authorUsername: 'admin',
       createdAt,
+      updatedAt: createdAt,
+      publishedAt: createdAt,
+      status: 'published',
       readTime: calculateReadTime(content)
     };
   });

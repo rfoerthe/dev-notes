@@ -10,20 +10,21 @@ service cloud.firestore {
     
     // Helper: Checks if the requesting user has the admin role in Firestore
     function isAdmin() {
-      return isAuthenticated() && 
-        exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
-        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+      let userPath = /databases/$(database)/documents/users/$(request.auth.uid);
+      return isAuthenticated() && exists(userPath) && get(userPath).data.role == 'admin';
     }
     
     // Helper: Checks if the requesting user is approved in Firestore
     function isApproved() {
-      return isAuthenticated() && 
-        exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
-        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.status == 'approved' &&
+      let userPath = /databases/$(database)/documents/users/$(request.auth.uid);
+      let profile = get(userPath).data;
+      return isAuthenticated() &&
+        exists(userPath) &&
+        profile.status == 'approved' &&
         (
-          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin' ||
-          !get(/databases/$(database)/documents/users/$(request.auth.uid)).data.keys().hasAny(['emailVerified']) ||
-          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.emailVerified == true ||
+          profile.role == 'admin' ||
+          !profile.keys().hasAny(['emailVerified']) ||
+          profile.emailVerified == true ||
           request.auth.token.email_verified == true
         );
     }
@@ -73,7 +74,7 @@ service cloud.firestore {
         request.resource.data.authorName is string && request.resource.data.authorName.size() <= 100 &&
         request.resource.data.authorUsername is string &&
         validUsernameValue(request.resource.data.authorUsername) &&
-        validTags() &&
+        validTags(true) &&
         request.resource.data.readTime is int &&
         request.resource.data.readTime >= 1 &&
         request.resource.data.readTime <= 240 &&
@@ -157,17 +158,12 @@ service cloud.firestore {
 
     function validTagAt(index) {
       return request.resource.data.tags.size() <= index ||
-        (
-          request.resource.data.tags[index] is string &&
-          request.resource.data.tags[index].size() > 0 &&
-          request.resource.data.tags[index].size() <= 40 &&
-          request.resource.data.tags[index].matches('^[^<>]+$')
-        );
+        request.resource.data.tags[index].matches('^[^<>]{1,40}$');
     }
 
-    function validTags() {
+    function validTags(requireTag) {
       return request.resource.data.tags is list &&
-        request.resource.data.tags.size() > 0 &&
+        (!requireTag || request.resource.data.tags.size() > 0) &&
         request.resource.data.tags.size() <= 10 &&
         validTagAt(0) &&
         validTagAt(1) &&
@@ -199,12 +195,24 @@ service cloud.firestore {
         'authorName',
         'authorUsername',
         'createdAt',
+        'updatedAt',
+        'publishedAt',
+        'status',
         'readTime'
       ]) &&
         request.resource.data.title is string && request.resource.data.title.size() <= 150 &&
         request.resource.data.summary is string && request.resource.data.summary.size() <= 600 &&
         request.resource.data.content is string && request.resource.data.content.size() <= 50000 &&
-        validTags() &&
+        request.resource.data.status in ['draft', 'published'] &&
+        validTags(request.resource.data.status == 'published') &&
+        (
+          request.resource.data.status == 'draft' ||
+          (
+            request.resource.data.title.size() > 0 &&
+            request.resource.data.summary.size() > 0 &&
+            request.resource.data.content.size() > 0
+          )
+        ) &&
         request.resource.data.readTime is int &&
         request.resource.data.readTime >= 1 &&
         request.resource.data.readTime <= 240 &&
@@ -215,7 +223,12 @@ service cloud.firestore {
         request.resource.data.authorName is string && request.resource.data.authorName.size() <= 100 &&
         request.resource.data.authorUsername is string &&
         validUsernameValue(request.resource.data.authorUsername) &&
-        validCreatedAtValue();
+        validCreatedAtValue() &&
+        request.resource.data.updatedAt is timestamp &&
+        (
+          (request.resource.data.status == 'draft' && request.resource.data.publishedAt == null) ||
+          (request.resource.data.status == 'published' && request.resource.data.publishedAt is timestamp)
+        );
     }
 
     function blogIdentityIsImmutable() {
@@ -225,6 +238,21 @@ service cloud.firestore {
           request.resource.data.authorId == resource.data.authorId
         ) &&
         request.resource.data.createdAt == resource.data.createdAt;
+    }
+
+    function validBlogRevision() {
+      return request.resource.data.keys().hasOnly([
+        'title', 'summary', 'content', 'tags', 'status', 'savedAt', 'savedBy', 'savedByName'
+      ]) &&
+        request.resource.data.title is string && request.resource.data.title.size() <= 150 &&
+        request.resource.data.summary is string && request.resource.data.summary.size() <= 600 &&
+        request.resource.data.content is string && request.resource.data.content.size() <= 50000 &&
+        request.resource.data.status in ['draft', 'published'] &&
+        request.resource.data.tags is list &&
+        request.resource.data.tags.size() <= 10 &&
+        request.resource.data.savedAt == request.time &&
+        request.resource.data.savedBy == request.auth.uid &&
+        request.resource.data.savedByName is string && request.resource.data.savedByName.size() <= 100;
     }
 
     function validApprovedAuthorTarget(authorUsername, authorName) {
@@ -288,12 +316,14 @@ service cloud.firestore {
           request.auth.uid == userId &&
           request.resource.data.blogId == blogId &&
           exists(/databases/$(database)/documents/blogs/$(blogId)) &&
+          get(/databases/$(database)/documents/blogs/$(blogId)).data.status == 'published' &&
           validBookmark();
 
         allow update: if false;
 
         allow delete: if isApproved() && request.auth.uid == userId;
       }
+
     }
 
     // --- Public Usernames Collection Rules (PII Protection) ---
@@ -337,13 +367,22 @@ service cloud.firestore {
 
     // --- Blogs Collection Rules ---
     match /blogs/{blogId} {
-      allow read: if !closedUserGroupEnabled() || isApproved();
+      allow read: if (
+        resource.data.status == 'published' && (!closedUserGroupEnabled() || isApproved())
+      ) || (
+        isApproved() && (isAdmin() || resource.data.authorUsername == currentUserProfile().username)
+      );
       
       // Enforce strict field-level type safety and size constraints on creation
       allow create: if isApproved() &&
         validBlogPost() &&
         !request.resource.data.keys().hasAny(['authorId']) &&
         request.resource.data.createdAt == request.time &&
+        request.resource.data.updatedAt == request.time &&
+        (
+          (request.resource.data.status == 'draft' && request.resource.data.publishedAt == null) ||
+          (request.resource.data.status == 'published' && request.resource.data.publishedAt == request.time)
+        ) &&
         request.resource.data.authorName == currentUserFullName() &&
         request.resource.data.authorUsername == currentUserProfile().username;
       
@@ -351,6 +390,17 @@ service cloud.firestore {
       allow update: if isApproved() &&
         validBlogPost() &&
         blogIdentityIsImmutable() &&
+        request.resource.data.updatedAt == request.time &&
+        (
+          (request.resource.data.status == 'draft' && request.resource.data.publishedAt == null) ||
+          (
+            request.resource.data.status == 'published' &&
+            (
+              request.resource.data.publishedAt == resource.data.publishedAt ||
+              (resource.data.status == 'draft' && request.resource.data.publishedAt == request.time)
+            )
+          )
+        ) &&
         (
           (
             resource.data.authorUsername == currentUserProfile().username &&
@@ -358,17 +408,17 @@ service cloud.firestore {
             (
               (
                 request.resource.data.authorName == resource.data.authorName &&
-                request.resource.data.diff(resource.data).affectedKeys().hasOnly(['title', 'summary', 'content', 'tags', 'readTime'])
+                request.resource.data.diff(resource.data).affectedKeys().hasOnly(['title', 'summary', 'content', 'tags', 'readTime', 'status', 'updatedAt', 'publishedAt'])
               ) ||
               (
                 request.resource.data.authorName == currentUserFullName() &&
-                request.resource.data.diff(resource.data).affectedKeys().hasOnly(['authorName'])
+                request.resource.data.diff(resource.data).affectedKeys().hasOnly(['authorName', 'updatedAt'])
               )
             )
           ) ||
           (
             isAdmin() &&
-            request.resource.data.diff(resource.data).affectedKeys().hasOnly(['title', 'summary', 'content', 'tags', 'readTime', 'authorName', 'authorUsername']) &&
+            request.resource.data.diff(resource.data).affectedKeys().hasOnly(['title', 'summary', 'content', 'tags', 'readTime', 'status', 'updatedAt', 'publishedAt', 'authorName', 'authorUsername']) &&
             (
               (
                 request.resource.data.authorUsername == resource.data.authorUsername &&
@@ -380,6 +430,15 @@ service cloud.firestore {
         );
       
       allow delete: if isApproved() && (resource.data.authorUsername == currentUserProfile().username || isAdmin());
+
+      match /revisions/{revisionId} {
+        allow read, delete: if isApproved() &&
+          (isAdmin() || get(/databases/$(database)/documents/blogs/$(blogId)).data.authorUsername == currentUserProfile().username);
+        allow create: if isApproved() &&
+          (isAdmin() || get(/databases/$(database)/documents/blogs/$(blogId)).data.authorUsername == currentUserProfile().username) &&
+          validBlogRevision();
+        allow update: if false;
+      }
     }
   }
 }

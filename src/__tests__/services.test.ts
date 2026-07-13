@@ -20,7 +20,7 @@ import {
   registerUser
 } from '../services/authService';
 import { createBookmarkPayload, sortBookmarksNewestFirst } from '../services/bookmarkService';
-import { BLOG_LIMITS, MIN_PASSWORD_LENGTH, validateBlogContent } from '../services/securityValidation';
+import { BLOG_LIMITS, MIN_PASSWORD_LENGTH, validateBlogContent, validateBlogDraft } from '../services/securityValidation';
 
 describe('Developer blog service helpers', () => {
   it('calculates reading time based on roughly 200 words per minute', () => {
@@ -38,19 +38,24 @@ describe('Developer blog service helpers', () => {
       authorName: 'Sort Author',
       authorUsername: 'sortauthor',
       createdAt: '2024-01-01T12:00:00.000Z',
+      updatedAt: '2024-01-01T12:00:00.000Z',
+      publishedAt: '2024-01-01T12:00:00.000Z',
+      status: 'published' as const,
       readTime: 1
     };
     const newest = {
       ...oldest,
       id: 'post-a',
       title: 'Newest',
-      createdAt: '2024-01-03T12:00:00.000Z'
+      createdAt: '2024-01-03T12:00:00.000Z',
+      publishedAt: '2024-01-03T12:00:00.000Z'
     };
     const sameTimestamp = {
       ...oldest,
       id: 'post-b',
       title: 'Same timestamp as newest',
-      createdAt: '2024-01-03T12:00:00.000Z'
+      createdAt: '2024-01-03T12:00:00.000Z',
+      publishedAt: '2024-01-03T12:00:00.000Z'
     };
 
     expect(sortBlogPostsNewestFirst([oldest, sameTimestamp, newest]).map(blog => blog.id)).toEqual([
@@ -96,6 +101,9 @@ describe('Developer blog service helpers', () => {
         authorName: '  Creative Dev  ',
         authorUsername: 'creativedev',
         createdAt: '2024-01-03T12:00:00.000Z',
+        updatedAt: '2024-01-03T12:00:00.000Z',
+        publishedAt: '2024-01-03T12:00:00.000Z',
+        status: 'published',
         readTime: 4
       })
     ).toEqual({
@@ -187,7 +195,8 @@ describe('Firebase service validation', () => {
         content: 'Content with an invalid tag.',
         tags: ['Security', 'bad<tag'],
         authorName: 'Creative Dev',
-        authorUsername: 'creativedev'
+        authorUsername: 'creativedev',
+        status: 'published'
       })
     ).rejects.toThrow('bad<tag');
 
@@ -198,7 +207,10 @@ describe('Firebase service validation', () => {
         summary: 'Summary',
         content: 'Content',
         tags: ['Tag'],
-        authorName: 'Name without username'
+        authorName: 'Name without username',
+        status: 'published',
+        savedBy: 'user-id',
+        savedByName: 'Creative Dev'
       })
     ).rejects.toThrow('Autorname und Benutzername müssen gemeinsam aktualisiert werden.');
   });
@@ -210,6 +222,14 @@ describe('Firebase service validation', () => {
     expect(validateBlogContent('Title', validSummary, 'Content', ['Tag'])).toEqual([]);
     expect(validateBlogContent('Title', tooLongSummary, 'Content', ['Tag'])).toContain(
       `Die Zusammenfassung darf maximal ${BLOG_LIMITS.summaryMaxLength} Zeichen lang sein.`
+    );
+  });
+
+  it('allows incomplete drafts while keeping all size and tag safety limits', () => {
+    expect(validateBlogDraft('', '', '', [])).toEqual([]);
+    expect(validateBlogDraft('Draft', '', '', ['bad<tag'])).toContain('Das Tag "bad<tag" ist ungültig. Tags dürfen maximal 40 Zeichen lang sein und keine spitzen Klammern enthalten.');
+    expect(validateBlogDraft('x'.repeat(BLOG_LIMITS.titleMaxLength + 1), '', '', [])).toContain(
+      `Der Titel darf maximal ${BLOG_LIMITS.titleMaxLength} Zeichen lang sein.`
     );
   });
 });

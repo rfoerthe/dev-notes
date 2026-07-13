@@ -1,7 +1,7 @@
 {
   "name": "dev-notes",
   "private": true,
-  "version": "1.0.20",
+  "version": "1.1.6",
   "license": "MIT",
   "type": "module",
   "scripts": {
@@ -11,6 +11,7 @@
     "emulator:bootstrap-admin": "FIREBASE_AUTH_EMULATOR_HOST=127.0.0.1:9099 FIRESTORE_EMULATOR_HOST=127.0.0.1:8080 FIREBASE_PROJECT_ID=devnotes-local node scripts/bootstrap-admin.mjs",
     "emulator:seed": "FIREBASE_AUTH_EMULATOR_HOST=127.0.0.1:9099 FIRESTORE_EMULATOR_HOST=127.0.0.1:8080 FIREBASE_PROJECT_ID=devnotes-local npm run posts:seed -- --target firestore",
     "emulator:delete-posts": "FIREBASE_AUTH_EMULATOR_HOST=127.0.0.1:9099 FIRESTORE_EMULATOR_HOST=127.0.0.1:8080 FIREBASE_PROJECT_ID=devnotes-local npm run posts:delete -- --target firestore --yes",
+    "emulator:smoke-blog-workflow": "FIREBASE_AUTH_EMULATOR_HOST=127.0.0.1:9099 FIRESTORE_EMULATOR_HOST=127.0.0.1:8080 FIREBASE_PROJECT_ID=devnotes-local node scripts/smoke-blog-workflow.mjs",
     "build": "tsc -b && vite build",
     "lint": "eslint .",
     "test": "vitest run",
@@ -24,10 +25,11 @@
     "restore:user": "node scripts/repair-user.mjs",
     "posts:delete": "node scripts/delete-posts.mjs",
     "posts:seed": "node scripts/seed-example-posts.mjs",
+    "blogs:migrate-workflow": "node scripts/migrate-blog-workflow.mjs",
     "firestore:backup": "node scripts/firestore-backup.mjs",
     "firestore:restore": "node scripts/firestore-restore.mjs",
     "firebase": "firebase",
-    "deploy:rules": "node scripts/firebase-cli-project.mjs deploy --only firestore:rules"
+    "deploy:rules": "node scripts/firebase-cli-project.mjs deploy --only firestore:rules,firestore:indexes"
   },
   "dependencies": {
     "@emotion/react": "^11.14.0",

@@ -48,10 +48,10 @@ export function validatePasswordStrength(password: string): string | null {
   return null;
 }
 
-export function sanitizeTags(tags: string[]): string[] {
+export function sanitizeTags(tags: string[], requireTag = true): string[] {
   const normalizedTags = Array.from(new Set(tags.map(tag => tag.trim()).filter(Boolean)));
 
-  if (normalizedTags.length === 0) {
+  if (requireTag && normalizedTags.length === 0) {
     throw new Error('Bitte füge mindestens ein Schlagwort (Tag) hinzu.');
   }
 
@@ -65,6 +65,28 @@ export function sanitizeTags(tags: string[]): string[] {
   }
 
   return normalizedTags;
+}
+
+export function validateBlogDraft(title: string, summary: string, content: string, tags: string[]): string[] {
+  const errors: string[] = [];
+
+  if (title.trim().length > BLOG_LIMITS.titleMaxLength) {
+    errors.push(`Der Titel darf maximal ${BLOG_LIMITS.titleMaxLength} Zeichen lang sein.`);
+  }
+  if (summary.trim().length > BLOG_LIMITS.summaryMaxLength) {
+    errors.push(`Die Zusammenfassung darf maximal ${BLOG_LIMITS.summaryMaxLength} Zeichen lang sein.`);
+  }
+  if (content.length > BLOG_LIMITS.contentMaxLength) {
+    errors.push(`Der Inhalt darf maximal ${BLOG_LIMITS.contentMaxLength} Zeichen lang sein.`);
+  }
+
+  try {
+    sanitizeTags(tags, false);
+  } catch (error) {
+    errors.push(error instanceof Error ? error.message : 'Die Tags sind ungültig.');
+  }
+
+  return errors;
 }
 
 export function validateBlogContent(title: string, summary: string, content: string, tags: string[]): string[] {

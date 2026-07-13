@@ -13,7 +13,8 @@ import {
   IconButton,
   Tooltip,
   Popover,
-  Portal
+  Portal,
+  Alert
 } from '@mui/material';
 import { Bookmark, BookmarkCheck, ChevronLeft, ChevronUp, Calendar, Clock, Download, Edit3, ListTree, Share2 } from 'lucide-react';
 import { getBlogById } from '../services/blogService';
@@ -265,7 +266,7 @@ export const BlogDetails: React.FC = () => {
         <Button
           variant="text"
           startIcon={<ChevronLeft size={16} />}
-          onClick={() => navigate('/')}
+          onClick={() => navigate(blog.status === 'draft' ? '/my-posts' : '/')}
           sx={{ 
             mb: 4, 
             color: 'text.secondary',
@@ -275,8 +276,18 @@ export const BlogDetails: React.FC = () => {
             }
           }}
         >
-          Zurück zur Übersicht
+          {blog.status === 'draft' ? 'Zurück zu meinen Beiträgen' : 'Zurück zur Übersicht'}
         </Button>
+
+        {blog.status === 'draft' && (
+          <Alert
+            severity="info"
+            action={<Button color="inherit" size="small" onClick={() => navigate(`/edit/${blog.id}`)}>Weiter bearbeiten</Button>}
+            sx={{ mb: 3, width: '100%', borderRadius: 3 }}
+          >
+            Entwurfsvorschau – dieser Beitrag ist für andere Nutzer nicht sichtbar.
+          </Alert>
+        )}
 
         {/* ARTICLE META BLOCK */}
         <Box sx={{ mb: 2, width: '100%' }}>
@@ -370,7 +381,7 @@ export const BlogDetails: React.FC = () => {
               <Stack direction="row" spacing={1.5}>
                 <Stack direction="row" spacing={0.5} sx={{ alignItems: 'center' }}>
                   <Calendar size={15} />
-                  <Typography variant="body2" sx={{ fontSize: 13 }}>{formatDate(blog.createdAt)}</Typography>
+                  <Typography variant="body2" sx={{ fontSize: 13 }}>{formatDate(blog.publishedAt || blog.createdAt)}</Typography>
                 </Stack>
                 <Stack direction="row" spacing={0.5} sx={{ alignItems: 'center' }}>
                   <Clock size={15} />
@@ -398,7 +409,7 @@ export const BlogDetails: React.FC = () => {
                     </IconButton>
                   </Tooltip>
                 )}
-                <Tooltip
+                {blog.status === 'published' && <Tooltip
                   title={
                     userProfile
                       ? isBookmarked ? 'Aus Merkliste entfernen' : 'Zur Merkliste hinzufügen'
@@ -427,7 +438,7 @@ export const BlogDetails: React.FC = () => {
                       )}
                     </IconButton>
                   </span>
-                </Tooltip>
+                </Tooltip>}
                 <Tooltip title="Markdown herunterladen">
                   <IconButton
                     aria-label="Markdown herunterladen"
@@ -437,7 +448,7 @@ export const BlogDetails: React.FC = () => {
                     <Download size={16} />
                   </IconButton>
                 </Tooltip>
-                <Tooltip title="Link teilen">
+                {blog.status === 'published' && <Tooltip title="Link teilen">
                   <IconButton
                     aria-label="Link teilen"
                     onClick={handleShare}
@@ -445,7 +456,7 @@ export const BlogDetails: React.FC = () => {
                   >
                     <Share2 size={16} />
                   </IconButton>
-                </Tooltip>
+                </Tooltip>}
               </Stack>
             </Stack>
           </Stack>
