@@ -791,16 +791,31 @@ describe('Markdown renderer', () => {
     fireEvent(zoomArea, zeroDeltaWheel);
     expect(zoomContent.getAttribute('data-zoom-scale')).toBe('1.00');
 
-    const requestAnimationFrameSpy = vi.spyOn(window, 'requestAnimationFrame');
+    const animationFrames: FrameRequestCallback[] = [];
+    const requestAnimationFrameSpy = vi.spyOn(window, 'requestAnimationFrame')
+      .mockImplementation((callback) => {
+        animationFrames.push(callback);
+        return animationFrames.length;
+      });
     for (let index = 0; index < 12; index += 1) {
       fireEvent.wheel(zoomArea, { clientX: 210, clientY: 120, deltaY: -2 });
     }
     expect(requestAnimationFrameSpy).toHaveBeenCalledTimes(1);
+    animationFrames.shift()?.(16);
+    expect(zoomContent.getAttribute('data-zoom-scale')).toBe('1.04');
+    expect(zoomContent.getAttribute('data-zoom-render-mode')).toBe('transform');
+
+    for (let index = 0; index < 12; index += 1) {
+      fireEvent.wheel(zoomArea, { clientX: 210, clientY: 120, deltaY: -2 });
+    }
+    expect(requestAnimationFrameSpy).toHaveBeenCalledTimes(2);
+    animationFrames.shift()?.(32);
+    expect(zoomContent.getAttribute('data-zoom-scale')).toBe('1.07');
     requestAnimationFrameSpy.mockRestore();
     await waitFor(() => {
-      expect(zoomContent.getAttribute('data-zoom-scale')).toBe('1.04');
+      expect(zoomContent.getAttribute('data-zoom-scale')).toBe('1.07');
       expect(zoomContent.getAttribute('data-zoom-render-mode')).toBe('layout');
-      expect(zoomContent.getAttribute('data-zoom-rendered-scale')).toBe('1.04');
+      expect(zoomContent.getAttribute('data-zoom-rendered-scale')).toBe('1.07');
     });
 
     const burstScale = Number(zoomContent.getAttribute('data-zoom-scale-exact'));

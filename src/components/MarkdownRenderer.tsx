@@ -25,6 +25,7 @@ const MERMAID_ZOOM_STEP = 0.1;
 const MERMAID_ZOOM_SCALE_EPSILON = 0.000001;
 const MERMAID_ZOOM_ANIMATION_MS = 120;
 const MERMAID_ZOOM_UI_UPDATE_MS = 50;
+const MERMAID_WHEEL_ZOOM_SETTLE_MS = 120;
 const MERMAID_WHEEL_DELTA_LIMIT = 240;
 const MERMAID_WHEEL_LINE_HEIGHT = 16;
 const MERMAID_WHEEL_ZOOM_SENSITIVITY = 0.0015;
@@ -707,6 +708,8 @@ const MermaidDiagram = ({ children, sourceKey }: MermaidDiagramProps) => {
     startTransform: createDefaultMermaidZoomTransform(),
   });
   const zoomAnimationFrameRef = useRef<number | null>(null);
+  const zoomWheelAnimationFrameRef = useRef<number | null>(null);
+  const zoomWheelSettleTimeoutRef = useRef<number | null>(null);
   const zoomAnimationFromRef = useRef<MermaidZoomTransform>(createDefaultMermaidZoomTransform());
   const zoomAnimationStartTimeRef = useRef<number | null>(null);
   const zoomLastUiUpdateTimeRef = useRef(0);
@@ -862,7 +865,31 @@ const MermaidDiagram = ({ children, sourceKey }: MermaidDiagramProps) => {
     zoomContent.dataset.zoomRenderMode = 'layout';
     zoomContent.style.willChange = 'auto';
   }, [resetZoomRendering, syncZoomTransformElement]);
+  const cancelWheelZoom = useCallback((applyPendingTransform = false) => {
+    const hasActiveWheelZoom = zoomWheelAnimationFrameRef.current !== null
+      || zoomWheelSettleTimeoutRef.current !== null;
+
+    if (zoomWheelAnimationFrameRef.current !== null) {
+      window.cancelAnimationFrame(zoomWheelAnimationFrameRef.current);
+      zoomWheelAnimationFrameRef.current = null;
+    }
+
+    if (zoomWheelSettleTimeoutRef.current !== null) {
+      window.clearTimeout(zoomWheelSettleTimeoutRef.current);
+      zoomWheelSettleTimeoutRef.current = null;
+    }
+
+    if (applyPendingTransform && hasActiveWheelZoom) {
+      const pendingTransform = zoomTargetTransformRef.current;
+
+      zoomAnimationFromRef.current = pendingTransform;
+      zoomTransformRef.current = pendingTransform;
+      syncZoomTransformElement(pendingTransform);
+    }
+  }, [syncZoomTransformElement]);
   const stopZoomAnimation = useCallback(() => {
+    cancelWheelZoom();
+
     if (zoomAnimationFrameRef.current !== null) {
       window.cancelAnimationFrame(zoomAnimationFrameRef.current);
     }
@@ -871,7 +898,7 @@ const MermaidDiagram = ({ children, sourceKey }: MermaidDiagramProps) => {
     zoomAnimationFromRef.current = zoomTransformRef.current;
     zoomAnimationStartTimeRef.current = null;
     zoomTargetTransformRef.current = zoomTransformRef.current;
-  }, []);
+  }, [cancelWheelZoom]);
   const startZoomAnimation = useCallback(() => {
     if (zoomAnimationFrameRef.current !== null) {
       return;
@@ -911,6 +938,7 @@ const MermaidDiagram = ({ children, sourceKey }: MermaidDiagramProps) => {
     zoomAnimationFrameRef.current = window.requestAnimationFrame(animate);
   }, [settleZoomRendering, syncZoomTransformElement]);
   const queueZoomScale = useCallback((nextScale: number, anchor: { x: number; y: number }) => {
+    cancelWheelZoom(true);
     const clampedScale = clampMermaidZoomScale(nextScale);
 
     if (Math.abs(clampedScale - zoomTargetTransformRef.current.scale) < Number.EPSILON) {
@@ -942,7 +970,80 @@ const MermaidDiagram = ({ children, sourceKey }: MermaidDiagramProps) => {
     zoomTargetTransformRef.current = target;
     prepareZoomRendering();
     startZoomAnimation();
-  }, [prepareZoomRendering, startZoomAnimation]);
+  }, [cancelWheelZoom, prepareZoomRendering, startZoomAnimation]);
+  const queueWheelZoomScale = useCallback((nextScale: number, anchor: { x: number; y: number }) => {
+    if (zoomAnimationFrameRef.current !== null) {
+      window.cancelAnimationFrame(zoomAnimationFrameRef.current);
+      zoomAnimationFrameRef.current = null;
+      zoomAnimationFromRef.current = zoomTransformRef.current;
+      zoomAnimationStartTimeRef.current = null;
+      zoomTargetTransformRef.current = zoomTransformRef.current;
+    }
+
+    const clampedScale = clampMermaidZoomScale(nextScale);
+    const currentTarget = zoomTargetTransformRef.current;
+
+    if (Math.abs(clampedScale - currentTarget.scale) >= Number.EPSILON) {
+      let nextTransform = getAnchoredMermaidZoomTransform(
+        currentTarget,
+        clampedScale,
+        anchor,
+      );
+
+      if (zoomAreaRef.current) {
+        const viewport = getMermaidZoomViewport(zoomAreaRef.current);
+        const contentSize = zoomViewportSizeRef.current;
+
+        nextTransform = constrainMermaidPan(
+          nextTransform,
+          viewport.width,
+          viewport.height,
+          contentSize.width || viewport.width,
+          contentSize.height || viewport.height,
+        );
+      }
+
+      zoomTargetTransformRef.current = nextTransform;
+      prepareZoomRendering();
+
+      if (zoomWheelAnimationFrameRef.current === null) {
+        zoomWheelAnimationFrameRef.current = window.requestAnimationFrame((timestamp) => {
+          zoomWheelAnimationFrameRef.current = null;
+          const frameTransform = zoomTargetTransformRef.current;
+
+          zoomAnimationFromRef.current = frameTransform;
+          zoomTransformRef.current = frameTransform;
+          syncZoomTransformElement(frameTransform);
+
+          if (timestamp - zoomLastUiUpdateTimeRef.current >= MERMAID_ZOOM_UI_UPDATE_MS) {
+            zoomLastUiUpdateTimeRef.current = timestamp;
+            setZoomScale(frameTransform.scale);
+          }
+        });
+      }
+    }
+
+    if (zoomWheelSettleTimeoutRef.current !== null) {
+      window.clearTimeout(zoomWheelSettleTimeoutRef.current);
+    }
+
+    zoomWheelSettleTimeoutRef.current = window.setTimeout(() => {
+      zoomWheelSettleTimeoutRef.current = null;
+
+      if (zoomWheelAnimationFrameRef.current !== null) {
+        window.cancelAnimationFrame(zoomWheelAnimationFrameRef.current);
+        zoomWheelAnimationFrameRef.current = null;
+      }
+
+      const finalTransform = zoomTargetTransformRef.current;
+
+      zoomAnimationFromRef.current = finalTransform;
+      zoomTransformRef.current = finalTransform;
+      syncZoomTransformElement(finalTransform);
+      setZoomScale(finalTransform.scale);
+      settleZoomRendering(finalTransform);
+    }, MERMAID_WHEEL_ZOOM_SETTLE_MS);
+  }, [prepareZoomRendering, settleZoomRendering, syncZoomTransformElement]);
   const handleZoomAreaRef = useCallback((element: HTMLDivElement | null) => {
     zoomAreaRef.current = element;
     setZoomAreaElement(element);
@@ -1429,7 +1530,7 @@ const MermaidDiagram = ({ children, sourceKey }: MermaidDiagramProps) => {
       const factor = Math.exp(-delta * MERMAID_WHEEL_ZOOM_SENSITIVITY);
       const nextScale = zoomTargetTransformRef.current.scale * factor;
 
-      queueZoomScale(nextScale, {
+      queueWheelZoomScale(nextScale, {
         x: clampNumber(event.clientX - viewport.bounds.left, 0, viewport.width),
         y: clampNumber(event.clientY - viewport.bounds.top, 0, viewport.height),
       });
@@ -1438,7 +1539,7 @@ const MermaidDiagram = ({ children, sourceKey }: MermaidDiagramProps) => {
     zoomArea.addEventListener('wheel', handleWheel, { passive: false });
 
     return () => zoomArea.removeEventListener('wheel', handleWheel);
-  }, [isZoomOpen, queueZoomScale, zoomAreaElement]);
+  }, [isZoomOpen, queueWheelZoomScale, zoomAreaElement]);
 
   useEffect(() => () => {
     stopZoomAnimation();

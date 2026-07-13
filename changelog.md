@@ -6,6 +6,10 @@
 
 - Successful publication from the edit workflow now opens the article reader and reports whether the article or its changes were published through the global snackbar.
 
+### Fixed
+
+- Mermaid zoom popups now batch macOS trackpad pinch and two-finger wheel input once per animation frame instead of restarting the zoom easing for every event, resulting in smoother and more immediate zooming.
+
 ## [1.1.5] - 2026-07-13
 
 ### Changed
