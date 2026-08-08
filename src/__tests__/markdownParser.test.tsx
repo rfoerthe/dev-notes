@@ -998,7 +998,7 @@ describe('Markdown renderer', () => {
       await waitFor(() => {
         expect(screen.getByRole('button', { name: 'Mermaid-Diagramm als SVG herunterladen' })).toBeTruthy();
       });
-      expect(container.querySelector('svg[data-testid="rendered-mermaid-svg"]')?.getAttribute('data-theme')).toBe('dark');
+      expect(container.querySelector('svg[data-testid="rendered-mermaid-svg"]')?.getAttribute('data-theme')).toBe('base');
       expect(container.querySelector('svg[data-testid="rendered-mermaid-svg"]')?.getAttribute('data-dark-mode')).toBe('true');
 
       fireEvent.click(screen.getByRole('button', { name: 'Mermaid-Diagramm als SVG herunterladen' }));
@@ -1010,7 +1010,7 @@ describe('Markdown renderer', () => {
       const svgBlob = createObjectURL.mock.calls[0][0] as Blob;
       expect(svgBlob.type).toBe('image/svg+xml;charset=utf-8');
       await expect(svgBlob.text()).resolves.toContain('<svg');
-      await expect(svgBlob.text()).resolves.toContain('data-theme="neutral"');
+      await expect(svgBlob.text()).resolves.toContain('data-theme="base"');
       await expect(svgBlob.text()).resolves.toContain('data-dark-mode="false"');
       await expect(svgBlob.text()).resolves.toContain('-export-light');
     } finally {
