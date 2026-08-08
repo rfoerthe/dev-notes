@@ -5,13 +5,18 @@ import remarkGfm from 'remark-gfm';
 import { Box, Dialog, DialogContent, IconButton, Link as MuiLink, Tooltip, Typography, useTheme } from '@mui/material';
 import { Check, Copy, Download, Maximize, Minimize2, RotateCcw, X, ZoomIn, ZoomOut } from 'lucide-react';
 import type mermaid from 'mermaid';
-import type { MermaidConfig } from 'mermaid';
 import { createHighlighterCore } from '@shikijs/core';
 import { createJavaScriptRegexEngine } from '@shikijs/engine-javascript';
 import githubDarkDefault from '@shikijs/themes/github-dark-default';
 import githubLightDefault from '@shikijs/themes/github-light-default';
 import type { HighlighterCore, LanguageRegistration, TokensResult } from '@shikijs/types';
 import { shikiLanguageLoaders } from './shikiLanguageLoaders';
+import {
+  applyMermaidLabelContrast,
+  applyMermaidLabelContrastToMarkup,
+  getMermaidConfig,
+  type MermaidColorMode,
+} from './mermaidTheme';
 import { createHeadingIdsByLine, slugifyHeadingText } from './markdownHeadings';
 import { scrollHeadingIntoView } from './headingScroll';
 
@@ -157,7 +162,7 @@ const renderedMermaidCache = new Map<string, string>();
 const exportedLightMermaidCache = new Map<string, Promise<string>>();
 let shikiHighlighter: Promise<HighlighterCore> | null = null;
 let mermaidInstance: Promise<typeof mermaid> | null = null;
-let initializedMermaidMode: keyof typeof themeByMode | null = null;
+let initializedMermaidMode: MermaidColorMode | null = null;
 const loadedLanguages = new Set<string>();
 
 const languageAliases: Record<string, string> = {
@@ -189,16 +194,7 @@ const hashString = (value: string): string => {
   return (hash >>> 0).toString(36);
 };
 
-const getMermaidConfig = (mode: keyof typeof themeByMode): MermaidConfig => ({
-  darkMode: mode === 'dark',
-  fontFamily: 'Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
-  htmlLabels: false,
-  securityLevel: 'strict',
-  startOnLoad: false,
-  theme: mode === 'dark' ? 'dark' : 'neutral',
-});
-
-const getMermaidScrollbarStyles = (mode: keyof typeof themeByMode) => {
+const getMermaidScrollbarStyles = (mode: MermaidColorMode) => {
   const trackColor = mode === 'dark' ? 'rgba(15, 23, 42, 0.76)' : 'rgba(226, 232, 240, 0.96)';
   const thumbColor = mode === 'dark' ? 'rgba(148, 163, 184, 0.58)' : 'rgba(71, 85, 105, 0.62)';
   const thumbHoverColor = mode === 'dark' ? 'rgba(203, 213, 225, 0.76)' : 'rgba(51, 65, 85, 0.82)';
@@ -234,7 +230,7 @@ const loadMermaid = (): Promise<typeof mermaid> => {
   return mermaidInstance;
 };
 
-const initializeMermaid = (mermaidApi: typeof mermaid, mode: keyof typeof themeByMode) => {
+const initializeMermaid = (mermaidApi: typeof mermaid, mode: MermaidColorMode) => {
   if (initializedMermaidMode === mode) {
     return;
   }
@@ -247,7 +243,7 @@ const renderMermaidSvg = async (
   mermaidApi: typeof mermaid,
   id: string,
   code: string,
-  mode: keyof typeof themeByMode,
+  mode: MermaidColorMode,
 ) => {
   initializeMermaid(mermaidApi, mode);
   const { svg } = await mermaidApi.render(id, code);
@@ -258,7 +254,7 @@ const renderMermaidSvg = async (
 const getLightMermaidExportSvg = (
   diagramId: string,
   code: string,
-  restoreMode: keyof typeof themeByMode,
+  restoreMode: MermaidColorMode,
 ): Promise<string> => {
   const cacheKey = `light-export:${diagramId}:${code}`;
   const cachedResult = exportedLightMermaidCache.get(cacheKey);
@@ -270,7 +266,9 @@ const getLightMermaidExportSvg = (
   const exportResult = loadMermaid()
     .then(async (mermaidApi) => {
       try {
-        return await renderMermaidSvg(mermaidApi, `${diagramId}-export-light`, code, 'light');
+        const svg = await renderMermaidSvg(mermaidApi, `${diagramId}-export-light`, code, 'light');
+
+        return applyMermaidLabelContrastToMarkup(svg, 'light');
       } finally {
         if (restoreMode !== 'light') {
           initializeMermaid(mermaidApi, restoreMode);
@@ -319,7 +317,7 @@ const importLanguage = async (languageLabel: string): Promise<LanguageRegistrati
 const loadHighlightedCode = (
   code: string,
   languageLabel: string,
-  mode: keyof typeof themeByMode,
+  mode: MermaidColorMode,
 ): Promise<TokensResult> => {
   const cacheKey = `${mode}:${languageLabel}:${code}`;
   const cachedResult = highlightedCodeCache.get(cacheKey);
@@ -351,7 +349,7 @@ const loadHighlightedCode = (
 const getHighlightKey = (
   code: string,
   languageLabel: string,
-  mode: keyof typeof themeByMode,
+  mode: MermaidColorMode,
 ) => `${mode}:${languageLabel}:${code}`;
 
 const getTableTextAlign = (
@@ -686,6 +684,7 @@ const MermaidDiagram = ({ children, sourceKey }: MermaidDiagramProps) => {
   const mode = theme.palette.mode === 'light' ? 'light' : 'dark';
   const zoomAreaRef = useRef<HTMLDivElement | null>(null);
   const zoomContentRef = useRef<HTMLDivElement | null>(null);
+  const inlineSvgRef = useRef<HTMLDivElement | null>(null);
   const zoomStageRef = useRef<HTMLDivElement | null>(null);
   const zoomViewportSizeRef = useRef({ height: 0, width: 0 });
   const zoomRenderedScaleRef = useRef(MERMAID_ZOOM_DEFAULT);
@@ -1048,6 +1047,12 @@ const MermaidDiagram = ({ children, sourceKey }: MermaidDiagramProps) => {
     zoomAreaRef.current = element;
     setZoomAreaElement(element);
   }, []);
+  // The zoom dialog is portaled and therefore mounts after the layout effect below,
+  // so its diagram gets its contrast fix as soon as the node is attached.
+  const handleZoomContentRef = useCallback((element: HTMLDivElement | null) => {
+    zoomContentRef.current = element;
+    applyMermaidLabelContrast(element, mode);
+  }, [mode]);
   const handleDownloadSvg = async (event?: React.MouseEvent) => {
     event?.stopPropagation();
 
@@ -1498,6 +1503,11 @@ const MermaidDiagram = ({ children, sourceKey }: MermaidDiagramProps) => {
     };
   }, [diagramId, mode, rawCode, renderKey]);
 
+  useLayoutEffect(() => {
+    applyMermaidLabelContrast(inlineSvgRef.current, mode);
+    applyMermaidLabelContrast(zoomContentRef.current, mode);
+  }, [activeRenderState.svg, mode]);
+
   useEffect(() => {
     if (!isZoomOpen) {
       return undefined;
@@ -1657,7 +1667,7 @@ const MermaidDiagram = ({ children, sourceKey }: MermaidDiagramProps) => {
         }}
       >
         {activeRenderState.svg ? (
-          <Box dangerouslySetInnerHTML={activeSvgMarkup} />
+          <Box dangerouslySetInnerHTML={activeSvgMarkup} ref={inlineSvgRef} />
         ) : (
           <Typography
             component="p"
@@ -1877,7 +1887,7 @@ const MermaidDiagram = ({ children, sourceKey }: MermaidDiagramProps) => {
                 data-zoom-x="0.000"
                 data-zoom-y="0.000"
                 dangerouslySetInnerHTML={activeSvgMarkup}
-                ref={zoomContentRef}
+                ref={handleZoomContentRef}
                 style={{
                   transform: 'translate3d(0px, 0px, 0) scale(1)',
                 }}
