@@ -12,6 +12,10 @@
 - Section colors of scale-based diagrams (timeline, journey) are defined explicitly per theme mode: sections no longer collapse into black blocks in dark mode and are distinguishable instead of uniformly gray in light mode.
 - Labels of nodes and subgraphs are recolored after rendering based on the contrast against their own shape fill, which keeps them readable when the diagram source overrides that fill (`style`, `classDef`). A label color set in the diagram itself is kept as is. The same correction is applied to the downloaded SVG.
 
+### Security
+
+- Resolved all npm audit findings in the production dependency chain by updating the lockfile to patched releases of `mermaid`, `dompurify`, `react-router`/`react-router-dom` and `websocket-driver`.
+
 ## [1.1.6] - 2026-07-13
 
 ### Changed
