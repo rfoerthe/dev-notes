@@ -1,5 +1,21 @@
 # Changelog
 
+## [1.1.9] - 2026-08-15
+
+### Added
+
+- `npm run clean` removes build and tool artifacts with `rimraf`: `dist/`, `coverage/`, the TypeScript build info in `node_modules/.tmp`, the Vite/Vitest cache in `node_modules/.vite`, the Firebase Hosting deploy cache (`.firebase/hosting.*.cache`) and emulator `*-debug.log` files. `npm run clean:emulator-data` separately deletes the persisted local emulator database in `.firebase/emulator-data`, because that discards local development data.
+
+### Fixed
+
+- Sporadic 10–20 second stalls of Firestore requests in Safari (and occasionally Chrome), where a request that had just completed in well under a second suddenly hung. The browser app only ever performs one-time reads and writes, yet the full `firebase/firestore` SDK tunnels even `getDoc`/`getDocs` through a long-lived WebChannel `Listen` session (`Listen/channel` with `SID`/`AID` and a streaming GET backchannel). When that session silently dies – background tab, network change, sleep, proxy – the SDK's online-state tracker waits 10 seconds ("Backend didn't respond within 10 seconds"), then reconnects with exponential backoff, and one-time reads either sit in that window or (with the in-memory cache Safari was using) fail as "client is offline" and render empty lists. The app now uses the REST-based `firebase/firestore/lite` entry point everywhere: every read and write is an independent HTTPS request (`documents:runQuery`, `documents:batchGet`, `documents:commit`) with no session, no backchannel and no offline state machine, so a dead connection cannot stall the next call.
+- Removed the Safari-specific in-memory-cache workaround and the IndexedDB multi-tab persistence; both only existed to soften the symptoms above and neither has an effect on the lite SDK. Offline reads from cache are not supported anymore, which the app never relied on (one-time reads always waited for the server).
+
+### Changed
+
+- The eagerly loaded Firestore vendor chunk shrinks from 553 kB to 124 kB (gzip 163 kB → 38 kB) because the lite SDK does not ship the realtime listener, cache and WebChannel machinery.
+- A new test guards the transport choice: any `from 'firebase/firestore'` import under `src/` fails the suite, so the WebChannel transport cannot be re-introduced by accident.
+
 ## [1.1.8] - 2026-08-15
 
 ### Added

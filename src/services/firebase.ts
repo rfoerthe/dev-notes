@@ -1,15 +1,16 @@
 import { initializeApp, getApps, getApp, type FirebaseApp } from 'firebase/app';
 import { connectAuthEmulator, getAuth, type Auth } from 'firebase/auth';
+// The app only performs one-time reads and writes, so it uses the REST-based
+// `firestore/lite` SDK. The full SDK tunnels even `getDoc`/`getDocs` through a
+// long-lived WebChannel `Listen` stream whose reconnect/online-state logic
+// (10 s "backend didn't respond" timeout + exponential backoff) caused
+// sporadic 10–20 s request stalls in Safari and Chrome. With lite, every call
+// is an independent HTTPS request without session state or backchannel.
 import {
   connectFirestoreEmulator,
   getFirestore,
-  initializeFirestore,
-  memoryLocalCache,
-  persistentLocalCache,
-  persistentMultipleTabManager,
-  type FirestoreSettings,
   type Firestore
-} from 'firebase/firestore';
+} from 'firebase/firestore/lite';
 import { initializeAnalytics, isSupported, type Analytics } from 'firebase/analytics';
 import { initializeAppCheck, ReCaptchaEnterpriseProvider } from 'firebase/app-check';
 
@@ -62,32 +63,9 @@ const emulatorConnectionState = globalThis as typeof globalThis & {
 
 const app: FirebaseApp = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
 const auth: Auth = getAuth(app);
-let db: Firestore;
 let analyticsPromise: Promise<Analytics | null> | null = null;
 let isAnalyticsConfigured = false;
 let isAppCheckConfigured = false;
-
-function isSafariBrowser(): boolean {
-  if (typeof navigator === 'undefined') {
-    return false;
-  }
-
-  return /^((?!chrome|android|crios|fxios|edgios).)*safari/i.test(navigator.userAgent);
-}
-
-function createFirestoreSettings(): FirestoreSettings {
-  if (isSafariBrowser()) {
-    return {
-      localCache: memoryLocalCache()
-    };
-  }
-
-  return {
-    localCache: persistentLocalCache({
-      tabManager: persistentMultipleTabManager()
-    })
-  };
-}
 
 if (!useFirebaseEmulator && firebaseConfig.appCheckSiteKey) {
   initializeAppCheck(app, {
@@ -97,11 +75,7 @@ if (!useFirebaseEmulator && firebaseConfig.appCheckSiteKey) {
   isAppCheckConfigured = true;
 }
 
-try {
-  db = initializeFirestore(app, createFirestoreSettings());
-} catch {
-  db = getFirestore(app);
-}
+const db: Firestore = getFirestore(app);
 
 if (useFirebaseEmulator) {
   if (!emulatorConnectionState.__DEV_NOTES_AUTH_EMULATOR_CONNECTED__) {
