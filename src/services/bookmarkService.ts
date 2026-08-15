@@ -10,7 +10,7 @@ import {
   setDoc,
   Timestamp,
   type QuerySnapshot
-} from 'firebase/firestore';
+} from 'firebase/firestore/lite';
 import { db } from './firebase';
 import type { BlogPost } from './blogService';
 

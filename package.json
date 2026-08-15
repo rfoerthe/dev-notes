@@ -1,7 +1,7 @@
 {
   "name": "dev-notes",
   "private": true,
-  "version": "1.1.8",
+  "version": "1.1.9",
   "license": "MIT",
   "type": "module",
   "engines": {
@@ -16,6 +16,8 @@
     "emulator:delete-posts": "FIREBASE_AUTH_EMULATOR_HOST=127.0.0.1:9099 FIRESTORE_EMULATOR_HOST=127.0.0.1:8080 FIREBASE_PROJECT_ID=devnotes-local npm run posts:delete -- --target firestore --yes",
     "emulator:smoke-blog-workflow": "FIREBASE_AUTH_EMULATOR_HOST=127.0.0.1:9099 FIRESTORE_EMULATOR_HOST=127.0.0.1:8080 FIREBASE_PROJECT_ID=devnotes-local node scripts/smoke-blog-workflow.mjs",
     "build": "tsc -b && vite build",
+    "clean": "rimraf --glob dist coverage node_modules/.tmp node_modules/.vite \".firebase/hosting.*.cache\" \"*-debug.log\"",
+    "clean:emulator-data": "rimraf .firebase/emulator-data",
     "lint": "eslint .",
     "test": "vitest run",
     "preview": "vite preview",
@@ -70,6 +72,7 @@
     "firebase-tools": "^15.27.0",
     "globals": "^17.11.0",
     "jsdom": "^30.0.1",
+    "rimraf": "^6.1.3",
     "typescript": "npm:@typescript/typescript6@6.0.2",
     "typescript-eslint": "^8.67.0",
     "vite": "^8.2.1",

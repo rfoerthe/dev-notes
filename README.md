@@ -138,6 +138,14 @@ Run linting:
 npm run lint
 ```
 
+Remove build and tool artifacts (`dist/`, `coverage/`, TypeScript build info and the Vite/Vitest cache under `node_modules/`, the Firebase Hosting deploy cache and emulator `*-debug.log` files):
+
+```bash
+npm run clean
+```
+
+`npm run clean:emulator-data` additionally deletes the persisted local emulator database in `.firebase/emulator-data`; it is kept separate because it discards local development data. Reinstall dependencies with `npm ci` if `node_modules/` itself should be rebuilt.
+
 Deploy only Firestore rules:
 
 ```bash

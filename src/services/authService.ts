@@ -17,7 +17,7 @@ import {
   updateDoc,
   runTransaction,
   deleteField
-} from 'firebase/firestore';
+} from 'firebase/firestore/lite';
 import { auth, db } from './firebase';
 import { updateAuthorNameForBlogs } from './blogService';
 import {
