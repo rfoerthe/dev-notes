@@ -41,7 +41,7 @@ export default defineConfig({
             },
             {
               name: 'vendor-shiki-core',
-              test: /node_modules[\\/](?:shiki|@shikijs[\\/](?:core|engine-javascript|primitive|themes|types|vscode-textmate))[\\/]/,
+              test: /node_modules[\\/]@shikijs[\\/](?:core|engine-javascript|primitive|themes|types|vscode-textmate)[\\/]/,
               priority: 12,
             },
             {
@@ -50,8 +50,55 @@ export default defineConfig({
               priority: 10,
             },
             {
+              // Everything else from node_modules, except the two graphs that
+              // must keep their own async boundaries:
+              //
+              // - @shikijs/langs: one chunk per language, loaded on demand.
+              // - mermaid and the packages it exclusively pulls in (d3,
+              //   cytoscape, katex, roughjs, …). Mermaid is only reached
+              //   through the dynamic import in MarkdownRenderer and lazy-loads
+              //   its diagram types internally; grouping it here would drag the
+              //   whole graph into the eagerly loaded chunk and flatten
+              //   Mermaid's own splitting. Rolldown chunks the remainder along
+              //   those dynamic imports on its own.
+              //
+              // `stylis` is deliberately not listed: it is the one package
+              // shared with @emotion, so it stays in the eager output.
               name: 'vendor',
-              test: /node_modules[\\/](?!@shikijs[\\/]langs[\\/])/,
+              test: new RegExp(
+                `node_modules[\\\\/](?!${[
+                  '@shikijs[\\\\/]langs[\\\\/]',
+                  'mermaid[\\\\/]',
+                  '@mermaid-js[\\\\/]',
+                  '@chevrotain[\\\\/]',
+                  'd3(?:-[a-z-]+)?[\\\\/]',
+                  'delaunator[\\\\/]',
+                  'internmap[\\\\/]',
+                  'robust-predicates[\\\\/]',
+                  'cytoscape(?:-[a-z-]+)?[\\\\/]',
+                  'cose-base[\\\\/]',
+                  'layout-base[\\\\/]',
+                  'dagre-d3-es[\\\\/]',
+                  'katex[\\\\/]',
+                  'roughjs[\\\\/]',
+                  'points-on-curve[\\\\/]',
+                  'points-on-path[\\\\/]',
+                  'path-data-parser[\\\\/]',
+                  'hachure-fill[\\\\/]',
+                  '@upsetjs[\\\\/]',
+                  '@braintree[\\\\/]',
+                  '@iconify[\\\\/]',
+                  'dompurify[\\\\/]',
+                  'marked[\\\\/]',
+                  'dayjs[\\\\/]',
+                  'es-toolkit[\\\\/]',
+                  'khroma[\\\\/]',
+                  'ts-dedent[\\\\/]',
+                  'lodash-es[\\\\/]',
+                  'uuid[\\\\/]',
+                  'commander[\\\\/]',
+                ].join('|')})`
+              ),
             },
           ],
         },
