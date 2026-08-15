@@ -21,7 +21,7 @@
     "lint": "eslint .",
     "test": "vitest run",
     "preview": "vite preview",
-    "deploy": "npm run build && npm run firebase deploy",
+    "deploy": "npm run build && node scripts/firebase-cli-project.mjs deploy",
     "preview:deploy": "npm run build && node scripts/deploy-preview.mjs",
     "admin:repair": "node scripts/repair-admin.mjs",
     "restore:admin": "node scripts/repair-admin.mjs",
