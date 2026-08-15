@@ -16,7 +16,9 @@
 
 ### Fixed
 
-- The Content Security Policy allows connections to `https://www.google.com`, which reCAPTCHA Enterprise needs for App Check. Previously the domain was permitted for scripts and frames but not for connections, so those requests were blocked and retried in a loop.
+- Mermaid is no longer loaded on first paint. The catch-all vendor group in the bundler configuration pulled every `node_modules` package into the eagerly loaded chunk, including Mermaid and everything it exclusively needs (d3, cytoscape, katex, roughjs, dagre), which made the deliberate dynamic import in the Markdown renderer ineffective. The initially loaded JavaScript drops from 5074 kB to 1799 kB.
+- Mermaid loads one chunk per diagram type again instead of a single bundle. The same vendor group had flattened Mermaid's internal splitting, so opening any article paid for every diagram type at once.
+- The `vendor-shiki-core` group no longer matches the `shiki` umbrella package, which is no longer a dependency. The rule was inert; the resulting chunk is unchanged.
 - Removed the npm deprecation warnings for `glob` and `node-domexception`: `glob` is pinned to the maintained version 13 through an override, and `node-domexception`, whose every published version is deprecated, is replaced by a local shim that re-exports the platform-native `DOMException`.
 
 ### Security
