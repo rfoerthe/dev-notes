@@ -10,10 +10,14 @@ import {
   getDoc,
   getFirestore,
   serverTimestamp,
+  setLogLevel,
   setDoc,
   terminate,
   writeBatch
-} from 'firebase/firestore';
+} from 'firebase/firestore/lite';
+
+// The script deliberately provokes rule rejections; keep the SDK from logging them as errors.
+setLogLevel('silent');
 
 const projectId = process.env.FIREBASE_PROJECT_ID || 'devnotes-local';
 const authHost = process.env.FIREBASE_AUTH_EMULATOR_HOST || '127.0.0.1:9099';

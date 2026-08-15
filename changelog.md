@@ -15,6 +15,7 @@
 
 - The eagerly loaded Firestore vendor chunk shrinks from 553 kB to 124 kB (gzip 163 kB → 38 kB) because the lite SDK does not ship the realtime listener, cache and WebChannel machinery.
 - A new test guards the transport choice: any `from 'firebase/firestore'` import under `src/` fails the suite, so the WebChannel transport cannot be re-introduced by accident.
+- `scripts/smoke-blog-workflow.mjs` exercises the Firestore rules through the same `firebase/firestore/lite` client the app uses, and silences the SDK's error logging for the rule rejections it deliberately provokes.
 
 ## [1.1.8] - 2026-08-15
 
