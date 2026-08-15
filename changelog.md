@@ -1,5 +1,15 @@
 # Changelog
 
+## [1.1.10] - 2026-08-15
+
+### Added
+
+- In "Meine Beiträge" öffnet ein Klick auf den Titel eines Beitrags dessen Leseansicht (`/blog/:id`) – dasselbe Ziel wie der bisherige Pfeil-Button, der erhalten bleibt. Der Titel ist ein Button innerhalb der Überschrift, also auch per Tastatur fokussier- und auslösbar, und färbt sich beim Überfahren in der Akzentfarbe.
+
+### Changed
+
+- Der Pfeil-Button zum Lesen auf der Merkliste ist jetzt genauso gestaltet wie in "Meine Beiträge": grüne Sekundärfarbe mit passendem Rahmen und der Tooltip "Artikel lesen" statt "Artikel öffnen". Die Eckenrundung bleibt wie bisher an den benachbarten Löschen-Button angeglichen.
+
 ## [1.1.9] - 2026-08-15
 
 ### Added
