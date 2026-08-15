@@ -349,22 +349,40 @@ export const MyPosts: React.FC = () => {
                       ))}
                     </Stack>
 
-                    <Typography
-                      variant="h6"
-                      component="h2"
-                      sx={{
-                        fontFamily: 'Outfit, sans-serif',
-                        fontWeight: 750,
-                        lineHeight: 1.25,
-                        color: 'text.primary',
-                        overflow: 'hidden',
-                        textOverflow: 'ellipsis',
-                        display: '-webkit-box',
-                        WebkitLineClamp: 2,
-                        WebkitBoxOrient: 'vertical'
-                      }}
-                    >
-                      {renderInlineMarkdown(post.title || 'Unbenannter Entwurf', true)}
+                    <Typography variant="h6" component="h2" sx={{ m: 0 }}>
+                      <Box
+                        component="button"
+                        type="button"
+                        onClick={() => navigate(`/blog/${post.id}`)}
+                        sx={{
+                          font: 'inherit',
+                          background: 'none',
+                          border: 0,
+                          p: 0,
+                          textAlign: 'left',
+                          cursor: 'pointer',
+                          fontFamily: 'Outfit, sans-serif',
+                          fontWeight: 750,
+                          lineHeight: 1.25,
+                          color: 'text.primary',
+                          overflow: 'hidden',
+                          textOverflow: 'ellipsis',
+                          display: '-webkit-box',
+                          WebkitLineClamp: 2,
+                          WebkitBoxOrient: 'vertical',
+                          transition: 'color 0.2s ease',
+                          '&:hover': {
+                            color: 'var(--theme-primary-light)'
+                          },
+                          '&:focus-visible': {
+                            outline: '2px solid var(--theme-primary-main)',
+                            outlineOffset: '2px',
+                            borderRadius: '4px'
+                          }
+                        }}
+                      >
+                        {renderInlineMarkdown(post.title || 'Unbenannter Entwurf', true)}
+                      </Box>
                     </Typography>
                     <Typography
                       variant="body2"

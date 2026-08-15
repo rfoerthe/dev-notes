@@ -398,14 +398,14 @@ export const Bookmarks: React.FC = () => {
                           {removingId === bookmark.blogId ? <CircularProgress size={16} color="inherit" /> : <Trash2 size={17} />}
                         </IconButton>
                       </Tooltip>
-                      <Tooltip title="Artikel öffnen">
+                      <Tooltip title="Artikel lesen">
                         <IconButton
-                          aria-label="Artikel öffnen"
+                          aria-label="Artikel lesen"
                           onClick={(event) => {
                             event.stopPropagation();
                             navigate(`/blog/${bookmark.blogId}`);
                           }}
-                          sx={{ border: '1px solid rgba(var(--theme-primary-main-rgb), 0.2)', borderRadius: 3, color: 'primary.light' }}
+                          sx={{ border: '1px solid rgba(20, 184, 166, 0.2)', borderRadius: 3, color: 'secondary.main' }}
                         >
                           <ArrowUpRight size={17} />
                         </IconButton>
