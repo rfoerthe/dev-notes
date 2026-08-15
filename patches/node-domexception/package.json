@@ -1,0 +1,10 @@
+{
+  "name": "node-domexception",
+  "version": "1.0.0",
+  "description": "Local replacement for the deprecated node-domexception package; re-exports the platform-native DOMException.",
+  "main": "index.js",
+  "license": "MIT",
+  "engines": {
+    "node": ">=18"
+  }
+}

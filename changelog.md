@@ -1,5 +1,28 @@
 # Changelog
 
+## [1.1.8] - 2026-08-15
+
+### Added
+
+- `npm run preview:deploy` builds the app and publishes it to a Firebase Hosting preview channel, so a change can be reviewed under a temporary URL without touching the live site. The build is identical to `npm run deploy`, meaning the preview runs against the production database.
+- The preview defaults to the fixed channel `preview`, which keeps its URL stable across deploys; a channel name can be passed explicitly (`npm run preview:deploy -- my-channel`) when several previews are needed side by side.
+- `engines` now declares the supported Node versions (`^22.22.2 || ^24.15.0 || >=26.0.0`), matching what the dependency tree already requires.
+
+### Changed
+
+- Updated the toolchain to current releases: `firebase-admin` 14, `firebase-tools` 15.27, `jsdom` 30, `@types/node` 26, `eslint` 10.8, `typescript-eslint` 8.67, `vite` 8.2 and `vitest` 4.1.10. The `firebase-admin` major drops the legacy namespace API, which the admin scripts never used; all of them were verified against the emulators.
+- TypeScript 7 now performs the type checking, installed side by side with the TypeScript 6 API via npm aliases (`@typescript/native` and `typescript`), because `typescript-eslint` refuses to run against TypeScript 7. This can collapse back to a plain `typescript` dependency once `typescript-eslint` supports it.
+- The app depends on the `@shikijs/*` packages it actually imports instead of the `shiki` umbrella package, which was never imported. This also drops the unused Oniguruma WebAssembly engine.
+
+### Fixed
+
+- The Content Security Policy allows connections to `https://www.google.com`, which reCAPTCHA Enterprise needs for App Check. Previously the domain was permitted for scripts and frames but not for connections, so those requests were blocked and retried in a loop.
+- Removed the npm deprecation warnings for `glob` and `node-domexception`: `glob` is pinned to the maintained version 13 through an override, and `node-domexception`, whose every published version is deprecated, is replaced by a local shim that re-exports the platform-native `DOMException`.
+
+### Security
+
+- Pinned `re2` to 1.26.1 through an override, resolving four advisories in the `firebase-tools` dependency chain (out-of-bounds heap reads and uncatchable process crashes). Without the override the dependency resolves to a vulnerable 1.24.1.
+
 ## [1.1.7] - 2026-08-08
 
 ### Added
