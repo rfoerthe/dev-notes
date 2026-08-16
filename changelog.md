@@ -1,14 +1,27 @@
 # Changelog
 
+## [1.2.0] - 2026-08-16
+
+### Changed
+
+- The back link at the top of the reading and editing views now returns to the page the post was opened from, and names it accordingly: "Zurück zur Merkliste" when coming from the bookmarks page, "Zurück zu meinen Beiträgen" from "Meine Beiträge", "Zurück zur Übersicht" from the home page. Previously it always led to "Meine Beiträge" for drafts and to the home page otherwise, so anyone arriving from the bookmarks page ended up on the home page.
+- The origin survives several steps: opening an article from the bookmarks page, editing it and publishing it still leaves "Zurück zur Merkliste" on the article instead of a link pointing at the article itself.
+- "Abbrechen" in the editor and in the "Neuer Beitrag" form follows the same target as the back link. Opening "Beitrag schreiben" from "Meine Beiträge" therefore makes "Abbrechen" return there, and the published post then shows "Zurück zu meinen Beiträgen".
+- "Beitrag löschen" in the editor goes to "Meine Beiträge" when the user came from there, and to the overview of all articles otherwise — never to the deleted post.
+
+Direct links, shared links and reloads keep the previous behaviour unchanged: drafts lead to "Meine Beiträge", published posts to the overview. The browser's back button is unaffected.
+
+Internally the origin travels as a list of keys in the router state (`src/navigation/backNavigation.ts`) rather than through `navigate(-1)`: a history entry carries no label to display, and for direct entries or `replace` navigations it does not point at the right page. Because that state can be tampered with through the history, it is strictly validated on read; invalid data silently falls back to the previous behaviour.
+
 ## [1.1.10] - 2026-08-15
 
 ### Added
 
-- In "Meine Beiträge" öffnet ein Klick auf den Titel eines Beitrags dessen Leseansicht (`/blog/:id`) – dasselbe Ziel wie der bisherige Pfeil-Button, der erhalten bleibt. Der Titel ist ein Button innerhalb der Überschrift, also auch per Tastatur fokussier- und auslösbar, und färbt sich beim Überfahren in der Akzentfarbe.
+- In "Meine Beiträge", clicking a post's title opens its reading view (`/blog/:id`) — the same target as the existing arrow button, which stays. The title is a button inside the heading, so it can be focused and triggered by keyboard as well, and it takes on the accent color on hover.
 
 ### Changed
 
-- Der Pfeil-Button zum Lesen auf der Merkliste ist jetzt genauso gestaltet wie in "Meine Beiträge": grüne Sekundärfarbe mit passendem Rahmen und der Tooltip "Artikel lesen" statt "Artikel öffnen". Die Eckenrundung bleibt wie bisher an den benachbarten Löschen-Button angeglichen.
+- The arrow button for reading on the bookmarks page now looks exactly like the one in "Meine Beiträge": secondary green with a matching border, and the tooltip "Artikel lesen" instead of "Artikel öffnen". The corner rounding stays aligned with the adjacent delete button as before.
 
 ## [1.1.9] - 2026-08-15
 
