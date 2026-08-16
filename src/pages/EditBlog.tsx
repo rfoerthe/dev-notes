@@ -1,5 +1,5 @@
 import React, { useCallback, useState, useEffect } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import {
   Box,
   Container,
@@ -35,10 +35,13 @@ import { renderInlineMarkdown, renderMarkdown } from '../components/markdownPars
 import { BLOG_LIMITS, validateBlogContent, validateBlogDraft } from '../services/securityValidation';
 import { canManageBlogPost } from '../services/blogOwnership';
 import { RevisionHistoryDialog } from '../components/RevisionHistoryDialog';
+import { carryBackStack, resolveAfterDeleteTarget, useBackNavigation } from '../navigation/backNavigation';
 
 export const EditBlog: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const location = useLocation();
+  const backNavigation = useBackNavigation(id ? { key: 'blog', id } : { key: 'my-posts' });
   const { userProfile } = useAuth();
 
   // Loading & Error states
@@ -250,6 +253,7 @@ export const EditBlog: React.FC = () => {
       if (status === 'published') {
         navigate(`/blog/${updatedBlog.id}`, {
           state: {
+            ...carryBackStack(location.state),
             feedback: {
               severity: 'success',
               message: currentStatus === 'published'
@@ -289,7 +293,7 @@ export const EditBlog: React.FC = () => {
     setErrorSnackbarOpen(false);
     try {
       await deleteBlog(id);
-      navigate('/');
+      navigate(resolveAfterDeleteTarget(location.state));
     } catch (err) {
       showError(err instanceof Error ? err.message : 'Löschen fehlgeschlagen.');
     } finally {
@@ -339,10 +343,10 @@ export const EditBlog: React.FC = () => {
         <Button 
           variant="text" 
           startIcon={<ArrowLeft size={16} />}
-          onClick={() => navigate(`/blog/${id}`)}
+          onClick={backNavigation.goBack}
           sx={{ borderRadius: 3, color: 'text.secondary' }}
         >
-          Zurück zum Beitrag
+          {backNavigation.label}
         </Button>
       </Stack>
 
@@ -577,7 +581,7 @@ export const EditBlog: React.FC = () => {
                 <Button 
                   type="button"
                   variant="outlined" 
-                  onClick={() => navigate(`/blog/${id}`)}
+                  onClick={backNavigation.goBack}
                   disabled={loading}
                   sx={{ borderRadius: 3, px: 3 }}
                 >

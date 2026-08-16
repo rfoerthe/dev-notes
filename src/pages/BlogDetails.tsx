@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useLocation, useParams, useNavigate } from 'react-router-dom';
 import {
   Box,
   Container,
@@ -27,6 +27,7 @@ import { canManageBlogPost } from '../services/blogOwnership';
 import { buildBlogMarkdownDocument, createBlogMarkdownFilename } from '../services/blogMarkdownExport';
 import { isBlogBookmarked, toggleBookmark } from '../services/bookmarkService';
 import { canAccessApprovedFeatures } from '../services/authService';
+import { buildBackState, useBackNavigation } from '../navigation/backNavigation';
 
 const SCROLL_PROGRESS_VISIBLE_OFFSET = 160;
 const ARTICLE_LAYOUT_MAX_WIDTH = 1280;
@@ -36,6 +37,7 @@ const TABLE_OF_CONTENTS_COLUMN_MAX_WIDTH = 328;
 export const BlogDetails: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const location = useLocation();
   const { userProfile } = useAuth();
   const hasApprovedAccess = canAccessApprovedFeatures(userProfile);
 
@@ -47,6 +49,10 @@ export const BlogDetails: React.FC = () => {
   
   // Scroll progress state
   const [scrollProgress, setScrollProgress] = useState<number>(0);
+
+  const backNavigation = useBackNavigation(
+    blog?.status === 'draft' ? { key: 'my-posts' } : { key: 'home' }
+  );
 
   useEffect(() => {
     const fetchBlog = async () => {
@@ -266,7 +272,7 @@ export const BlogDetails: React.FC = () => {
         <Button
           variant="text"
           startIcon={<ChevronLeft size={16} />}
-          onClick={() => navigate(blog.status === 'draft' ? '/my-posts' : '/')}
+          onClick={backNavigation.goBack}
           sx={{ 
             mb: 4, 
             color: 'text.secondary',
@@ -276,13 +282,13 @@ export const BlogDetails: React.FC = () => {
             }
           }}
         >
-          {blog.status === 'draft' ? 'Zurück zu meinen Beiträgen' : 'Zurück zur Übersicht'}
+          {backNavigation.label}
         </Button>
 
         {blog.status === 'draft' && (
           <Alert
             severity="info"
-            action={<Button color="inherit" size="small" onClick={() => navigate(`/edit/${blog.id}`)}>Weiter bearbeiten</Button>}
+            action={<Button color="inherit" size="small" onClick={() => navigate(`/edit/${blog.id}`, { state: buildBackState({ key: 'blog', id: blog.id }, location.state) })}>Weiter bearbeiten</Button>}
             sx={{ mb: 3, width: '100%', borderRadius: 3 }}
           >
             Entwurfsvorschau – dieser Beitrag ist für andere Nutzer nicht sichtbar.
@@ -392,7 +398,7 @@ export const BlogDetails: React.FC = () => {
                 {canManageBlogPost(blog, userProfile) && (
                   <Tooltip title="Beitrag bearbeiten">
                     <IconButton 
-                      onClick={() => navigate(`/edit/${blog.id}`)} 
+                      onClick={() => navigate(`/edit/${blog.id}`, { state: buildBackState({ key: 'blog', id: blog.id }, location.state) })} 
                       sx={{ 
                         border: '1px solid rgba(var(--theme-primary-main-rgb), 0.2)', 
                         bgcolor: 'rgba(var(--theme-primary-main-rgb), 0.05)',

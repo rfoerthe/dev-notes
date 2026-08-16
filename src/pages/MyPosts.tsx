@@ -25,6 +25,7 @@ import { useAuth } from '../context/AuthContext';
 import { deleteBlogs, getBlogsByAuthorUsername } from '../services/blogService';
 import type { BlogPost } from '../services/blogService';
 import { renderInlineMarkdown } from '../components/markdownParser';
+import { buildBackState } from '../navigation/backNavigation';
 
 export const MyPosts: React.FC = () => {
   const navigate = useNavigate();
@@ -160,7 +161,7 @@ export const MyPosts: React.FC = () => {
         <Button
           variant="contained"
           startIcon={<Plus size={16} />}
-          onClick={() => navigate('/write')}
+          onClick={() => navigate('/write', { state: buildBackState({ key: 'my-posts' }) })}
           sx={{ borderRadius: 3 }}
         >
           Beitrag schreiben
@@ -230,7 +231,7 @@ export const MyPosts: React.FC = () => {
           <Typography variant="body2" color="text.secondary" sx={{ mt: 1, mb: 3 }}>
             Starte mit deinem ersten Artikel und teile dein Wissen mit der Community.
           </Typography>
-          <Button variant="contained" startIcon={<Plus size={16} />} onClick={() => navigate('/write')} sx={{ borderRadius: 3 }}>
+          <Button variant="contained" startIcon={<Plus size={16} />} onClick={() => navigate('/write', { state: buildBackState({ key: 'my-posts' }) })} sx={{ borderRadius: 3 }}>
             Ersten Beitrag schreiben
           </Button>
         </Paper>
@@ -353,7 +354,7 @@ export const MyPosts: React.FC = () => {
                       <Box
                         component="button"
                         type="button"
-                        onClick={() => navigate(`/blog/${post.id}`)}
+                        onClick={() => navigate(`/blog/${post.id}`, { state: buildBackState({ key: 'my-posts' }) })}
                         sx={{
                           font: 'inherit',
                           background: 'none',
@@ -419,7 +420,7 @@ export const MyPosts: React.FC = () => {
                     </Stack>
                     <Tooltip title={post.status === 'published' ? 'Artikel lesen' : 'Entwurf ansehen'}>
                       <IconButton
-                        onClick={() => navigate(`/blog/${post.id}`)}
+                        onClick={() => navigate(`/blog/${post.id}`, { state: buildBackState({ key: 'my-posts' }) })}
                         sx={{
                           border: '1px solid rgba(20, 184, 166, 0.2)',
                           color: 'secondary.main',
@@ -431,7 +432,7 @@ export const MyPosts: React.FC = () => {
                     </Tooltip>
                     <Tooltip title="Beitrag bearbeiten">
                       <IconButton
-                        onClick={() => navigate(`/edit/${post.id}`)}
+                        onClick={() => navigate(`/edit/${post.id}`, { state: buildBackState({ key: 'my-posts' }) })}
                         sx={{
                           border: '1px solid rgba(var(--theme-primary-main-rgb), 0.22)',
                           color: 'primary.main',

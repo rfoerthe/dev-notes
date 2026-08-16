@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import {
   Box,
   Container,
@@ -20,6 +20,7 @@ import { useAuth } from '../context/AuthContext';
 import { createBlog, calculateReadTime, type BlogPostStatus } from '../services/blogService';
 import { renderInlineMarkdown, renderMarkdown } from '../components/markdownParser';
 import { BLOG_LIMITS, validateBlogContent, validateBlogDraft } from '../services/securityValidation';
+import { carryBackStack, useBackNavigation } from '../navigation/backNavigation';
 
 export const CreateBlog: React.FC = () => {
   // Input states
@@ -38,6 +39,8 @@ export const CreateBlog: React.FC = () => {
 
   const { userProfile } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
+  const backNavigation = useBackNavigation({ key: 'home' });
 
   const handleTabChange = (_event: React.SyntheticEvent, newValue: number) => {
     setActiveTab(newValue);
@@ -119,6 +122,7 @@ export const CreateBlog: React.FC = () => {
 
       navigate(status === 'published' ? `/blog/${blog.id}` : `/edit/${blog.id}`, {
         state: {
+          ...carryBackStack(location.state),
           feedback: {
             severity: 'success',
             message: status === 'published'
@@ -355,7 +359,7 @@ const greet = (name: string): string => {
             <Button 
               type="button"
               variant="outlined" 
-              onClick={() => navigate('/')}
+              onClick={backNavigation.goBack}
               disabled={loading}
               sx={{ borderRadius: 3, px: 3 }}
             >
