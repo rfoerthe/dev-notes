@@ -35,6 +35,7 @@ import { useAuth } from '../context/AuthContext';
 import { getBookmarkedBlogIds, toggleBookmark } from '../services/bookmarkService';
 import { canAccessApprovedFeatures } from '../services/authService';
 import { renderInlineMarkdown } from '../components/markdownParser';
+import { buildBackState } from '../navigation/backNavigation';
 
 const FEATURED_POST_LIMIT = 6;
 const INITIAL_OLDER_POST_LIMIT = 20;
@@ -608,7 +609,7 @@ export const Home: React.FC = () => {
               <Grid size={{ xs: 12, md: 4 }} key={blog.id}>
                 <Fade in={true} timeout={300 + index * 100}>
                   <Card
-                    onClick={() => navigate(`/blog/${blog.id}`)}
+                    onClick={() => navigate(`/blog/${blog.id}`, { state: buildBackState({ key: 'home' }) })}
                     sx={{
                       height: '100%',
                       display: 'flex',
@@ -800,11 +801,11 @@ export const Home: React.FC = () => {
                   <Box
                     key={blog.id}
                     component="article"
-                    onClick={() => navigate(`/blog/${blog.id}`)}
+                    onClick={() => navigate(`/blog/${blog.id}`, { state: buildBackState({ key: 'home' }) })}
                     onKeyDown={(event) => {
                       if (event.key === 'Enter' || event.key === ' ') {
                         event.preventDefault();
-                        navigate(`/blog/${blog.id}`);
+                        navigate(`/blog/${blog.id}`, { state: buildBackState({ key: 'home' }) });
                       }
                     }}
                     tabIndex={0}

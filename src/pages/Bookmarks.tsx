@@ -21,6 +21,7 @@ import { ArrowUpRight, Bookmark, Calendar, Clock, Search, Trash2 } from 'lucide-
 import { useAuth } from '../context/AuthContext';
 import { getBookmarks, removeBookmark, type BlogBookmark } from '../services/bookmarkService';
 import { renderInlineMarkdown } from '../components/markdownParser';
+import { buildBackState } from '../navigation/backNavigation';
 
 export const Bookmarks: React.FC = () => {
   const navigate = useNavigate();
@@ -291,11 +292,11 @@ export const Bookmarks: React.FC = () => {
                   key={bookmark.blogId}
                   elevation={0}
                   component="article"
-                  onClick={() => navigate(`/blog/${bookmark.blogId}`)}
+                  onClick={() => navigate(`/blog/${bookmark.blogId}`, { state: buildBackState({ key: 'bookmarks' }) })}
                   onKeyDown={(event) => {
                     if (event.key === 'Enter' || event.key === ' ') {
                       event.preventDefault();
-                      navigate(`/blog/${bookmark.blogId}`);
+                      navigate(`/blog/${bookmark.blogId}`, { state: buildBackState({ key: 'bookmarks' }) });
                     }
                   }}
                   tabIndex={0}
@@ -403,7 +404,7 @@ export const Bookmarks: React.FC = () => {
                           aria-label="Artikel lesen"
                           onClick={(event) => {
                             event.stopPropagation();
-                            navigate(`/blog/${bookmark.blogId}`);
+                            navigate(`/blog/${bookmark.blogId}`, { state: buildBackState({ key: 'bookmarks' }) });
                           }}
                           sx={{ border: '1px solid rgba(20, 184, 166, 0.2)', borderRadius: 3, color: 'secondary.main' }}
                         >

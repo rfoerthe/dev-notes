@@ -25,6 +25,7 @@ import { useAuth } from '../context/AuthContext';
 import { deleteBlogs, getBlogsByAuthorUsername } from '../services/blogService';
 import type { BlogPost } from '../services/blogService';
 import { renderInlineMarkdown } from '../components/markdownParser';
+import { buildBackState } from '../navigation/backNavigation';
 
 export const MyPosts: React.FC = () => {
   const navigate = useNavigate();
@@ -353,7 +354,7 @@ export const MyPosts: React.FC = () => {
                       <Box
                         component="button"
                         type="button"
-                        onClick={() => navigate(`/blog/${post.id}`)}
+                        onClick={() => navigate(`/blog/${post.id}`, { state: buildBackState({ key: 'my-posts' }) })}
                         sx={{
                           font: 'inherit',
                           background: 'none',
@@ -419,7 +420,7 @@ export const MyPosts: React.FC = () => {
                     </Stack>
                     <Tooltip title={post.status === 'published' ? 'Artikel lesen' : 'Entwurf ansehen'}>
                       <IconButton
-                        onClick={() => navigate(`/blog/${post.id}`)}
+                        onClick={() => navigate(`/blog/${post.id}`, { state: buildBackState({ key: 'my-posts' }) })}
                         sx={{
                           border: '1px solid rgba(20, 184, 166, 0.2)',
                           color: 'secondary.main',
@@ -431,7 +432,7 @@ export const MyPosts: React.FC = () => {
                     </Tooltip>
                     <Tooltip title="Beitrag bearbeiten">
                       <IconButton
-                        onClick={() => navigate(`/edit/${post.id}`)}
+                        onClick={() => navigate(`/edit/${post.id}`, { state: buildBackState({ key: 'my-posts' }) })}
                         sx={{
                           border: '1px solid rgba(var(--theme-primary-main-rgb), 0.22)',
                           color: 'primary.main',
