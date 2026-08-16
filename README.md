@@ -1,6 +1,6 @@
 # DevNotes
 
-DevNotes is a developer-focused blog application built with React, TypeScript, Vite, Material UI, Firebase, React Router, and a production Markdown rendering pipeline. It provides an article feed, GitHub-flavored Markdown article pages with automatic table-of-contents navigation, user registration with email verification and approval workflows, protected authoring tools, bookmarks, profile and theme settings, optional analytics consent, and an admin dashboard for managing developer accounts and application settings.
+DevNotes is a developer-focused blog application built with React, TypeScript, Vite, Material UI, Firebase, React Router, and a production Markdown rendering pipeline. It provides an article feed, GitHub-flavored Markdown article pages with syntax-highlighted code blocks, rendered Mermaid diagrams and automatic table-of-contents navigation, user registration with email verification and approval workflows, protected authoring tools, bookmarks, profile and theme settings, optional analytics consent, and an admin dashboard for managing developer accounts and application settings.
 
 The app can run in two modes:
 
@@ -15,6 +15,9 @@ The app can run in two modes:
 - Optional closed user group mode that requires visitors to sign in before opening the home feed or article detail pages.
 - GitHub-flavored Markdown rendering with `react-markdown`, `remark-gfm`, and `rehype-sanitize`, including stable linkable heading IDs, blockquotes, lists, tables, task lists, inline formatting, inline code, and renderer tests.
 - Shiki-powered syntax highlighting for fenced code blocks, rendered as compact editor-style code windows with a title bar, language label, horizontal scrolling, and a copy-to-clipboard button.
+- Mermaid diagrams from ```mermaid fenced code blocks, with theme-aware colors, a zoom popup supporting wheel/pinch zoom and drag-to-pan, and SVG downloads. Mermaid is loaded on demand, one chunk per diagram type.
+- Markdown in blog titles and teaser summaries, rendered consistently in editor previews, article headers, lists, "Meine Beiträge", and bookmarks.
+- Context-aware back links: the reading and editing views return to the page the post was opened from ("Zurück zur Merkliste", "Zurück zu meinen Beiträgen", "Zurück zur Übersicht") and keep that origin across editing, publishing, and deletion.
 - User registration with username reservation, input validation, strong password rules, Firebase email verification, and pending approval status.
 - Protected login flow that blocks pending or rejected users and keeps approved users without verified email from authoring unless they are legacy accounts.
 - Approved users can save articles to a private Merkliste and manage saved posts from `/bookmarks`.
@@ -22,7 +25,7 @@ The app can run in two modes:
 - Approved-user routes for creating, editing, deleting, and managing blog posts, including a personal "My Posts" overview with total reading time.
 - Private draft workflow with explicit manual saving, publishing, and withdrawal.
 - Protected per-post revision history that previews earlier Markdown versions and restores them while preserving the replaced current version.
-- Blog editor with comma/semicolon tag entry, tag sanitization, content length limits, live Markdown preview, live reading-time estimation, and visible bottom-of-screen validation errors on submit.
+- Blog editor with comma/semicolon tag entry, adoption of unconfirmed tag input on save, tag sanitization, content length limits, live Markdown preview, live reading-time estimation, and visible bottom-of-screen validation errors on submit.
 - Profile page for account details, password updates, theme preferences, accent color selection, and author-name propagation across existing posts.
 - Light, dark, and system theme selection from the navbar and profile settings, plus profile-level accent themes for Violett, Blau, Grün, Rose, and Orange.
 - Installed app version display in the footer and in the navbar title tooltip.
@@ -32,6 +35,8 @@ The app can run in two modes:
 - Firestore security rules for users, username reservations, application settings, blog posts, immutable ownership fields, dynamic article read protection, and Admin SDK-only cleanup operations.
 - Admin SDK maintenance scripts for admin bootstrap, admin/user restore repair, user cleanup, blog post seeding/deletion, and Firestore backup/restore with dry-run and confirmation safeguards.
 - Firebase Hosting configuration with SPA rewrites, security headers, and a strict Content Security Policy. Shiki uses its JavaScript regex engine in the browser so syntax highlighting works under this CSP without enabling `wasm-unsafe-eval`.
+- Firebase Hosting preview channel deploys through `npm run preview:deploy`, so a build can be reviewed under a temporary URL before going live.
+- REST-based Firestore access through the `firebase/firestore/lite` SDK, so every read and write is an independent HTTPS request without a long-lived WebChannel session.
 
 ## Tech Stack
 
@@ -43,24 +48,34 @@ The app can run in two modes:
 - Lucide React icons
 - React Markdown, Remark GFM, Rehype Sanitize
 - Shiki syntax highlighting
-- Firebase Authentication and Cloud Firestore
+- Mermaid diagrams
+- Firebase Authentication and Cloud Firestore (`firebase/firestore/lite`)
 - Vitest and Testing Library
 - ESLint
+
+Node.js is required in one of the versions declared in `package.json`:
+
+```text
+^22.22.2 || ^24.15.0 || >=26.0.0
+```
 
 ## Project Structure
 
 ```text
 src/
-  components/        Navigation, route guards, analytics consent/tracking, Markdown rendering, and table-of-contents UI
+  components/        Navigation, route guards, analytics consent/tracking, Markdown/Mermaid rendering, and table-of-contents UI
   context/           Authentication, application settings, and theme context providers
+  navigation/        Back-navigation origin stack shared by reader, editor, and list pages
   pages/             Route-level pages for blog, auth, admin, profile, and legal views
-  services/          Firebase setup, app settings, analytics consent, auth workflow, and blog data access
+  services/          Firebase setup, app settings, analytics consent, auth workflow, tag input, and blog data access
   theme/             Material UI theme configuration
-  __tests__/         Service, restore utility, search/filter, analytics, and Markdown renderer tests
-scripts/             Admin/user repair, backup/restore, user cleanup, post maintenance, and Firebase CLI helpers
+  __tests__/         Service, restore utility, search/filter, analytics, back-navigation, Firestore transport, and Markdown renderer tests
+scripts/             Admin/user repair, backup/restore, user cleanup, post maintenance, deploy, and Firebase CLI helpers
+docs/                Design specs and implementation plans
 public/              Static icons and favicon
 firestore.rules      Cloud Firestore security rules
 firebase.json        Firebase Hosting and Firestore configuration
+vite.config.ts       Vite build configuration including manual vendor chunking
 ```
 
 ## Getting Started
@@ -146,7 +161,19 @@ npm run clean
 
 `npm run clean:emulator-data` additionally deletes the persisted local emulator database in `.firebase/emulator-data`; it is kept separate because it discards local development data. Reinstall dependencies with `npm ci` if `node_modules/` itself should be rebuilt.
 
-Deploy only Firestore rules:
+Build and deploy to Firebase Hosting:
+
+```bash
+npm run deploy
+```
+
+Build and publish to a Firebase Hosting preview channel instead of the live site:
+
+```bash
+npm run preview:deploy
+```
+
+Deploy only Firestore rules and indexes:
 
 ```bash
 npm run deploy:rules
@@ -169,8 +196,8 @@ Common Firebase project maintenance commands:
 
 ```bash
 npm run bootstrap:admin
-npm run restore:admin
-npm run restore:user
+npm run restore:admin          # alias: npm run admin:repair
+npm run restore:user           # alias: npm run user:repair
 npm run user:delete
 npm run posts:seed -- --target firestore
 npm run posts:delete -- --target firestore --yes
@@ -186,8 +213,14 @@ Quality and release commands:
 npm run lint
 npm run test
 npm run build
-npm run preview
+npm run preview           # Serve the local production build
+npm run clean             # Remove build and tool artifacts
+npm run preview:deploy    # Build and publish to a Hosting preview channel
+npm run deploy            # Build and deploy to Firebase Hosting
+npm run deploy:rules      # Deploy Firestore rules and indexes only
 ```
+
+`npm run deploy`, `npm run preview:deploy`, and `npm run deploy:rules` go through `scripts/firebase-cli-project.mjs`, which resolves the Firebase project id from `FIREBASE_PROJECT_ID` or `VITE_FIREBASE_PROJECT_ID` (also read from `.env`) and passes it to the Firebase CLI as `--project`. This avoids deploying to whatever project the CLI happens to have active.
 
 ## Running Against Firebase
 
@@ -266,13 +299,21 @@ Approved users can create posts at `/write`. A post belongs to the user whose im
 
 The editor supports:
 
-- Title, summary, Markdown content, and at least one tag.
-- Adding multiple tags at once with commas or semicolons.
+- Title, summary, Markdown content, and at least one tag. Titles and summaries support Markdown too.
+- Adding multiple tags at once with commas or semicolons. Text left in the tag field is adopted as a tag when the post is saved, published, or stored as a draft, so nothing is silently dropped when the input was not confirmed with Enter or the plus button.
 - Editor and preview tabs using the same GitHub-flavored Markdown renderer as the public article page.
 - Live word count and estimated reading time.
 - Immediate validation feedback in a snackbar near the submit action, while keeping the persistent alert at the top of the form.
 - Saving incomplete work as a private draft and publishing or withdrawing it explicitly.
 - A revision browser with rendered Markdown previews and restoration; every manual update stores the previously current version first.
+
+### Back Navigation
+
+The back link at the top of the reading and editing views returns to the page the post was opened from and names it accordingly: "Zurück zur Merkliste" from `/bookmarks`, "Zurück zu meinen Beiträgen" from `/my-posts`, "Zurück zur Übersicht" from the home feed. "Abbrechen" in the editor and in the "Neuer Beitrag" form follows the same target, and "Beitrag löschen" routes to a list the deleted post is gone from.
+
+The origin survives multiple steps, so opening an article from the bookmarks page, editing it, and publishing it still leaves "Zurück zur Merkliste" on the article. Direct links, shared links, and reloads fall back to the previous behaviour: drafts lead to "Meine Beiträge", published posts to the overview. The browser's back button is unaffected.
+
+Internally the origin travels as a list of keys in the router state (`src/navigation/backNavigation.ts`) rather than through `navigate(-1)`, because a history entry carries no label to display and does not point at the right page for direct entries or `replace` navigations. Because router state can be tampered with through the history API, it is strictly validated on read and invalid data silently falls back to the default target.
 
 ### Blog Workflow Migration
 
@@ -302,6 +343,30 @@ Fenced code blocks are highlighted with Shiki. The renderer:
 - Includes a copy button that copies the raw fenced code to the clipboard.
 
 Inline code is styled separately from fenced code blocks and remains safe React output rather than injected HTML.
+
+### Mermaid Diagrams
+
+Fenced code blocks marked as `mermaid` are rendered as diagrams, both on article detail pages and in the create/edit previews:
+
+````markdown
+```mermaid
+flowchart LR
+  A[Draft] --> B[Published]
+```
+````
+
+The diagram support includes:
+
+- A dedicated color palette per theme mode for nodes, subgraphs, edges, and labels, instead of the low-contrast Mermaid defaults.
+- Inline HTML in labels, so `<b>` and `<i>` render as bold and italic text.
+- A zoom popup with mouse-wheel and trackpad zooming up to 800%, two-finger pinch zoom on touch devices, drag-to-pan navigation, a zoom percentage display, fit-to-view reset, and a maximize/restore toggle.
+- SVG downloads from the diagram toolbar or the zoom popup. Downloads always use the light Mermaid theme, regardless of the active application theme.
+- Rendering results are cached, so unchanged diagrams are not re-rendered while scrolling an article.
+- Invalid Mermaid syntax shows a compact fallback with the original code instead of breaking the page.
+
+Mermaid is loaded dynamically and split into one chunk per diagram type, so it is not part of the initial page load. The manual chunking in `vite.config.ts` keeps Mermaid and its exclusive dependencies (d3, cytoscape, katex, roughjs, dagre) out of the eagerly loaded vendor chunk.
+
+Blog titles and teaser summaries also support Markdown. They are rendered with the same pipeline in the create/edit forms, previews, article detail headers, article lists, "Meine Beiträge", and bookmarks.
 
 Readable article detail pages include a raw Markdown download. In the default public-read mode this works without signing in; in closed user group mode the article page and its download are available only after login. The downloaded `.md` file keeps the article body as stored, prepends the article title as a level 1 heading, and places the teaser below it as italic Markdown text:
 
@@ -465,7 +530,17 @@ Firebase Analytics is disabled by default, even when `VITE_FIREBASE_MEASUREMENT_
 
 Firebase Analytics loads Google Tag Manager under the hood. Browsers, ad blockers, Pi-hole, or corporate networks can block `https://www.googletagmanager.com`; keeping `VITE_FIREBASE_ANALYTICS_ENABLED=false` avoids that request entirely. The app suppresses Firebase's automatic page view event and logs route changes itself after consent. Consent is persisted in `localStorage` under `devnotes_analytics_consent`.
 
-When `VITE_FIREBASE_APPCHECK_SITE_KEY` is present, DevNotes initializes Firebase App Check with reCAPTCHA Enterprise. Enable App Check enforcement for Firebase services in the Firebase Console before relying on it for abuse protection.
+When `VITE_FIREBASE_APPCHECK_SITE_KEY` is present, DevNotes initializes Firebase App Check with reCAPTCHA Enterprise. Enable App Check enforcement for Firebase services in the Firebase Console before relying on it for abuse protection. Every domain the app is served from, including Hosting preview channel domains, has to be registered in the reCAPTCHA Enterprise key.
+
+### Firestore Transport
+
+The browser app uses the REST-based `firebase/firestore/lite` entry point everywhere. The full `firebase/firestore` SDK tunnels even one-time `getDoc`/`getDocs` calls through a long-lived WebChannel `Listen` session; when that session silently died (background tab, network change, sleep, proxy), reads stalled for 10–20 seconds or failed as "client is offline". With the lite SDK every read and write is an independent HTTPS request with no session, no backchannel, and no offline state machine.
+
+Consequences of that choice:
+
+- Realtime listeners and offline reads from cache are not available. The app never relied on them; all reads are one-time and always waited for the server.
+- The eagerly loaded Firestore vendor chunk is much smaller, because the listener, cache, and WebChannel machinery are not shipped.
+- `src/__tests__/firestoreTransport.test.ts` fails the suite on any `from 'firebase/firestore'` import under `src/`, so the WebChannel transport cannot be reintroduced by accident. Admin scripts use the Firebase Admin SDK and are unaffected.
 
 ## Authentication Flow
 
@@ -589,14 +664,29 @@ The project includes Firebase Hosting configuration in `firebase.json`. Producti
 Typical deployment flow:
 
 ```bash
-npm run build
-npm run firebase deploy
+npm run deploy
 ```
 
-Deploy Firestore rules together with the hosting configuration when using Firebase in production.
+This builds the app and runs `firebase deploy` against the project id resolved from `FIREBASE_PROJECT_ID` or `VITE_FIREBASE_PROJECT_ID`, so the deploy does not depend on the CLI's currently active project. Deploy Firestore rules together with the hosting configuration when using Firebase in production.
+
+### Preview Channels
+
+`npm run preview:deploy` builds the app and publishes it to a Firebase Hosting preview channel, so a change can be reviewed under a temporary URL without touching the live site. The build is identical to `npm run deploy`, which means the preview runs against the production database.
+
+```bash
+npm run preview:deploy
+npm run preview:deploy -- my-channel
+npm run preview:deploy -- my-channel --expires 3d
+```
+
+The default channel is the fixed name `preview` (overridable with `PREVIEW_CHANNEL`), which keeps the preview URL stable across deploys. Every channel gets its own preview domain, and that domain has to be registered in the reCAPTCHA Enterprise key used by App Check — otherwise App Check blocks all Firestore reads there. Staying on the default channel avoids that upkeep; pass an explicit channel name only when several previews are needed side by side.
+
+Further options are passed through to `firebase hosting:channel:deploy`, for example `--expires <duration>` (max 30d, default 7d). Run `npm run preview:deploy -- --help` for the full usage.
 
 ## Current Notes
 
 - The UI content is primarily German.
 - Local development data is stored by the Firebase Emulator Suite under `.firebase/emulator-data`.
 - The package name is `dev-notes`.
+- Type checking runs on TypeScript 7 (`@typescript/native`), installed side by side with the TypeScript 6 API via npm aliases because `typescript-eslint` does not yet run against TypeScript 7.
+- `changelog.md` documents the released versions; `docs/` holds design specs and implementation plans.
