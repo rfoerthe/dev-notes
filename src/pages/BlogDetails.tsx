@@ -27,6 +27,7 @@ import { canManageBlogPost } from '../services/blogOwnership';
 import { buildBlogMarkdownDocument, createBlogMarkdownFilename } from '../services/blogMarkdownExport';
 import { isBlogBookmarked, toggleBookmark } from '../services/bookmarkService';
 import { canAccessApprovedFeatures } from '../services/authService';
+import { useBackNavigation } from '../navigation/backNavigation';
 
 const SCROLL_PROGRESS_VISIBLE_OFFSET = 160;
 const ARTICLE_LAYOUT_MAX_WIDTH = 1280;
@@ -47,6 +48,10 @@ export const BlogDetails: React.FC = () => {
   
   // Scroll progress state
   const [scrollProgress, setScrollProgress] = useState<number>(0);
+
+  const backNavigation = useBackNavigation(
+    blog?.status === 'draft' ? { key: 'my-posts' } : { key: 'home' }
+  );
 
   useEffect(() => {
     const fetchBlog = async () => {
@@ -266,7 +271,7 @@ export const BlogDetails: React.FC = () => {
         <Button
           variant="text"
           startIcon={<ChevronLeft size={16} />}
-          onClick={() => navigate(blog.status === 'draft' ? '/my-posts' : '/')}
+          onClick={backNavigation.goBack}
           sx={{ 
             mb: 4, 
             color: 'text.secondary',
@@ -276,7 +281,7 @@ export const BlogDetails: React.FC = () => {
             }
           }}
         >
-          {blog.status === 'draft' ? 'Zurück zu meinen Beiträgen' : 'Zurück zur Übersicht'}
+          {backNavigation.label}
         </Button>
 
         {blog.status === 'draft' && (
