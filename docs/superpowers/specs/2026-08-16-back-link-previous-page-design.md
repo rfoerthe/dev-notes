@@ -11,6 +11,8 @@ Ziel: Der Zurück-Link zeigt Ziel *und* Beschriftung der Seite, von der der Nutz
 
 ## Betroffene Fälle
 
+Die Zeilennummern in den beiden folgenden Tabellen beziehen sich auf den Stand *vor* der Umsetzung und dienen nur der Nachvollziehbarkeit der Analyse.
+
 ### Einstiegspunkte nach `/blog/:id`
 
 | Quelle | Stelle | Erwarteter Zurück-Link |
@@ -32,6 +34,17 @@ Ziel: Der Zurück-Link zeigt Ziel *und* Beschriftung der Seite, von der der Nutz
 | Beitrag, Entwurfs-Alert „Weiter bearbeiten" | BlogDetails.tsx:285 | Zurück zum Beitrag |
 | Neuer Beitrag, Entwurf gespeichert | CreateBlog.tsx:120 | Herkunft des Formulars |
 | Direktlink, Reload | — | Fallback (Standard) |
+
+### Weitere Navigationen, die die Herkunft brauchen
+
+Diese Fälle kamen bei der Abnahme dazu. Sie tragen selbst keinen Zurück-Link, verlieren aber die Herkunft für die Folgeseite oder springen an einen unpassenden Ort.
+
+| Fall | Stelle | Erwartetes Ziel |
+|---|---|---|
+| „Beitrag schreiben" aus Meine Beiträge | MyPosts.tsx (Kopfzeile und Leerzustand) | hinterlegt `my-posts` als Herkunft |
+| „Neuer Beitrag" aus der NavBar | NavBar.tsx | keine Herkunft, Fallback bleibt `/` |
+| „Abbrechen" im Formular Neuer Beitrag | CreateBlog.tsx | Herkunft des Formulars, sonst `/` |
+| „Beitrag löschen" im Editor | EditBlog.tsx (`handleDelete`) | Meine Beiträge, wenn der Nutzer von dort kam, sonst Übersicht |
 
 ## Verworfene Alternative
 
@@ -60,14 +73,18 @@ Auflösung Schlüssel → Ziel und Beschriftung:
 | `bookmarks` | `/bookmarks` | Zurück zur Merkliste |
 | `blog` | `/blog/:id` | Zurück zum Beitrag |
 
-Nach dem Löschen eines Beitrags sind Einträge, die auf diesen Beitrag zeigen, wertlos. `resolveAfterDeleteTarget(state)` überspringt sie und liefert `/my-posts`, wenn der Nutzer aus „Meine Beiträge" kam, sonst `/`.
-
 Exportierte API:
 
 - `buildBackState(entry, previousState?)` — liefert das State-Objekt für einen `navigate(...)`-Aufruf. Hängt `entry` an den vorhandenen Stack an. Übrige State-Keys werden bewusst nicht mitgenommen, damit z. B. ein bereits angezeigtes `feedback` nicht auf der Folgeseite erneut erscheint.
 - `carryBackStack(state)` — reicht den bestehenden Stack unverändert weiter, ohne einen Eintrag hinzuzufügen.
-- `resolveAfterDeleteTarget(state)` — Zielpfad nach dem Löschen eines Beitrags.
+- `resolveAfterDeleteTarget(state)` — Zielpfad nach dem Löschen eines Beitrags, siehe unten.
 - `useBackNavigation(fallback: BackEntry)` — liest den Stack aus `location.state`, liefert `{ label, path, goBack() }`. `goBack()` navigiert auf das oberste Element und reicht den Rest-Stack als State weiter.
+
+### Ziel nach dem Löschen
+
+Nach dem Löschen zeigen alle `blog`-Einträge des Stacks auf einen Beitrag, den es nicht mehr gibt. `resolveAfterDeleteTarget(state)` verwirft sie und wertet den obersten verbleibenden Ursprung aus: `my-posts` ergibt `/my-posts`, jeder andere Ursprung und der leere Stack ergeben `/`.
+
+Die Merkliste ist bewusst kein Ziel. Sie führte nach dem Löschen einen Eintrag ohne Beitrag; die Übersicht ist der ehrlichere Landeplatz.
 
 ### Selbstbezug-Bereinigung
 
@@ -94,18 +111,23 @@ Der Stack überlebt einen Reload, weil React Router den State in `history.state`
 
 ## Änderungen an den Aufrufstellen
 
-| Datei | Stellen | Änderung |
+Die Stellen sind über das Bedienelement benannt statt über Zeilennummern, damit die Tabelle nicht schon beim ersten Umbau veraltet.
+
+| Datei | Stelle | Änderung |
 |---|---|---|
-| Home.tsx | 611, 803, 807 | `buildBackState` mit `{ key: 'home' }` |
-| MyPosts.tsx | 356, 422, 434 | `buildBackState` mit `{ key: 'my-posts' }` |
-| Bookmarks.tsx | 294, 298, 406 | `buildBackState` mit `{ key: 'bookmarks' }` |
-| BlogDetails.tsx | 285, 395 | `buildBackState` mit `{ key: 'blog', id }` auf den bestehenden Stack |
-| BlogDetails.tsx | 266-280 | `useBackNavigation(blog.status === 'draft' ? { key: 'my-posts' } : { key: 'home' })` |
-| EditBlog.tsx | 342, 580 | `useBackNavigation({ key: 'blog', id })` |
-| EditBlog.tsx | 251 | Stack unverändert weiterreichen; die Bereinigung erledigt den Rest |
-| MyPosts.tsx | 164, 234 („Beitrag schreiben") | `buildBackState` mit `{ key: 'my-posts' }` |
+| Home.tsx | Beitragskarte, Listeneintrag, Tastaturbedienung | `buildBackState` mit `{ key: 'home' }` |
+| MyPosts.tsx | Titel, Lese-Icon, Bearbeiten-Icon | `buildBackState` mit `{ key: 'my-posts' }` |
+| MyPosts.tsx | „Beitrag schreiben" (Kopfzeile und Leerzustand) | `buildBackState` mit `{ key: 'my-posts' }` |
+| Bookmarks.tsx | Karte, Tastaturbedienung, Lese-Icon | `buildBackState` mit `{ key: 'bookmarks' }` |
+| BlogDetails.tsx | Zurück-Button | `useBackNavigation(blog.status === 'draft' ? { key: 'my-posts' } : { key: 'home' })` |
+| BlogDetails.tsx | Bearbeiten-Button, Entwurfs-Alert | `buildBackState` mit `{ key: 'blog', id }` auf den bestehenden Stack |
+| EditBlog.tsx | Zurück-Button, „Abbrechen" | `useBackNavigation({ key: 'blog', id })` |
+| EditBlog.tsx | nach dem Veröffentlichen | `carryBackStack`; die Selbstbezug-Bereinigung erledigt den Rest |
+| EditBlog.tsx | `handleDelete` | `resolveAfterDeleteTarget(location.state)` statt fest `/` |
 | CreateBlog.tsx | „Abbrechen" | `useBackNavigation({ key: 'home' })` |
-| CreateBlog.tsx | 120 | Stack unverändert weiterreichen |
+| CreateBlog.tsx | nach dem Speichern | `carryBackStack` |
+
+Das Formular „Neuer Beitrag" hinterlegt sich selbst nie als Herkunft — ein leeres Formular ist kein sinnvolles Rücksprungziel. Auch der Aufruf über die NavBar setzt keine Herkunft; dort greift der Fallback `/`.
 
 ## Fallback-Verhalten
 
@@ -114,6 +136,8 @@ Bei leerem oder ungültigem Stack gilt exakt das heutige Verhalten:
 - Lese-Ansicht, Entwurf: `/my-posts`, „Zurück zu meinen Beiträgen"
 - Lese-Ansicht, veröffentlicht: `/`, „Zurück zur Übersicht"
 - Bearbeiten-Ansicht: `/blog/:id`, „Zurück zum Beitrag"
+- Formular Neuer Beitrag, „Abbrechen": `/`
+- Löschen im Editor: `/`
 
 Der Browser-Zurück-Button ist von der Änderung nicht betroffen und funktioniert unverändert.
 
@@ -127,6 +151,7 @@ Unit-Tests des Moduls:
 - Auflösung jedes Schlüssels zu Pfad und Beschriftung.
 - Validierung: unbekannter Schlüssel, ungültige `id`, kein Array, überlanger Stack → Fallback.
 - Selbstbezug-Bereinigung verwirft den obersten Eintrag, der auf die aktuelle Seite zeigt.
+- `resolveAfterDeleteTarget` überspringt `blog`-Einträge, liefert `/my-posts` nur für diesen Ursprung und sonst `/`.
 
 Komponenten-Tests über `MemoryRouter` mit vorbelegtem State:
 
@@ -137,9 +162,11 @@ Komponenten-Tests über `MemoryRouter` mit vorbelegtem State:
 - Kette Meine Beiträge → „Beitrag schreiben" → Abbrechen kehrt nach „Meine Beiträge" zurück.
 - Kette Meine Beiträge → „Beitrag schreiben" → veröffentlichen: der Artikel zeigt „Zurück zu meinen Beiträgen".
 - Kette Merkliste → Artikel → Editor → veröffentlichen: der Artikel zeigt anschließend „Zurück zur Merkliste".
+- Löschen im Editor mit Stack `[my-posts, blog:id]` landet auf „Meine Beiträge", mit `[bookmarks, blog:id]` auf der Übersicht — jeweils über den bestätigten Löschdialog.
 
 ## Nicht im Umfang
 
 - Wiederherstellung von Suchbegriffen und Filtern der Herkunftsseite. Diese liegen weder in der URL noch im State; die Herkunftsseite lädt beim Zurückkehren mit ihren Standardwerten.
 - Änderungen am Browser-Zurück-Button oder am Scroll-Verhalten.
 - Zurück-Links auf den statischen Seiten (Impressum, Datenschutz, Nutzungsbedingungen), die bewusst fest zur Startseite führen.
+- Aufräumen der Merkliste beim Löschen eines Beitrags. Ein Lesezeichen auf einen gelöschten Beitrag bleibt bestehen; das ist bestehendes Verhalten und wird hier nicht geändert.

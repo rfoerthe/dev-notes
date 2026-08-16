@@ -4,11 +4,13 @@
 
 **Goal:** Der Zurück-Link in der Lese- und der Bearbeiten-Ansicht führt mit passender Beschriftung auf die Seite zurück, von der der Nutzer tatsächlich gekommen ist.
 
-**Architecture:** Ein neues Modul `src/navigation/backNavigation.ts` führt die Herkunft als validierte Liste von Schlüsseln (`backStack`) im React-Router-State mit. Die Seiten, von denen aus ein Beitrag geöffnet wird, legen ihren Schlüssel in den State; die beiden Zielseiten lesen ihn über den Hook `useBackNavigation(fallback)` und erhalten daraus Beschriftung und Ziel. Ein oberster Eintrag, der auf die aktuell dargestellte Seite zeigt, wird beim Lesen verworfen — das deckt sowohl den normalen Pop aus dem Editor als auch die Rückkehr nach dem Veröffentlichen ab.
+**Architecture:** Ein neues Modul `src/navigation/backNavigation.ts` führt die Herkunft als validierte Liste von Schlüsseln (`backStack`) im React-Router-State mit. Die Seiten, von denen aus ein Beitrag geöffnet wird, legen ihren Schlüssel in den State; die beiden Zielseiten lesen ihn über den Hook `useBackNavigation(fallback)` und erhalten daraus Beschriftung und Ziel. Ein oberster Eintrag, der auf die aktuell dargestellte Seite zeigt, wird beim Lesen verworfen — das deckt sowohl den normalen Pop aus dem Editor als auch die Rückkehr nach dem Veröffentlichen ab. Nach dem Löschen eines Beitrags werden alle Einträge verworfen, die auf ihn zeigen; übrig bleibt „Meine Beiträge" oder die Übersicht.
 
 **Tech Stack:** React 19, TypeScript, react-router-dom 7, MUI 9, Vitest 4 + React Testing Library (jsdom).
 
 **Spec:** `docs/superpowers/specs/2026-08-16-back-link-previous-page-design.md`
+
+**Nachträge:** Task 1-7 bilden den ursprünglich abgenommenen Umfang ab. Task 8 und 9 kamen bei der Abnahme dazu (Formular „Neuer Beitrag" und Ziel nach dem Löschen) und sind am Dateiende dokumentiert; die Dateitabelle unten ist bereits auf den Endstand gezogen.
 
 ---
 
@@ -16,15 +18,16 @@
 
 | Datei | Verantwortung |
 |---|---|
-| `src/navigation/backNavigation.ts` (neu) | Typ `BackEntry`, Auflösung Schlüssel → Pfad/Beschriftung, Validierung des Router-States, Hook `useBackNavigation` |
-| `src/__tests__/backNavigation.test.tsx` (neu) | Unit-Tests des Moduls, Hook-Test, Komponententests für BlogDetails und EditBlog |
+| `src/navigation/backNavigation.ts` (neu) | Typ `BackEntry`, Auflösung Schlüssel → Pfad/Beschriftung, Validierung des Router-States, Hook `useBackNavigation`, Ziel nach dem Löschen |
+| `src/__tests__/backNavigation.test.tsx` (neu) | Unit-Tests des Moduls, Hook-Test, Komponententests für BlogDetails, EditBlog, MyPosts und CreateBlog |
 | `src/pages/BlogDetails.tsx` | Zurück-Button über Hook; setzt beim Sprung in den Editor den eigenen Eintrag |
-| `src/pages/EditBlog.tsx` | Zurück-Button und „Abbrechen" über Hook; reicht den Stack beim Veröffentlichen weiter |
+| `src/pages/EditBlog.tsx` | Zurück-Button und „Abbrechen" über Hook; reicht den Stack beim Veröffentlichen weiter; löst das Ziel nach dem Löschen auf |
+| `src/pages/CreateBlog.tsx` | „Abbrechen" über Hook; reicht den Stack beim Speichern weiter |
 | `src/pages/Home.tsx` | setzt `home` als Herkunft |
-| `src/pages/MyPosts.tsx` | setzt `my-posts` als Herkunft |
+| `src/pages/MyPosts.tsx` | setzt `my-posts` als Herkunft, auch für „Beitrag schreiben" |
 | `src/pages/Bookmarks.tsx` | setzt `bookmarks` als Herkunft |
 
-`src/pages/CreateBlog.tsx` nutzt den Hook für „Abbrechen" und reicht den Stack beim Speichern weiter (nachträglich ergänzt, siehe Task 8). Das Formular selbst wird nie als Herkunft hinterlegt — ein frisches Formular ist kein sinnvolles Rücksprungziel.
+Das Formular „Neuer Beitrag" hinterlegt sich selbst nie als Herkunft — ein leeres Formular ist kein sinnvolles Rücksprungziel.
 
 ---
 
@@ -134,7 +137,7 @@ Erwartet: FAIL — `Failed to resolve import "../navigation/backNavigation"`.
 
 - [ ] **Step 3: Write the module**
 
-Lege `src/navigation/backNavigation.ts` mit genau diesem Inhalt an:
+Lege `src/navigation/backNavigation.ts` mit genau diesem Inhalt an. `resolveAfterDeleteTarget` fehlt hier bewusst — die Funktion kam erst mit Task 9 dazu:
 
 ```ts
 import { useLocation, useNavigate } from 'react-router-dom';
