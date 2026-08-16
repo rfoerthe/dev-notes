@@ -62,8 +62,9 @@ Auflösung Schlüssel → Ziel und Beschriftung:
 
 Exportierte API:
 
-- `pushBackEntry(currentState, entry)` — liefert das State-Objekt für einen `navigate(...)`-Aufruf. Hängt `entry` an den vorhandenen Stack an und erhält alle übrigen State-Keys.
-- `useBackNavigation(fallback: BackEntry)` — liest den Stack aus `location.state`, liefert `{ label, goBack() }`. `goBack()` navigiert auf das oberste Element und reicht den Rest-Stack als State weiter.
+- `buildBackState(entry, previousState?)` — liefert das State-Objekt für einen `navigate(...)`-Aufruf. Hängt `entry` an den vorhandenen Stack an. Übrige State-Keys werden bewusst nicht mitgenommen, damit z. B. ein bereits angezeigtes `feedback` nicht auf der Folgeseite erneut erscheint.
+- `carryBackStack(state)` — reicht den bestehenden Stack unverändert weiter, ohne einen Eintrag hinzuzufügen.
+- `useBackNavigation(fallback: BackEntry)` — liest den Stack aus `location.state`, liefert `{ label, path, goBack() }`. `goBack()` navigiert auf das oberste Element und reicht den Rest-Stack als State weiter.
 
 ### Selbstbezug-Bereinigung
 
@@ -92,10 +93,10 @@ Der Stack überlebt einen Reload, weil React Router den State in `history.state`
 
 | Datei | Stellen | Änderung |
 |---|---|---|
-| Home.tsx | 611, 803, 807 | `pushBackEntry` mit `{ key: 'home' }` |
-| MyPosts.tsx | 356, 422, 434 | `pushBackEntry` mit `{ key: 'my-posts' }` |
-| Bookmarks.tsx | 294, 298, 406 | `pushBackEntry` mit `{ key: 'bookmarks' }` |
-| BlogDetails.tsx | 285, 395 | `pushBackEntry` mit `{ key: 'blog', id }` auf den bestehenden Stack |
+| Home.tsx | 611, 803, 807 | `buildBackState` mit `{ key: 'home' }` |
+| MyPosts.tsx | 356, 422, 434 | `buildBackState` mit `{ key: 'my-posts' }` |
+| Bookmarks.tsx | 294, 298, 406 | `buildBackState` mit `{ key: 'bookmarks' }` |
+| BlogDetails.tsx | 285, 395 | `buildBackState` mit `{ key: 'blog', id }` auf den bestehenden Stack |
 | BlogDetails.tsx | 266-280 | `useBackNavigation(blog.status === 'draft' ? { key: 'my-posts' } : { key: 'home' })` |
 | EditBlog.tsx | 342, 580 | `useBackNavigation({ key: 'blog', id })` |
 | EditBlog.tsx | 251 | Stack unverändert weiterreichen; die Bereinigung erledigt den Rest |
@@ -117,7 +118,7 @@ Neue Datei `src/__tests__/backNavigation.test.tsx`, Vitest + React Testing Libra
 
 Unit-Tests des Moduls:
 
-- `pushBackEntry` hängt an und erhält vorhandene State-Keys (insbesondere `feedback`).
+- `buildBackState` hängt an einen vorhandenen Stack an und lässt unverwandte State-Keys weg.
 - Auflösung jedes Schlüssels zu Pfad und Beschriftung.
 - Validierung: unbekannter Schlüssel, ungültige `id`, kein Array, überlanger Stack → Fallback.
 - Selbstbezug-Bereinigung verwirft den obersten Eintrag, der auf die aktuelle Seite zeigt.
