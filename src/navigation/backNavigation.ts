@@ -69,6 +69,18 @@ export function carryBackStack(state: unknown): BackState {
 }
 
 /**
+ * Ziel nach dem Löschen eines Beitrags. Einträge, die auf den gelöschten
+ * Beitrag zeigen, sind wertlos; es bleibt die Beitragsliste, aus der der
+ * Nutzer kam — sonst die Übersicht aller Artikel.
+ */
+export function resolveAfterDeleteTarget(state: unknown): string {
+  const origins = readBackStack(state).filter(entry => entry.key !== 'blog');
+  const origin = origins[origins.length - 1];
+
+  return origin?.key === 'my-posts' ? '/my-posts' : '/';
+}
+
+/**
  * Liefert Beschriftung und Rücksprung für den Zurück-Link. Oberste Einträge,
  * die auf die aktuell dargestellte Seite zeigen, werden verworfen — sonst
  * verwiese der Link nach dem Veröffentlichen auf die Seite selbst.

@@ -60,10 +60,13 @@ Auflösung Schlüssel → Ziel und Beschriftung:
 | `bookmarks` | `/bookmarks` | Zurück zur Merkliste |
 | `blog` | `/blog/:id` | Zurück zum Beitrag |
 
+Nach dem Löschen eines Beitrags sind Einträge, die auf diesen Beitrag zeigen, wertlos. `resolveAfterDeleteTarget(state)` überspringt sie und liefert `/my-posts`, wenn der Nutzer aus „Meine Beiträge" kam, sonst `/`.
+
 Exportierte API:
 
 - `buildBackState(entry, previousState?)` — liefert das State-Objekt für einen `navigate(...)`-Aufruf. Hängt `entry` an den vorhandenen Stack an. Übrige State-Keys werden bewusst nicht mitgenommen, damit z. B. ein bereits angezeigtes `feedback` nicht auf der Folgeseite erneut erscheint.
 - `carryBackStack(state)` — reicht den bestehenden Stack unverändert weiter, ohne einen Eintrag hinzuzufügen.
+- `resolveAfterDeleteTarget(state)` — Zielpfad nach dem Löschen eines Beitrags.
 - `useBackNavigation(fallback: BackEntry)` — liest den Stack aus `location.state`, liefert `{ label, path, goBack() }`. `goBack()` navigiert auf das oberste Element und reicht den Rest-Stack als State weiter.
 
 ### Selbstbezug-Bereinigung

@@ -1134,3 +1134,21 @@ Nachgereichte Anforderung: Wird „Beitrag schreiben" aus „Meine Beiträge" ge
 - [x] **Step 6: Commit.**
 
 Der Aufruf über „Neuer Beitrag" in der NavBar hinterlegt weiterhin keine Herkunft; dort bleibt der Fallback „/" wirksam.
+
+---
+
+## Task 9: Ziel nach dem Löschen (Nachtrag)
+
+Nachgereichte Anforderung: „Beitrag löschen" im Editor soll nach „Meine Beiträge" oder zur Übersicht aller Artikel führen — nie auf den gelöschten Beitrag.
+
+**Files:**
+- Modify: `src/navigation/backNavigation.ts` (neue Funktion `resolveAfterDeleteTarget`)
+- Modify: `src/pages/EditBlog.tsx` (`handleDelete`)
+- Test: `src/__tests__/backNavigation.test.tsx`
+
+- [x] **Step 1: Tests schreiben** — Unit-Tests für `resolveAfterDeleteTarget` plus zwei Komponententests, die den Löschdialog bestätigen.
+- [x] **Step 2: Tests laufen lassen, Fehlschlag bestätigen.**
+- [x] **Step 3: `resolveAfterDeleteTarget` ergänzen** — filtert `blog`-Einträge aus dem Stack; oberster verbleibender Eintrag `my-posts` ergibt `/my-posts`, alles andere `/`.
+- [x] **Step 4: `handleDelete` navigiert auf `resolveAfterDeleteTarget(location.state)` statt fest auf `/`.**
+- [x] **Step 5: Tests, `tsc -b`, `npm run lint` grün.**
+- [x] **Step 6: Commit.**

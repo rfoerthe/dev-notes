@@ -35,7 +35,7 @@ import { renderInlineMarkdown, renderMarkdown } from '../components/markdownPars
 import { BLOG_LIMITS, validateBlogContent, validateBlogDraft } from '../services/securityValidation';
 import { canManageBlogPost } from '../services/blogOwnership';
 import { RevisionHistoryDialog } from '../components/RevisionHistoryDialog';
-import { carryBackStack, useBackNavigation } from '../navigation/backNavigation';
+import { carryBackStack, resolveAfterDeleteTarget, useBackNavigation } from '../navigation/backNavigation';
 
 export const EditBlog: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -293,7 +293,7 @@ export const EditBlog: React.FC = () => {
     setErrorSnackbarOpen(false);
     try {
       await deleteBlog(id);
-      navigate('/');
+      navigate(resolveAfterDeleteTarget(location.state));
     } catch (err) {
       showError(err instanceof Error ? err.message : 'Löschen fehlgeschlagen.');
     } finally {

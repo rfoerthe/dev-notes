@@ -9,6 +9,7 @@ import {
   buildBackState,
   carryBackStack,
   readBackStack,
+  resolveAfterDeleteTarget,
   resolveBackTarget,
   useBackNavigation
 } from '../navigation/backNavigation';
@@ -142,6 +143,25 @@ describe('carryBackStack', () => {
 
   it('forwards an empty stack when there is nothing to carry', () => {
     expect(carryBackStack(null)).toEqual({ backStack: [] });
+  });
+});
+
+describe('resolveAfterDeleteTarget', () => {
+  it('returns my posts when the user came from there', () => {
+    expect(resolveAfterDeleteTarget({ backStack: [{ key: 'my-posts' }] })).toBe('/my-posts');
+  });
+
+  it('ignores entries pointing at the deleted post', () => {
+    expect(
+      resolveAfterDeleteTarget({ backStack: [{ key: 'my-posts' }, { key: 'blog', id: 'post-1' }] })
+    ).toBe('/my-posts');
+  });
+
+  it('returns the overview for every other origin', () => {
+    expect(resolveAfterDeleteTarget(null)).toBe('/');
+    expect(resolveAfterDeleteTarget({ backStack: [{ key: 'home' }] })).toBe('/');
+    expect(resolveAfterDeleteTarget({ backStack: [{ key: 'bookmarks' }] })).toBe('/');
+    expect(resolveAfterDeleteTarget({ backStack: [{ key: 'blog', id: 'post-1' }] })).toBe('/');
   });
 });
 
@@ -303,6 +323,26 @@ describe('EditBlog back link', () => {
     fireEvent.click(await screen.findByRole('button', { name: 'Zurück zum Beitrag' }));
 
     expect(await screen.findByRole('button', { name: 'Zurück zur Übersicht' })).toBeTruthy();
+  });
+
+  it('returns to my posts after deleting a post opened from there', async () => {
+    pageMocks.deleteBlog.mockResolvedValue(undefined);
+    renderEditBlog({ backStack: [{ key: 'my-posts' }, { key: 'blog', id: 'post-1' }] });
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Beitrag löschen' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Endgültig löschen' }));
+
+    expect(await screen.findByText('Meine Beiträge')).toBeTruthy();
+  });
+
+  it('returns to the overview after deleting a post opened from elsewhere', async () => {
+    pageMocks.deleteBlog.mockResolvedValue(undefined);
+    renderEditBlog({ backStack: [{ key: 'bookmarks' }, { key: 'blog', id: 'post-1' }] });
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Beitrag löschen' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Endgültig löschen' }));
+
+    expect(await screen.findByText('Startseite')).toBeTruthy();
   });
 
   it('lets cancel follow the same target as the back link', async () => {
