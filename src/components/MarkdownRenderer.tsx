@@ -16,6 +16,7 @@ import {
   applyMermaidLabelContrastToMarkup,
   getMermaidConfig,
   type MermaidColorMode,
+  withMermaidStyleOverrides,
 } from './mermaidTheme';
 import { createHeadingIdsByLine, slugifyHeadingText } from './markdownHeadings';
 import { scrollHeadingIntoView } from './headingScroll';
@@ -248,7 +249,7 @@ const renderMermaidSvg = async (
   initializeMermaid(mermaidApi, mode);
   const { svg } = await mermaidApi.render(id, code);
 
-  return svg;
+  return withMermaidStyleOverrides(svg, id, mode);
 };
 
 const getLightMermaidExportSvg = (

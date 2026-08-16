@@ -1,0 +1,19 @@
+<!doctype html>
+<html lang="de">
+  <head>
+    <meta charset="utf-8" />
+    <title>Mermaid Contrast Audit</title>
+    <style>
+      body { margin: 0; font-family: Inter, sans-serif; }
+      figure { margin: 0 0 24px; padding: 12px; }
+      body[data-mode='dark'] { background: #0b1220; color: #e2e8f0; }
+      body[data-mode='dark'] figure { background: #060913; }
+      body[data-mode='light'] { background: #ffffff; color: #0f172a; }
+      body[data-mode='light'] figure { background: #f8fafc; }
+    </style>
+  </head>
+  <body data-mode="dark">
+    <div id="diagrams"></div>
+    <script type="module" src="./audit.ts"></script>
+  </body>
+</html>

@@ -4,6 +4,7 @@ import {
   applyMermaidLabelContrastToMarkup,
   getMermaidConfig,
   getReadableMermaidInk,
+  withMermaidStyleOverrides,
 } from '../components/mermaidTheme';
 
 const DARK_INK = '#0f172a';
@@ -60,10 +61,18 @@ describe('getMermaidConfig', () => {
   it('defines section colors for scale based diagrams in both modes', () => {
     const darkVariables = getMermaidConfig('dark').themeVariables ?? {};
     const lightVariables = getMermaidConfig('light').themeVariables ?? {};
+    const scaleKeys = (variables: Record<string, unknown>, prefix: string) => Object.keys(variables)
+      .filter((key) => new RegExp(`^${prefix}\\d+$`).test(key));
 
-    expect(Object.keys(darkVariables).filter((key) => key.startsWith('cScale'))).toHaveLength(12);
-    expect(Object.keys(lightVariables).filter((key) => key.startsWith('cScale'))).toHaveLength(12);
+    [darkVariables, lightVariables].forEach((variables) => {
+      expect(scaleKeys(variables, 'cScale')).toHaveLength(12);
+      // Kanban and treemap paint their sections with the peer colors, which the base theme would
+      // otherwise derive by an offset that pushes the brighter hues out of readable range.
+      expect(scaleKeys(variables, 'cScalePeer')).toHaveLength(12);
+    });
+
     expect(darkVariables.cScale0).not.toBe(lightVariables.cScale0);
+    expect(darkVariables.cScale0).not.toBe(darkVariables.cScalePeer0);
   });
 
   it('uses explicit theme variables per color mode', () => {
@@ -77,6 +86,98 @@ describe('getMermaidConfig', () => {
     expect(lightConfig.darkMode).toBe(false);
     expect(lightConfig.themeVariables?.background).toBe('#f8fafc');
     expect(darkConfig.themeVariables?.primaryColor).not.toBe(lightConfig.themeVariables?.primaryColor);
+  });
+
+  it('overrides the colors mermaid derives for the wrong color mode', () => {
+    const darkVariables = getMermaidConfig('dark').themeVariables ?? {};
+    const lightVariables = getMermaidConfig('light').themeVariables ?? {};
+
+    // Mermaid only reads `darkMode` from the theme variables, so without these the ER attribute
+    // rows and the gantt bars stay on their light defaults in dark mode.
+    (['rowOdd', 'rowEven', 'taskBkgColor', 'doneTaskBkgColor', 'sectionBkgColor'] as const)
+      .forEach((key) => {
+        expect(getReadableMermaidInk(darkVariables[key] as string, 'dark')).toBe(LIGHT_INK);
+        expect(getReadableMermaidInk(lightVariables[key] as string, 'light')).toBe(DARK_INK);
+      });
+  });
+
+  it('gives every git branch a visible color and a matching label ink', () => {
+    (['dark', 'light'] as const).forEach((mode) => {
+      const variables = getMermaidConfig(mode).themeVariables ?? {};
+      const surfaceInk = mode === 'dark' ? LIGHT_INK : DARK_INK;
+
+      Array.from({ length: 8 }, (_, index) => index).forEach((index) => {
+        const color = variables[`git${index}`] as string;
+
+        // Not the near black the base theme derives for dark mode, and the branch name on top of
+        // the branch color needs whichever ink reads on that color, not a fixed one.
+        expect(color).toMatch(/^#[0-9a-f]{6}$/);
+        expect(getReadableMermaidInk(null, mode)).toBe(surfaceInk);
+        expect(variables[`gitBranchLabel${index}`]).toBe(getReadableMermaidInk(color, mode));
+        expect(variables[`gitInv${index}`]).toBe(surfaceInk);
+      });
+    });
+  });
+
+  it('gives the pie and xy charts a palette that works on their own surface', () => {
+    (['dark', 'light'] as const).forEach((mode) => {
+      const variables = getMermaidConfig(mode).themeVariables ?? {};
+      const slices = Array.from({ length: 12 }, (_, i) => variables[`pie${i + 1}`] as string);
+
+      expect(slices.every((color) => /^#[0-9a-f]{6}$/.test(color))).toBe(true);
+      // One ink serves every slice, so the palette has to stay on one side of the readable range.
+      slices.forEach((color) => {
+        expect(getReadableMermaidInk(color, mode)).toBe(variables.pieSectionTextColor);
+      });
+      // Nested theme objects replace the derived ones instead of merging, so a missing key is
+      // `undefined` for the renderer rather than a sensible default.
+      const xyChart = variables.xyChart as Record<string, string>;
+      expect(xyChart.backgroundColor).toBe(mode === 'dark' ? '#060913' : '#f8fafc');
+      expect(xyChart.plotColorPalette.split(',')).toHaveLength(10);
+      expect((variables.radar as Record<string, unknown>).axisColor).toBeDefined();
+    });
+  });
+
+  it('gives the packet diagram readable bit numbers instead of the black default', () => {
+    expect(getMermaidConfig('dark').themeVariables?.packet).toMatchObject({
+      startByteColor: '#cbd5e1',
+      titleColor: LIGHT_INK,
+    });
+    expect(getMermaidConfig('light').themeVariables?.packet).toMatchObject({
+      startByteColor: '#334155',
+      titleColor: DARK_INK,
+    });
+  });
+});
+
+describe('withMermaidStyleOverrides', () => {
+  const render = (mode: 'dark' | 'light') => withMermaidStyleOverrides(
+    '<svg id="mermaid-1"><text fill="#444444">Rand</text></svg>',
+    'mermaid-1',
+    mode,
+  );
+
+  it('recolors the label colors c4 hard-codes and scopes the rules to the diagram', () => {
+    expect(render('dark')).toContain('#mermaid-1 text[fill="#444444"]{fill:#e2e8f0;');
+    expect(render('light')).toContain('#mermaid-1 text[fill="#444444"]{fill:#334155;');
+    expect(render('dark')).not.toContain('<style>text[');
+  });
+
+  it('haloes the labels that are placed without regard for what is underneath them', () => {
+    expect(render('dark')).toContain('#mermaid-1 g.data-point text{stroke:#1f2a3d;');
+    expect(render('light')).toContain('#mermaid-1 g.data-point text{stroke:#ffffff;');
+    expect(render('dark')).toContain('paint-order:stroke;');
+    expect(render('dark')).toContain('#mermaid-1 .node-labels text{stroke:#060913;');
+  });
+
+  it('blends the sankey flows away from the diagram surface instead of into it', () => {
+    expect(render('dark')).toContain('#mermaid-1 .link{mix-blend-mode:screen;}');
+    expect(render('light')).toContain('#mermaid-1 .link{mix-blend-mode:multiply;}');
+  });
+
+  it('keeps the diagram intact and appends the rules inside the svg', () => {
+    expect(render('dark')).toMatch(/<text fill="#444444">Rand<\/text><style>.*<\/style><\/svg>$/);
+    expect(withMermaidStyleOverrides('no svg here', 'mermaid-1', 'dark')).toBe('no svg here');
   });
 });
 
