@@ -1,5 +1,19 @@
 # Changelog
 
+## [1.3.1] - 2026-08-16
+
+### Fixed
+
+- Mermaid diagrams no longer paint text in colours the theme never reaches. The base theme derives a whole group of colours from the `darkMode` *theme variable*, which mermaid does not fill in from `darkMode` in the config, so in dark mode it silently took the light branch: ER attribute rows came out near white under the light attribute text, and gantt bars and section bands kept their light defaults under light task labels. `src/components/mermaidTheme.ts` now sets `rowOdd`/`rowEven` and the complete gantt palette explicitly per colour mode. Every gantt bar is dark in dark mode and light in light mode, because `taskTextDarkColor` colours both the label inside a bar and the label next to one, so a mixed palette cannot be readable in both places.
+- The packet diagram was invisible in dark mode. Its renderer defaults the bit numbers, the block labels and the title to black and paints the numbers and the title straight onto the diagram surface; the diagram now brings its own `packet` theme variables. The sequence number in a sequence diagram sits on a circle filled with `signalColor` and got its ink from `invert(lineColor)`, which is unrelated to that circle — `sequenceNumberColor` is now set explicitly. Quadrant data point labels are centred on their own point, so `quadrantPointFill` is picked to work with the label ink.
+- C4 diagrams label every shape white, which is unreadable on the lighter shades of the C4 palette — the grey of external systems and the blue of containers and components. The shape group is now part of the existing contrast pass in `applyMermaidLabelContrast`, so each label gets whichever ink reads better on its own shape. C4's palette itself is unchanged; its colours carry meaning in the notation.
+- Boundary labels, boundary borders and relation labels are hard-coded to `#444444` in mermaid's C4 renderer, which no theme variable reaches. They are written as presentation attributes, so `withMermaidStyleOverrides` appends a stylesheet to the rendered diagram that wins over them. Every rule is scoped with the diagram id, because an SVG `<style>` is not scoped to its fragment and would otherwise leak into the other diagrams on the page. The overrides are applied at render time and are therefore part of the downloaded SVG as well.
+- C4 relation labels and quadrant data point labels are positioned without regard for what is underneath them — a relation label follows its arrow across other shapes, and the colour of a data point is the diagram author's choice. Both are drawn on top of a halo in the surrounding background colour, so they stay readable on whatever they overlap.
+- `gitGraph` drew every commit and every arrow in plain black in dark mode — the same `darkMode` theme variable again, which decides whether the branch colours are lightened or darkened. `git0`–`git7` are now an explicit eight-hue palette per colour mode. `gitBranchLabel0`–`gitBranchLabel7` colour the branch name on a background of its branch colour, so each one is derived from its own colour through `getReadableMermaidInk` rather than being a single fixed ink; a palette spanning all hues cannot be served by one. `gitInv0`–`gitInv7` is the ring of a highlighted commit, drawn around a disc in `primaryColor`, and is set to the ink colour so it reads on the surface.
+- Sankey flows disappeared in dark mode. Mermaid draws them with `mix-blend-mode: multiply` so that crossing flows darken each other; multiplied against the near black diagram surface every flow became black and only the node bars were left. Dark mode uses `screen` instead — the same idea the other way round. Because that brightens the flows the node labels sit on, those labels get a halo too.
+
+Both of these are shape and line colours rather than text colours, which is why the contrast audit over the article's 758 text runs had not caught them.
+
 ## [1.3.0] - 2026-08-16
 
 ### Added
