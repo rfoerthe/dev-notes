@@ -24,7 +24,7 @@
 | `src/pages/MyPosts.tsx` | setzt `my-posts` als Herkunft |
 | `src/pages/Bookmarks.tsx` | setzt `bookmarks` als Herkunft |
 
-`src/pages/CreateBlog.tsx` bleibt unverändert — ein frisches Formular ist kein sinnvolles Rücksprungziel, dort greift der Fallback.
+`src/pages/CreateBlog.tsx` nutzt den Hook für „Abbrechen" und reicht den Stack beim Speichern weiter (nachträglich ergänzt, siehe Task 8). Das Formular selbst wird nie als Herkunft hinterlegt — ein frisches Formular ist kein sinnvolles Rücksprungziel.
 
 ---
 
@@ -1114,3 +1114,23 @@ Nur nötig, wenn Schritt 1-3 Korrekturen erzwungen haben.
 git add -A
 git commit -m "Fix issues found during verification"
 ```
+
+---
+
+## Task 8: Neuer Beitrag behält die Herkunft (Nachtrag)
+
+Nachgereichte Anforderung: Wird „Beitrag schreiben" aus „Meine Beiträge" geöffnet, soll „Abbrechen" dorthin zurückführen, und nach dem Veröffentlichen soll der Zurück-Link auf dem Artikel ebenfalls auf „Meine Beiträge" zeigen.
+
+**Files:**
+- Modify: `src/pages/MyPosts.tsx` (beide „Beitrag schreiben"-Buttons)
+- Modify: `src/pages/CreateBlog.tsx` („Abbrechen" und die Navigation nach dem Speichern)
+- Test: `src/__tests__/backNavigation.test.tsx`
+
+- [x] **Step 1: Tests für die Kette schreiben** — Rendern von MyPosts, Klick auf „Beitrag schreiben", danach einmal „Abbrechen" und einmal den vollständigen Veröffentlichen-Pfad.
+- [x] **Step 2: Tests laufen lassen, Fehlschlag bestätigen.**
+- [x] **Step 3: MyPosts setzt `buildBackState({ key: 'my-posts' })` auf beiden `/write`-Navigationen.**
+- [x] **Step 4: CreateBlog nutzt `useBackNavigation({ key: 'home' })` für „Abbrechen" und `carryBackStack(location.state)` beim Speichern.**
+- [x] **Step 5: Tests, `tsc -b`, `npm run lint` grün.**
+- [x] **Step 6: Commit.**
+
+Der Aufruf über „Neuer Beitrag" in der NavBar hinterlegt weiterhin keine Herkunft; dort bleibt der Fallback „/" wirksam.

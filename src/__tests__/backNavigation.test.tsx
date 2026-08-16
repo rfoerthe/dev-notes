@@ -2,7 +2,9 @@ import { fireEvent, render, screen } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { BlogDetails } from '../pages/BlogDetails';
+import { CreateBlog } from '../pages/CreateBlog';
 import { EditBlog } from '../pages/EditBlog';
+import { MyPosts } from '../pages/MyPosts';
 import {
   buildBackState,
   carryBackStack,
@@ -14,16 +16,22 @@ import type { BackEntry } from '../navigation/backNavigation';
 
 const pageMocks = vi.hoisted(() => ({
   getBlogById: vi.fn(),
+  createBlog: vi.fn(),
   updateBlog: vi.fn(),
   deleteBlog: vi.fn(),
+  deleteBlogs: vi.fn(),
+  getBlogsByAuthorUsername: vi.fn(),
   isBlogBookmarked: vi.fn(),
   toggleBookmark: vi.fn()
 }));
 
 vi.mock('../services/blogService', () => ({
   getBlogById: pageMocks.getBlogById,
+  createBlog: pageMocks.createBlog,
   updateBlog: pageMocks.updateBlog,
   deleteBlog: pageMocks.deleteBlog,
+  deleteBlogs: pageMocks.deleteBlogs,
+  getBlogsByAuthorUsername: pageMocks.getBlogsByAuthorUsername,
   calculateReadTime: () => 1
 }));
 
@@ -329,5 +337,63 @@ describe('bookmarks to reader to editor chain', () => {
     fireEvent.click(await screen.findByRole('button', { name: 'Änderungen veröffentlichen' }));
 
     expect(await screen.findByRole('button', { name: 'Zurück zur Merkliste' })).toBeTruthy();
+  });
+});
+
+function renderMyPosts() {
+  render(
+    <MemoryRouter initialEntries={['/my-posts']}>
+      <Routes>
+        <Route path="/my-posts" element={<MyPosts />} />
+        <Route path="/write" element={<CreateBlog />} />
+        <Route path="/blog/:id" element={<BlogDetails />} />
+        <Route path="/edit/:id" element={<EditBlog />} />
+        <Route path="/" element={<main>Startseite</main>} />
+      </Routes>
+    </MemoryRouter>
+  );
+}
+
+describe('my posts to new post chain', () => {
+  beforeEach(() => {
+    pageMocks.getBlogsByAuthorUsername.mockReset().mockResolvedValue([]);
+    pageMocks.deleteBlogs.mockReset();
+    pageMocks.getBlogById.mockReset().mockResolvedValue(publishedBlog);
+    pageMocks.createBlog.mockReset().mockResolvedValue(publishedBlog);
+    pageMocks.isBlogBookmarked.mockReset().mockResolvedValue(false);
+    pageMocks.toggleBookmark.mockReset();
+  });
+
+  it('returns to my posts when the new post form is cancelled', async () => {
+    renderMyPosts();
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Beitrag schreiben' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Abbrechen' }));
+
+    expect(await screen.findByRole('heading', { name: 'Meine Beiträge' })).toBeTruthy();
+  });
+
+  it('points the reader back to my posts after publishing a new post', async () => {
+    renderMyPosts();
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Beitrag schreiben' }));
+
+    fireEvent.change(await screen.findByLabelText('Titel des Beitrags'), {
+      target: { value: 'Ein neuer Beitrag' }
+    });
+    fireEvent.change(screen.getByLabelText('Kurze Zusammenfassung'), {
+      target: { value: 'Eine aussagekräftige Zusammenfassung.' }
+    });
+    fireEvent.change(screen.getByPlaceholderText(/Schreibe deinen Blogartikel hier/), {
+      target: { value: 'Der vollständige Inhalt des Beitrags.' }
+    });
+    fireEvent.change(screen.getByPlaceholderText('z.B. React, TypeScript, Performance'), {
+      target: { value: 'React' }
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Tags hinzufügen' }));
+
+    fireEvent.click(screen.getByRole('button', { name: 'Beitrag veröffentlichen' }));
+
+    expect(await screen.findByRole('button', { name: 'Zurück zu meinen Beiträgen' })).toBeTruthy();
   });
 });

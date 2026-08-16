@@ -20,7 +20,7 @@ Ziel: Der Zurück-Link zeigt Ziel *und* Beschriftung der Seite, von der der Nutz
 | Merkliste, Karte + Tastatur + Lese-Icon | Bookmarks.tsx:294, 298, 406 | Zurück zur Merkliste |
 | Editor, „Zurück zum Beitrag" + „Abbrechen" | EditBlog.tsx:342, 580 | Rück-Navigation (Pop), kein neuer Eintrag |
 | Editor, nach Veröffentlichen | EditBlog.tsx:251 | Herkunft des Editors |
-| Neuer Beitrag, nach Veröffentlichen | CreateBlog.tsx:120 | Fallback (Standard) |
+| Neuer Beitrag, nach Veröffentlichen | CreateBlog.tsx:120 | Herkunft des Formulars |
 | Direktlink, geteilter Link, Reload | — | Fallback (Standard) |
 
 ### Einstiegspunkte nach `/edit/:id`
@@ -30,7 +30,7 @@ Ziel: Der Zurück-Link zeigt Ziel *und* Beschriftung der Seite, von der der Nutz
 | Meine Beiträge, Bearbeiten-Icon | MyPosts.tsx:434 | Zurück zu meinen Beiträgen |
 | Beitrag, Bearbeiten-Button | BlogDetails.tsx:395 | Zurück zum Beitrag |
 | Beitrag, Entwurfs-Alert „Weiter bearbeiten" | BlogDetails.tsx:285 | Zurück zum Beitrag |
-| Neuer Beitrag, Entwurf gespeichert | CreateBlog.tsx:120 | Fallback (Standard) |
+| Neuer Beitrag, Entwurf gespeichert | CreateBlog.tsx:120 | Herkunft des Formulars |
 | Direktlink, Reload | — | Fallback (Standard) |
 
 ## Verworfene Alternative
@@ -100,7 +100,9 @@ Der Stack überlebt einen Reload, weil React Router den State in `history.state`
 | BlogDetails.tsx | 266-280 | `useBackNavigation(blog.status === 'draft' ? { key: 'my-posts' } : { key: 'home' })` |
 | EditBlog.tsx | 342, 580 | `useBackNavigation({ key: 'blog', id })` |
 | EditBlog.tsx | 251 | Stack unverändert weiterreichen; die Bereinigung erledigt den Rest |
-| CreateBlog.tsx | 120 | kein Push — bleibt beim Fallback |
+| MyPosts.tsx | 164, 234 („Beitrag schreiben") | `buildBackState` mit `{ key: 'my-posts' }` |
+| CreateBlog.tsx | „Abbrechen" | `useBackNavigation({ key: 'home' })` |
+| CreateBlog.tsx | 120 | Stack unverändert weiterreichen |
 
 ## Fallback-Verhalten
 
@@ -129,6 +131,8 @@ Komponenten-Tests über `MemoryRouter` mit vorbelegtem State:
 - BlogDetails ohne Stack zeigt die bisherigen Fallbacks (Entwurf und veröffentlicht).
 - EditBlog mit Stack `[my-posts]` zeigt „Zurück zu meinen Beiträgen".
 - EditBlog ohne Stack zeigt „Zurück zum Beitrag".
+- Kette Meine Beiträge → „Beitrag schreiben" → Abbrechen kehrt nach „Meine Beiträge" zurück.
+- Kette Meine Beiträge → „Beitrag schreiben" → veröffentlichen: der Artikel zeigt „Zurück zu meinen Beiträgen".
 - Kette Merkliste → Artikel → Editor → veröffentlichen: der Artikel zeigt anschließend „Zurück zur Merkliste".
 
 ## Nicht im Umfang

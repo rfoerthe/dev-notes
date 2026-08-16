@@ -161,7 +161,7 @@ export const MyPosts: React.FC = () => {
         <Button
           variant="contained"
           startIcon={<Plus size={16} />}
-          onClick={() => navigate('/write')}
+          onClick={() => navigate('/write', { state: buildBackState({ key: 'my-posts' }) })}
           sx={{ borderRadius: 3 }}
         >
           Beitrag schreiben
@@ -231,7 +231,7 @@ export const MyPosts: React.FC = () => {
           <Typography variant="body2" color="text.secondary" sx={{ mt: 1, mb: 3 }}>
             Starte mit deinem ersten Artikel und teile dein Wissen mit der Community.
           </Typography>
-          <Button variant="contained" startIcon={<Plus size={16} />} onClick={() => navigate('/write')} sx={{ borderRadius: 3 }}>
+          <Button variant="contained" startIcon={<Plus size={16} />} onClick={() => navigate('/write', { state: buildBackState({ key: 'my-posts' }) })} sx={{ borderRadius: 3 }}>
             Ersten Beitrag schreiben
           </Button>
         </Paper>
