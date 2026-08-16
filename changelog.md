@@ -1,5 +1,18 @@
 # Changelog
 
+## [1.2.0] - 2026-08-16
+
+### Changed
+
+- Der Zurück-Link am Anfang der Lese- und der Bearbeiten-Ansicht führt jetzt auf die Seite zurück, von der der Beitrag geöffnet wurde, und benennt sie auch so. Aus der Merkliste heraus heißt er "Zurück zur Merkliste", aus "Meine Beiträge" heraus "Zurück zu meinen Beiträgen", von der Startseite aus "Zurück zur Übersicht". Bisher führte er bei Entwürfen immer nach "Meine Beiträge" und sonst immer zur Startseite, sodass man aus der Merkliste kommend auf der Startseite landete.
+- Die Herkunft bleibt über mehrere Schritte erhalten: Wer aus der Merkliste einen Artikel öffnet, ihn bearbeitet und veröffentlicht, sieht auf dem Artikel weiterhin "Zurück zur Merkliste" statt eines Links auf den Artikel selbst.
+- "Abbrechen" im Editor und im Formular "Neuer Beitrag" folgt demselben Ziel wie der Zurück-Link. Wird "Beitrag schreiben" aus "Meine Beiträge" geöffnet, kehrt "Abbrechen" also dorthin zurück, und der veröffentlichte Beitrag zeigt anschließend "Zurück zu meinen Beiträgen".
+- "Beitrag löschen" im Editor springt nach "Meine Beiträge", wenn der Nutzer von dort kam, sonst zur Übersicht aller Artikel – nie auf den gelöschten Beitrag.
+
+Bei Direktlinks, geteilten Links und nach einem Reload gilt unverändert das bisherige Verhalten: Entwürfe führen nach "Meine Beiträge", veröffentlichte Beiträge zur Übersicht. Der Browser-Zurück-Button ist nicht betroffen.
+
+Technisch wird die Herkunft als Liste von Schlüsseln im Router-State mitgeführt (`src/navigation/backNavigation.ts`), nicht über `navigate(-1)`: Aus einem History-Eintrag ließe sich keine Beschriftung ableiten, und bei Direkteinstiegen oder `replace`-Navigationen zeigt er nicht auf die fachlich richtige Seite. Der State ist über die History manipulierbar und wird deshalb beim Lesen streng validiert; ungültige Daten führen still zum bisherigen Verhalten.
+
 ## [1.1.10] - 2026-08-15
 
 ### Added
