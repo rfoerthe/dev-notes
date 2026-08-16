@@ -4,24 +4,24 @@
 
 ### Changed
 
-- Der Zurück-Link am Anfang der Lese- und der Bearbeiten-Ansicht führt jetzt auf die Seite zurück, von der der Beitrag geöffnet wurde, und benennt sie auch so. Aus der Merkliste heraus heißt er "Zurück zur Merkliste", aus "Meine Beiträge" heraus "Zurück zu meinen Beiträgen", von der Startseite aus "Zurück zur Übersicht". Bisher führte er bei Entwürfen immer nach "Meine Beiträge" und sonst immer zur Startseite, sodass man aus der Merkliste kommend auf der Startseite landete.
-- Die Herkunft bleibt über mehrere Schritte erhalten: Wer aus der Merkliste einen Artikel öffnet, ihn bearbeitet und veröffentlicht, sieht auf dem Artikel weiterhin "Zurück zur Merkliste" statt eines Links auf den Artikel selbst.
-- "Abbrechen" im Editor und im Formular "Neuer Beitrag" folgt demselben Ziel wie der Zurück-Link. Wird "Beitrag schreiben" aus "Meine Beiträge" geöffnet, kehrt "Abbrechen" also dorthin zurück, und der veröffentlichte Beitrag zeigt anschließend "Zurück zu meinen Beiträgen".
-- "Beitrag löschen" im Editor springt nach "Meine Beiträge", wenn der Nutzer von dort kam, sonst zur Übersicht aller Artikel – nie auf den gelöschten Beitrag.
+- The back link at the top of the reading and editing views now returns to the page the post was opened from, and names it accordingly: "Zurück zur Merkliste" when coming from the bookmarks page, "Zurück zu meinen Beiträgen" from "Meine Beiträge", "Zurück zur Übersicht" from the home page. Previously it always led to "Meine Beiträge" for drafts and to the home page otherwise, so anyone arriving from the bookmarks page ended up on the home page.
+- The origin survives several steps: opening an article from the bookmarks page, editing it and publishing it still leaves "Zurück zur Merkliste" on the article instead of a link pointing at the article itself.
+- "Abbrechen" in the editor and in the "Neuer Beitrag" form follows the same target as the back link. Opening "Beitrag schreiben" from "Meine Beiträge" therefore makes "Abbrechen" return there, and the published post then shows "Zurück zu meinen Beiträgen".
+- "Beitrag löschen" in the editor goes to "Meine Beiträge" when the user came from there, and to the overview of all articles otherwise — never to the deleted post.
 
-Bei Direktlinks, geteilten Links und nach einem Reload gilt unverändert das bisherige Verhalten: Entwürfe führen nach "Meine Beiträge", veröffentlichte Beiträge zur Übersicht. Der Browser-Zurück-Button ist nicht betroffen.
+Direct links, shared links and reloads keep the previous behaviour unchanged: drafts lead to "Meine Beiträge", published posts to the overview. The browser's back button is unaffected.
 
-Technisch wird die Herkunft als Liste von Schlüsseln im Router-State mitgeführt (`src/navigation/backNavigation.ts`), nicht über `navigate(-1)`: Aus einem History-Eintrag ließe sich keine Beschriftung ableiten, und bei Direkteinstiegen oder `replace`-Navigationen zeigt er nicht auf die fachlich richtige Seite. Der State ist über die History manipulierbar und wird deshalb beim Lesen streng validiert; ungültige Daten führen still zum bisherigen Verhalten.
+Internally the origin travels as a list of keys in the router state (`src/navigation/backNavigation.ts`) rather than through `navigate(-1)`: a history entry carries no label to display, and for direct entries or `replace` navigations it does not point at the right page. Because that state can be tampered with through the history, it is strictly validated on read; invalid data silently falls back to the previous behaviour.
 
 ## [1.1.10] - 2026-08-15
 
 ### Added
 
-- In "Meine Beiträge" öffnet ein Klick auf den Titel eines Beitrags dessen Leseansicht (`/blog/:id`) – dasselbe Ziel wie der bisherige Pfeil-Button, der erhalten bleibt. Der Titel ist ein Button innerhalb der Überschrift, also auch per Tastatur fokussier- und auslösbar, und färbt sich beim Überfahren in der Akzentfarbe.
+- In "Meine Beiträge", clicking a post's title opens its reading view (`/blog/:id`) — the same target as the existing arrow button, which stays. The title is a button inside the heading, so it can be focused and triggered by keyboard as well, and it takes on the accent color on hover.
 
 ### Changed
 
-- Der Pfeil-Button zum Lesen auf der Merkliste ist jetzt genauso gestaltet wie in "Meine Beiträge": grüne Sekundärfarbe mit passendem Rahmen und der Tooltip "Artikel lesen" statt "Artikel öffnen". Die Eckenrundung bleibt wie bisher an den benachbarten Löschen-Button angeglichen.
+- The arrow button for reading on the bookmarks page now looks exactly like the one in "Meine Beiträge": secondary green with a matching border, and the tooltip "Artikel lesen" instead of "Artikel öffnen". The corner rounding stays aligned with the adjacent delete button as before.
 
 ## [1.1.9] - 2026-08-15
 
