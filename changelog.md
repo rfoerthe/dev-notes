@@ -15,6 +15,15 @@
 - The service worker precaches only the app shell: `index.html`, the stylesheet, the icons and the eagerly preloaded `index-*`/`rolldown-runtime-*`/`vendor-*` chunks — 19 entries, about 1.5 MB. Precaching `**/*.js` would have pushed all 13 MB of the build at install time, because the output contains one chunk per Shiki language and one per Mermaid diagram type. Those lazy chunks, plus the Google Fonts stylesheet and font files, are cached at runtime on first use instead.
 - Firebase Hosting now sends `Cache-Control: no-cache` for `sw.js`, `workbox-*.js`, `manifest.webmanifest` and `index.html`, so a deployed update is not hidden behind the browser's HTTP cache. `fonts.googleapis.com` and `fonts.gstatic.com` were added to the `connect-src` CSP directive, because the service worker fetches the fonts itself when filling its runtime cache.
 - Because the app reads Firestore through the REST-based lite SDK without an offline cache, an installed DevNotes loads its interface offline but not its posts. The service worker deliberately shows no "ready to work offline" message, which would promise more than it delivers.
+## [1.2.2] - 2026-08-16
+
+### Fixed
+
+- Settings no longer get lost in Safari on iOS when the browser denies storage access. Safari answers every `window.localStorage` access with a `SecurityError` while "Alle Cookies blockieren" (Einstellungen > Apps > Safari > Erweitert) is active, and some in-app browsers behave the same way. The theme provider read `localStorage` unguarded in its state initialiser, so that error was thrown during the very first render and the app stayed blank instead of falling back to its defaults.
+- Theme mode, accent colour and the analytics consent now go through `src/services/safeStorage.ts`. Each value is written to every channel that accepts it — `localStorage`, a first-party cookie (`path=/`, `max-age` one year, `SameSite=Lax`, `Secure` over HTTPS) and an in-memory map — and read back from the first channel that still has it. Where cookies are allowed but `localStorage` is not, the settings therefore survive a reload; where nothing is allowed, they at least survive the current page instead of breaking it.
+- The stored theme mode is validated on read, like the accent colour already was. An unknown value falls back to `system` rather than reaching MUI's `palette.mode`.
+
+Not covered by this: Safari's Intelligent Tracking Prevention deletes all script-writable storage — `localStorage`, IndexedDB and cookies written from JavaScript alike — after seven days without a visit to the site. Settings can disappear after a longer break for that reason, and so can the Firebase Auth session, which the SDK keeps in IndexedDB. Signed-in users get their theme back from their profile in Firestore.
 
 ## [1.2.1] - 2026-08-16
 
