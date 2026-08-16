@@ -2,6 +2,7 @@ import { fireEvent, render, screen } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { BlogDetails } from '../pages/BlogDetails';
+import { EditBlog } from '../pages/EditBlog';
 import {
   buildBackState,
   carryBackStack,
@@ -253,5 +254,53 @@ describe('BlogDetails back link', () => {
     renderBlogDetails(undefined);
 
     expect(await screen.findByRole('button', { name: 'Zurück zu meinen Beiträgen' })).toBeTruthy();
+  });
+});
+
+function renderEditBlog(state: unknown) {
+  render(
+    <MemoryRouter initialEntries={[{ pathname: '/edit/post-1', state }]}>
+      <Routes>
+        <Route path="/edit/:id" element={<EditBlog />} />
+        <Route path="/blog/:id" element={<BlogDetails />} />
+        <Route path="/" element={<main>Startseite</main>} />
+        <Route path="/my-posts" element={<main>Meine Beiträge</main>} />
+        <Route path="/bookmarks" element={<main>Merkliste</main>} />
+      </Routes>
+    </MemoryRouter>
+  );
+}
+
+describe('EditBlog back link', () => {
+  beforeEach(() => {
+    pageMocks.getBlogById.mockReset().mockResolvedValue(publishedBlog);
+    pageMocks.updateBlog.mockReset().mockResolvedValue(publishedBlog);
+    pageMocks.deleteBlog.mockReset();
+    pageMocks.isBlogBookmarked.mockReset().mockResolvedValue(false);
+    pageMocks.toggleBookmark.mockReset();
+  });
+
+  it('returns to my posts when the editor was opened from there', async () => {
+    renderEditBlog({ backStack: [{ key: 'my-posts' }] });
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Zurück zu meinen Beiträgen' }));
+
+    expect(await screen.findByText('Meine Beiträge')).toBeTruthy();
+  });
+
+  it('keeps the post fallback for direct links into the editor', async () => {
+    renderEditBlog(undefined);
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Zurück zum Beitrag' }));
+
+    expect(await screen.findByRole('button', { name: 'Zurück zur Übersicht' })).toBeTruthy();
+  });
+
+  it('lets cancel follow the same target as the back link', async () => {
+    renderEditBlog({ backStack: [{ key: 'bookmarks' }] });
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Abbrechen' }));
+
+    expect(await screen.findByText('Merkliste')).toBeTruthy();
   });
 });

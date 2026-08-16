@@ -35,10 +35,12 @@ import { renderInlineMarkdown, renderMarkdown } from '../components/markdownPars
 import { BLOG_LIMITS, validateBlogContent, validateBlogDraft } from '../services/securityValidation';
 import { canManageBlogPost } from '../services/blogOwnership';
 import { RevisionHistoryDialog } from '../components/RevisionHistoryDialog';
+import { useBackNavigation } from '../navigation/backNavigation';
 
 export const EditBlog: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const backNavigation = useBackNavigation(id ? { key: 'blog', id } : { key: 'my-posts' });
   const { userProfile } = useAuth();
 
   // Loading & Error states
@@ -339,10 +341,10 @@ export const EditBlog: React.FC = () => {
         <Button 
           variant="text" 
           startIcon={<ArrowLeft size={16} />}
-          onClick={() => navigate(`/blog/${id}`)}
+          onClick={backNavigation.goBack}
           sx={{ borderRadius: 3, color: 'text.secondary' }}
         >
-          Zurück zum Beitrag
+          {backNavigation.label}
         </Button>
       </Stack>
 
@@ -577,7 +579,7 @@ export const EditBlog: React.FC = () => {
                 <Button 
                   type="button"
                   variant="outlined" 
-                  onClick={() => navigate(`/blog/${id}`)}
+                  onClick={backNavigation.goBack}
                   disabled={loading}
                   sx={{ borderRadius: 3, px: 3 }}
                 >
