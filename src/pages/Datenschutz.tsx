@@ -136,6 +136,12 @@ export const Datenschutz: React.FC = () => {
               Im lokalen Entwicklungsbetrieb kann diese Anwendung mit der Firebase Local Emulator Suite betrieben werden. Dabei laufen Firebase Authentication und Firestore ausschließlich auf dem lokalen Entwicklungsrechner. Es findet keine Übertragung dieser lokalen Testdaten an externe Firebase-Cloud-Dienste statt.
             </Typography>
             <Typography variant="subtitle1" sx={{ fontWeight: 600, mb: 1, color: 'text.primary' }}>
+              Einstellungen im Browser (Web Storage und Cookies)
+            </Typography>
+            <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+              Ihre Anzeigeeinstellungen (Hell-/Dunkelmodus und Akzentfarbe) sowie Ihre Entscheidung über Analyse-Cookies speichern wir ausschließlich in Ihrem Browser – im Web Storage und zusätzlich in einem eigenen Cookie dieser Website („devblog_theme_mode“, „devblog_theme_accent“, „devnotes_analytics_consent“). Das Cookie dient als Ausweichweg für Browser, die den Web Storage sperren, etwa Safari unter iOS mit der Einstellung „Alle Cookies blockieren“. Diese Werte enthalten keine personenbezogenen Daten, werden nicht ausgewertet und dienen allein dazu, die Website so darzustellen, wie Sie sie eingestellt haben. Rechtsgrundlage ist § 25 Abs. 2 Nr. 2 TDDDG, da die Speicherung für den von Ihnen gewünschten Dienst erforderlich ist. Sie können die Werte jederzeit über die Website-Daten Ihres Browsers löschen.
+            </Typography>
+            <Typography variant="subtitle1" sx={{ fontWeight: 600, mb: 1, color: 'text.primary' }}>
               Anti-Robot Honeypot Schutz
             </Typography>
             <Typography variant="body2" color="text.secondary">
