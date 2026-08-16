@@ -3,11 +3,14 @@ import React, { createContext, useCallback, useContext, useEffect, useState, use
 import { ThemeProvider, createTheme } from '@mui/material/styles';
 import type { Theme } from '@mui/material/styles';
 import useMediaQuery from '@mui/material/useMediaQuery';
+import { readPersistentValue, writePersistentValue } from '../services/safeStorage';
 
 export type ThemeMode = 'light' | 'dark' | 'system';
 export type ThemeAccent = 'purple' | 'blue' | 'green' | 'rose' | 'orange';
 
 export const DEFAULT_THEME_ACCENT: ThemeAccent = 'purple';
+export const THEME_MODE_KEY = 'devblog_theme_mode';
+export const THEME_ACCENT_KEY = 'devblog_theme_accent';
 
 type AccentScale = {
   main: string;
@@ -129,9 +132,16 @@ export const themeAccentOptions: ThemeAccentOption[] = [
 ];
 
 const themeAccentValues = new Set<ThemeAccent>(themeAccentOptions.map((option) => option.value));
+const themeModeValues = new Set<ThemeMode>(['light', 'dark', 'system']);
 
 const normalizeThemeAccent = (accent: string | null): ThemeAccent => (
   accent && themeAccentValues.has(accent as ThemeAccent) ? accent as ThemeAccent : DEFAULT_THEME_ACCENT
+);
+
+// The stored value can come from a cookie as well, so it is validated on read
+// rather than trusted as a `ThemeMode`.
+const normalizeThemeMode = (mode: string | null): ThemeMode => (
+  mode && themeModeValues.has(mode as ThemeMode) ? mode as ThemeMode : 'system'
 );
 
 export const getThemeAccentOption = (accent: ThemeAccent): ThemeAccentOption => (
@@ -149,25 +159,25 @@ interface CustomThemeContextType {
 const CustomThemeContext = createContext<CustomThemeContextType | undefined>(undefined);
 
 export const CustomThemeProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [themeMode, setThemeModeState] = useState<ThemeMode>(() => {
-    const saved = localStorage.getItem('devblog_theme_mode');
-    return (saved as ThemeMode) || 'system';
-  });
+  const [themeMode, setThemeModeState] = useState<ThemeMode>(() => (
+    normalizeThemeMode(readPersistentValue(THEME_MODE_KEY))
+  ));
   const [themeAccent, setThemeAccentState] = useState<ThemeAccent>(() => (
-    normalizeThemeAccent(localStorage.getItem('devblog_theme_accent'))
+    normalizeThemeAccent(readPersistentValue(THEME_ACCENT_KEY))
   ));
 
   const systemPrefersDark = useMediaQuery('(prefers-color-scheme: dark)');
 
   const setThemeMode = useCallback((mode: ThemeMode) => {
-    setThemeModeState(mode);
-    localStorage.setItem('devblog_theme_mode', mode);
+    const normalizedMode = normalizeThemeMode(mode);
+    setThemeModeState(normalizedMode);
+    writePersistentValue(THEME_MODE_KEY, normalizedMode);
   }, []);
 
   const setThemeAccent = useCallback((accent: ThemeAccent) => {
     const normalizedAccent = normalizeThemeAccent(accent);
     setThemeAccentState(normalizedAccent);
-    localStorage.setItem('devblog_theme_accent', normalizedAccent);
+    writePersistentValue(THEME_ACCENT_KEY, normalizedAccent);
   }, []);
 
   const activeMode = useMemo<'light' | 'dark'>(() => {
