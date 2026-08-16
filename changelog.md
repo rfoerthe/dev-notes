@@ -1,5 +1,21 @@
 # Changelog
 
+## [1.3.0] - 2026-08-16
+
+### Added
+
+- DevNotes can be installed as a Progressive Web App. `vite-plugin-pwa` generates `manifest.webmanifest` and a Workbox service worker during the build; `index.html` gained the `apple-touch-icon` and `apple-mobile-web-app-*` tags iOS needs, because Safari ignores the manifest's icons and display mode. Installed, the app starts standalone under its own icon, with the jump list entries "Neuen Beitrag schreiben", "Meine Beiträge" and "Lesezeichen".
+- An installed app window is titled `<manifest name> - <document.title>`, which would print the brand twice. The manifest is therefore named just "DevNotes" and carries the tagline in `description`, and `src/services/appTitle.ts` shortens the document title to "Der Developer Blog" in every non-`browser` display mode, so the title bar reads "DevNotes - Der Developer Blog". Browser tabs, bookmarks and search results keep the full "DevNotes | Der Developer Blog".
+- `npm run preview:deploy` now builds with `VITE_APP_CHANNEL=preview` and names the app "DevNotes (Preview)" in `name` and `short_name`. Production and preview can therefore be installed side by side and stay tellable apart in `chrome://apps`, in the installed window's title bar ("DevNotes (Preview) - Der Developer Blog") and in browser tabs ("DevNotes (Preview) | Der Developer Blog"). The separation itself comes from the preview channel's own Hosting domain, which Chrome already treats as a different app; the suffix only makes it visible. Manifest name and document title are derived from the same helpers in `src/services/appIdentity.ts`, which `vite.config.ts` imports too, so the suffix cannot end up in one place but not the other.
+- The icon set in `public/` (64/192/512 px, a maskable 512 px variant with safe-zone padding, and a 180 px `apple-touch-icon`) is rendered from the existing `public/favicon.svg` by `npm run icons:generate`. The script drives a headless Chrome rather than adding a native rasterizer to the dependency tree; it is not part of the build, so re-run it and commit the PNGs whenever the favicon changes.
+- A snackbar offers "Neu laden" once a new build has been downloaded (`src/components/PwaUpdatePrompt.tsx`). The worker is generated with `registerType: 'prompt'` and stays in "waiting" until the button is used, so an open editor is never reloaded from under the user.
+
+### Changed
+
+- The service worker precaches only the app shell: `index.html`, the stylesheet, the icons and the eagerly preloaded `index-*`/`rolldown-runtime-*`/`vendor-*` chunks — 19 entries, about 1.5 MB. Precaching `**/*.js` would have pushed all 13 MB of the build at install time, because the output contains one chunk per Shiki language and one per Mermaid diagram type. Those lazy chunks, plus the Google Fonts stylesheet and font files, are cached at runtime on first use instead.
+- Firebase Hosting now sends `Cache-Control: no-cache` for `sw.js`, `workbox-*.js`, `manifest.webmanifest` and `index.html`, so a deployed update is not hidden behind the browser's HTTP cache. `fonts.googleapis.com` and `fonts.gstatic.com` were added to the `connect-src` CSP directive, because the service worker fetches the fonts itself when filling its runtime cache.
+- Because the app reads Firestore through the REST-based lite SDK without an offline cache, an installed DevNotes loads its interface offline but not its posts. The service worker deliberately shows no "ready to work offline" message, which would promise more than it delivers.
+
 ## [1.2.1] - 2026-08-16
 
 ### Changed
