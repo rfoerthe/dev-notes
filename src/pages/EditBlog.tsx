@@ -34,6 +34,7 @@ import type { UserProfile } from '../services/authService';
 import { renderInlineMarkdown, renderMarkdown } from '../components/markdownParser';
 import { BLOG_LIMITS, validateBlogContent, validateBlogDraft } from '../services/securityValidation';
 import { canManageBlogPost } from '../services/blogOwnership';
+import { mergeTagInput } from '../services/blogTagInput';
 import { RevisionHistoryDialog } from '../components/RevisionHistoryDialog';
 import { carryBackStack, resolveAfterDeleteTarget, useBackNavigation } from '../navigation/backNavigation';
 
@@ -165,20 +166,7 @@ export const EditBlog: React.FC = () => {
   const handleAddTag = () => {
     if (!tagInput.trim()) return;
 
-    // Split input by comma or semicolon to support multi-tag entries
-    const newTagsList = tagInput
-      .split(/[,;]+/)
-      .map(t => t.trim())
-      .filter(t => t.length > 0);
-
-    const updatedTags = [...tags];
-    newTagsList.forEach(newTag => {
-      if (!updatedTags.includes(newTag)) {
-        updatedTags.push(newTag);
-      }
-    });
-
-    setTags(updatedTags);
+    setTags(mergeTagInput(tags, tagInput));
     setTagInput('');
   };
 
@@ -211,9 +199,16 @@ export const EditBlog: React.FC = () => {
 
     if (!id || !userProfile) return;
 
+    // Adopt a still unconfirmed tag input as regular tag(s) before saving
+    const effectiveTags = mergeTagInput(tags, tagInput);
+    if (effectiveTags !== tags) {
+      setTags(effectiveTags);
+      setTagInput('');
+    }
+
     const validationErrors = status === 'draft'
-      ? validateBlogDraft(title, summary, content, tags)
-      : validateBlogContent(title, summary, content, tags);
+      ? validateBlogDraft(title, summary, content, effectiveTags)
+      : validateBlogContent(title, summary, content, effectiveTags);
     if (validationErrors.length > 0) {
       showError(validationErrors[0]);
       return;
@@ -240,7 +235,7 @@ export const EditBlog: React.FC = () => {
         title: title.trim(),
         summary: summary.trim(),
         content: content.trim(),
-        tags,
+        tags: effectiveTags,
         status,
         savedBy: userProfile.uid,
         savedByName: `${userProfile.firstName} ${userProfile.lastName}`.trim() || userProfile.username,

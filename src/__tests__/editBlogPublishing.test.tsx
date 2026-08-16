@@ -83,4 +83,25 @@ describe('EditBlog publishing', () => {
     expect(await screen.findByText('Lesemodus')).toBeTruthy();
     expect(await screen.findByText('Die Änderungen wurden veröffentlicht.')).toBeTruthy();
   });
+
+  it('adopts an unconfirmed tag input when publishing', async () => {
+    render(
+      <MemoryRouter initialEntries={['/edit/post-1']}>
+        <RouteFeedbackSnackbar />
+        <Routes>
+          <Route path="/edit/:id" element={<EditBlog />} />
+          <Route path="/blog/:id" element={<main>Lesemodus</main>} />
+        </Routes>
+      </MemoryRouter>
+    );
+
+    fireEvent.change(
+      await screen.findByPlaceholderText('z.B. React, TypeScript, Performance'),
+      { target: { value: 'Vite, Testing' } }
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Änderungen veröffentlichen' }));
+
+    await waitFor(() => expect(mocks.updateBlog).toHaveBeenCalledTimes(1));
+    expect(mocks.updateBlog.mock.calls[0][0].tags).toEqual(['React', 'Vite', 'Testing']);
+  });
 });
