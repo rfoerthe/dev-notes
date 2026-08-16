@@ -209,6 +209,7 @@ function renderBlogDetails(state: unknown) {
     <MemoryRouter initialEntries={[{ pathname: '/blog/post-1', state }]}>
       <Routes>
         <Route path="/blog/:id" element={<BlogDetails />} />
+        <Route path="/edit/:id" element={<EditBlog />} />
         <Route path="/" element={<main>Startseite</main>} />
         <Route path="/my-posts" element={<main>Meine Beiträge</main>} />
         <Route path="/bookmarks" element={<main>Merkliste</main>} />
@@ -302,5 +303,31 @@ describe('EditBlog back link', () => {
     fireEvent.click(await screen.findByRole('button', { name: 'Abbrechen' }));
 
     expect(await screen.findByText('Merkliste')).toBeTruthy();
+  });
+});
+
+describe('bookmarks to reader to editor chain', () => {
+  beforeEach(() => {
+    pageMocks.getBlogById.mockReset().mockResolvedValue(publishedBlog);
+    pageMocks.updateBlog.mockReset().mockResolvedValue(publishedBlog);
+    pageMocks.deleteBlog.mockReset();
+    pageMocks.isBlogBookmarked.mockReset().mockResolvedValue(false);
+    pageMocks.toggleBookmark.mockReset();
+  });
+
+  it('offers the post as the back target inside the editor', async () => {
+    renderBlogDetails({ backStack: [{ key: 'bookmarks' }] });
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Beitrag bearbeiten' }));
+
+    expect(await screen.findByRole('button', { name: 'Zurück zum Beitrag' })).toBeTruthy();
+  });
+
+  it('returns to the bookmarks page after publishing from the editor', async () => {
+    renderEditBlog({ backStack: [{ key: 'bookmarks' }, { key: 'blog', id: 'post-1' }] });
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Änderungen veröffentlichen' }));
+
+    expect(await screen.findByRole('button', { name: 'Zurück zur Merkliste' })).toBeTruthy();
   });
 });

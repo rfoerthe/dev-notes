@@ -1,5 +1,5 @@
 import React, { useCallback, useState, useEffect } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import {
   Box,
   Container,
@@ -35,11 +35,12 @@ import { renderInlineMarkdown, renderMarkdown } from '../components/markdownPars
 import { BLOG_LIMITS, validateBlogContent, validateBlogDraft } from '../services/securityValidation';
 import { canManageBlogPost } from '../services/blogOwnership';
 import { RevisionHistoryDialog } from '../components/RevisionHistoryDialog';
-import { useBackNavigation } from '../navigation/backNavigation';
+import { carryBackStack, useBackNavigation } from '../navigation/backNavigation';
 
 export const EditBlog: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const location = useLocation();
   const backNavigation = useBackNavigation(id ? { key: 'blog', id } : { key: 'my-posts' });
   const { userProfile } = useAuth();
 
@@ -252,6 +253,7 @@ export const EditBlog: React.FC = () => {
       if (status === 'published') {
         navigate(`/blog/${updatedBlog.id}`, {
           state: {
+            ...carryBackStack(location.state),
             feedback: {
               severity: 'success',
               message: currentStatus === 'published'
