@@ -9,6 +9,7 @@ import { AnalyticsRouteTracker } from './components/AnalyticsRouteTracker';
 import { AnalyticsConsentBanner } from './components/AnalyticsConsentBanner';
 import { RouteScrollReset } from './components/RouteScrollReset';
 import { RouteFeedbackSnackbar } from './components/RouteFeedbackSnackbar';
+import { PwaUpdatePrompt } from './components/PwaUpdatePrompt';
 import { Home } from './pages/Home';
 import { Login } from './pages/Login';
 import { Register } from './pages/Register';
@@ -49,6 +50,9 @@ const App: React.FC = () => {
   return (
     <CustomThemeProvider>
       <CssBaseline />
+      {/* Sits above the data providers on purpose: registering the service
+          worker must not depend on Firebase or the auth session booting. */}
+      <PwaUpdatePrompt />
       <AuthProvider>
         <AppSettingsProvider>
           <ProfileThemeSync />

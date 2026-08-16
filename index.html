@@ -10,7 +10,15 @@
     <meta name="description" content="DevNotes ist ein moderner, interaktiver Blog für Softwareentwickler. Teile dein Wissen, lies tiefgehende Artikel zu React, Vite, TS, und vernetze dich." />
     <meta name="author" content="Roland Förther" />
     <meta name="theme-color" content="#0a0e1a" />
-    
+
+    <!-- PWA: the manifest link is injected by vite-plugin-pwa at build time.
+         iOS ignores the manifest's icons and display mode, so it needs its own tags. -->
+    <link rel="apple-touch-icon" href="/apple-touch-icon-180x180.png" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black" />
+    <meta name="apple-mobile-web-app-title" content="DevNotes" />
+
     <!-- Open Graph (social share metadata) -->
     <meta property="og:title" content="DevNotes | Der Developer Blog" />
     <meta property="og:description" content="DevNotes ist ein moderner, interaktiver Blog für Softwareentwickler. Teile dein Wissen, lies tiefgehende Artikel zu React, Vite, TS." />

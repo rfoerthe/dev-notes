@@ -37,6 +37,7 @@ The app can run in two modes:
 - Firebase Hosting configuration with SPA rewrites, security headers, and a strict Content Security Policy. Shiki uses its JavaScript regex engine in the browser so syntax highlighting works under this CSP without enabling `wasm-unsafe-eval`.
 - Firebase Hosting preview channel deploys through `npm run preview:deploy`, so a build can be reviewed under a temporary URL before going live.
 - REST-based Firestore access through the `firebase/firestore/lite` SDK, so every read and write is an independent HTTPS request without a long-lived WebChannel session.
+- Installable as a Progressive Web App with a generated web app manifest, a Workbox service worker that precaches the app shell, jump-list shortcuts for writing, "Meine Beiträge", and bookmarks, and a snackbar that offers a reload once a new build is available.
 
 ## Tech Stack
 
@@ -50,6 +51,7 @@ The app can run in two modes:
 - Shiki syntax highlighting
 - Mermaid diagrams
 - Firebase Authentication and Cloud Firestore (`firebase/firestore/lite`)
+- Vite Plugin PWA with Workbox
 - Vitest and Testing Library
 - ESLint
 
@@ -72,10 +74,10 @@ src/
   __tests__/         Service, restore utility, search/filter, analytics, back-navigation, Firestore transport, and Markdown renderer tests
 scripts/             Admin/user repair, backup/restore, user cleanup, post maintenance, deploy, and Firebase CLI helpers
 docs/                Design specs and implementation plans
-public/              Static icons and favicon
+public/              Favicon and the PWA icon set generated from it
 firestore.rules      Cloud Firestore security rules
 firebase.json        Firebase Hosting and Firestore configuration
-vite.config.ts       Vite build configuration including manual vendor chunking
+vite.config.ts       Vite build configuration including manual vendor chunking and the PWA plugin
 ```
 
 ## Getting Started
@@ -205,6 +207,7 @@ npm run blogs:migrate-workflow -- --dry-run
 npm run blogs:migrate-workflow -- --yes
 npm run firestore:backup
 npm run firestore:restore
+npm run icons:generate         # Re-render the PWA icons from public/favicon.svg
 ```
 
 Quality and release commands:
@@ -656,6 +659,59 @@ Approved developer routes:
 Admin route:
 
 - `/admin`
+
+## Progressive Web App
+
+The app is installable. `vite-plugin-pwa` runs in `generateSW` mode and emits `dist/manifest.webmanifest` plus a Workbox service worker (`dist/sw.js`) during `npm run build`; the manifest link is injected into `index.html` automatically. Both are configured in `vite.config.ts`.
+
+Installed, DevNotes opens standalone under its own icon with `theme_color` `#0a0e1a` and `background_color` `#070a13`, matching the `<meta name="theme-color">` tag and the dark `background.default` from the Material UI theme. The manifest declares three jump-list shortcuts: `/write`, `/my-posts`, and `/bookmarks`.
+
+### Window title
+
+An installed app window is titled `<manifest name> - <document.title>`. The manifest is therefore named just `DevNotes`, with the tagline in `description`, and `src/services/appTitle.ts` shortens the document title to "Der Developer Blog" whenever the display mode is not `browser`. The title bar then reads "DevNotes - Der Developer Blog" instead of repeating the brand. Browser tabs, bookmarks, and search results keep the full "DevNotes | Der Developer Blog" from `index.html`.
+
+The manifest name and the document title are built from the same helpers in `src/services/appIdentity.ts`, which `vite.config.ts` imports as well, so the two cannot drift apart.
+
+### Preview channel installs
+
+`npm run preview:deploy` builds with `VITE_APP_CHANNEL=preview`, which renames the app to `DevNotes (Preview)` in both `name` and `short_name`. A preview channel is served from its own Hosting domain, so Chrome treats it as a separate app anyway; the suffix is what makes the two installs tellable apart:
+
+| | `chrome://apps` | Installed window title | Browser tab |
+|---|---|---|---|
+| Production | DevNotes | DevNotes - Der Developer Blog | DevNotes \| Der Developer Blog |
+| Preview | DevNotes (Preview) | DevNotes (Preview) - Der Developer Blog | DevNotes (Preview) \| Der Developer Blog |
+
+The suffix appears only once per title: in an installed window it comes from the manifest name, so the document title contributes the tagline alone, while a browser tab has no such prefix and carries the suffix itself.
+
+Deploying to a custom channel (`npm run preview:deploy -- <channel>`) uses the same "(Preview)" label; only the domain differs, which is enough to keep those installs separate too. Both apps share the same icon — if you want them distinguishable at a glance in the launcher, give the preview build its own icon set.
+
+iOS does not read the manifest's icons or display mode, so `index.html` additionally carries `apple-touch-icon`, `apple-mobile-web-app-capable`, `apple-mobile-web-app-status-bar-style`, and `apple-mobile-web-app-title`.
+
+### What is cached
+
+Only the app shell is precached: `index.html`, the stylesheet, the icons, and the eagerly preloaded `index-*`, `rolldown-runtime-*`, and `vendor-*` chunks — 19 entries, roughly 1.5 MB. This is deliberate. The build emits more than 450 chunks because Shiki ships one per language and Mermaid one per diagram type, so a `**/*.js` precache would push about 13 MB at install time. Those lazy chunks are cached at runtime with `StaleWhileRevalidate` when they are first requested; the Google Fonts stylesheet and font files get their own runtime caches.
+
+Navigation requests fall back to the precached shell, with two exceptions: `/__/*`, which Firebase Auth uses for its redirect handler, and the static `translation-edit-prototype.html`.
+
+An installed app therefore loads its interface without a network, but not its content. Posts are read through the REST-based `firebase/firestore/lite` SDK, which has no offline cache (see [Firestore Transport](#firestore-transport)). For that reason no "ready to work offline" message is shown — it would promise more than the app delivers.
+
+### Updates
+
+The worker is generated with `registerType: 'prompt'`. `src/components/PwaUpdatePrompt.tsx` registers it through `virtual:pwa-register/react` and shows a snackbar with a "Neu laden" button once a new build has been downloaded; until then the new worker stays in `waiting`, so an open editor is never reloaded unexpectedly. The component sits above the auth and settings providers in `App.tsx` so that a Firebase misconfiguration cannot prevent the worker from registering.
+
+`firebase.json` sends `Cache-Control: no-cache` for `sw.js`, `workbox-*.js`, `manifest.webmanifest`, and `index.html`, so a deployed update is not hidden behind the browser's HTTP cache. The CSP `connect-src` directive lists `fonts.googleapis.com` and `fonts.gstatic.com` because the service worker fetches the fonts itself when filling its runtime cache.
+
+Service workers require a secure context. Firebase Hosting serves HTTPS, and `npm run preview` on `localhost` counts as secure; `npm run dev` does not register a worker at all.
+
+### Icons
+
+`public/` holds the icon set: `pwa-64x64.png`, `pwa-192x192.png`, `pwa-512x512.png`, `maskable-icon-512x512.png` (with safe-zone padding on the dark background, for platforms that crop the icon to a circle), and `apple-touch-icon-180x180.png`. All five are rendered from `public/favicon.svg`:
+
+```bash
+npm run icons:generate
+```
+
+`scripts/generate-pwa-icons.mjs` drives a headless Chrome instead of adding a native rasterizer to the dependency tree; set `CHROME_BIN` if no Chromium-based browser is found in the usual locations. The script is not part of the build, so re-run it and commit the PNGs whenever the favicon changes.
 
 ## Deployment
 

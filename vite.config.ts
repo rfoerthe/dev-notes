@@ -1,10 +1,119 @@
 import { defineConfig } from 'vitest/config'
 import react from '@vitejs/plugin-react'
+import { VitePWA } from 'vite-plugin-pwa'
 import pkg from './package.json' with { type: 'json' }
+import { PREVIEW_CHANNEL, resolveAppName } from './src/services/appIdentity.ts'
+
+// `npm run preview:deploy` sets VITE_APP_CHANNEL=preview. A preview channel has
+// its own Hosting domain, so Chrome installs it as a second app next to
+// production; naming it "DevNotes (Preview)" is what keeps the two apart in
+// chrome://apps and in the installed window's title bar.
+const appName = resolveAppName(process.env.VITE_APP_CHANNEL === PREVIEW_CHANNEL)
 
 // https://vite.dev/config/
 export default defineConfig({
-  plugins: [react()],
+  plugins: [
+    react(),
+    VitePWA({
+      // The update toast is rendered by <PwaUpdatePrompt />, which registers
+      // the worker itself through `virtual:pwa-register/react`.
+      registerType: 'prompt',
+      injectRegister: null,
+      // The `*.png` glob below already precaches every icon; leaving this on
+      // would list the manifest icons a second time.
+      includeManifestIcons: false,
+      manifest: {
+        id: '/',
+        // Installed app windows are titled `<name> - <document.title>`. Keeping
+        // the tagline here as well would repeat it in every title bar, so the
+        // tagline lives in `description` and in the document title instead
+        // (see src/services/appIdentity.ts).
+        name: appName,
+        short_name: appName,
+        description:
+          'DevNotes ist ein moderner, interaktiver Blog für Softwareentwickler. Teile dein Wissen und lies tiefgehende Artikel zu React, Vite und TypeScript.',
+        lang: 'de',
+        dir: 'ltr',
+        start_url: '/',
+        scope: '/',
+        display: 'standalone',
+        // Matches <meta name="theme-color"> in index.html and the dark
+        // `background.default` from src/theme/theme.ts, so the splash screen
+        // does not flash a different colour than the booting app.
+        theme_color: '#0a0e1a',
+        background_color: '#070a13',
+        categories: ['news', 'education', 'productivity'],
+        icons: [
+          { src: '/pwa-64x64.png', sizes: '64x64', type: 'image/png' },
+          { src: '/pwa-192x192.png', sizes: '192x192', type: 'image/png' },
+          { src: '/pwa-512x512.png', sizes: '512x512', type: 'image/png' },
+          {
+            src: '/maskable-icon-512x512.png',
+            sizes: '512x512',
+            type: 'image/png',
+            purpose: 'maskable',
+          },
+        ],
+        shortcuts: [
+          { name: 'Neuen Beitrag schreiben', short_name: 'Schreiben', url: '/write' },
+          { name: 'Meine Beiträge', short_name: 'Beiträge', url: '/my-posts' },
+          { name: 'Lesezeichen', short_name: 'Lesezeichen', url: '/bookmarks' },
+        ],
+      },
+      workbox: {
+        // The build emits >450 chunks (one per Shiki language, one per Mermaid
+        // diagram type), so precaching `**/*.js` would push ~13 MB at install
+        // time. Only the app shell — the entry, the CSS and the eagerly
+        // preloaded `vendor-*` chunks listed in dist/index.html — is
+        // precached; everything else is picked up by the runtime cache below
+        // the first time it is actually requested.
+        globPatterns: [
+          'index.html',
+          'favicon.svg',
+          '*.png',
+          'assets/index-*.{js,css}',
+          'assets/rolldown-runtime-*.js',
+          'assets/vendor-*.js',
+        ],
+        navigateFallback: '/index.html',
+        navigateFallbackDenylist: [
+          // Firebase Auth serves its redirect handler from this path on the
+          // hosting domain; it must never be answered from the shell.
+          /^\/__\//,
+          /^\/translation-edit-prototype\.html$/,
+        ],
+        cleanupOutdatedCaches: true,
+        runtimeCaching: [
+          {
+            // Lazily imported chunks: Shiki grammars, Mermaid diagram types,
+            // KaTeX, Cytoscape. Content-hashed, so a stale hit is impossible.
+            urlPattern: ({ url, sameOrigin }) =>
+              sameOrigin && url.pathname.startsWith('/assets/'),
+            handler: 'StaleWhileRevalidate',
+            options: {
+              cacheName: 'devnotes-lazy-assets',
+              expiration: { maxEntries: 120, maxAgeSeconds: 60 * 60 * 24 * 30 },
+              cacheableResponse: { statuses: [0, 200] },
+            },
+          },
+          {
+            urlPattern: ({ url }) => url.origin === 'https://fonts.googleapis.com',
+            handler: 'StaleWhileRevalidate',
+            options: { cacheName: 'google-fonts-stylesheets' },
+          },
+          {
+            urlPattern: ({ url }) => url.origin === 'https://fonts.gstatic.com',
+            handler: 'CacheFirst',
+            options: {
+              cacheName: 'google-fonts-webfonts',
+              expiration: { maxEntries: 30, maxAgeSeconds: 60 * 60 * 24 * 365 },
+              cacheableResponse: { statuses: [0, 200] },
+            },
+          },
+        ],
+      },
+    }),
+  ],
   define: {
     __APP_VERSION__: JSON.stringify(pkg.version),
   },
