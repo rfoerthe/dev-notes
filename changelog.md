@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.2.1] - 2026-08-16
+
+### Changed
+
+- Text left in the tag field is now adopted as a tag when the post is saved, published or stored as a draft. Previously it was silently dropped unless it had been confirmed with Enter or the plus button beforehand. The same splitting rules as before apply: commas and semicolons separate several tags, duplicates and existing tags are ignored. The adopted tags appear as chips and the input field is cleared, so the editor shows what was actually saved.
+
 ## [1.2.0] - 2026-08-16
 
 ### Changed

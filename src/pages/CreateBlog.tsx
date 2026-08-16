@@ -21,6 +21,7 @@ import { createBlog, calculateReadTime, type BlogPostStatus } from '../services/
 import { renderInlineMarkdown, renderMarkdown } from '../components/markdownParser';
 import { BLOG_LIMITS, validateBlogContent, validateBlogDraft } from '../services/securityValidation';
 import { carryBackStack, useBackNavigation } from '../navigation/backNavigation';
+import { mergeTagInput } from '../services/blogTagInput';
 
 export const CreateBlog: React.FC = () => {
   // Input states
@@ -49,20 +50,7 @@ export const CreateBlog: React.FC = () => {
   const handleAddTag = () => {
     if (!tagInput.trim()) return;
 
-    // Split input by comma or semicolon to support multi-tag entries
-    const newTagsList = tagInput
-      .split(/[,;]+/)
-      .map(t => t.trim())
-      .filter(t => t.length > 0);
-
-    const updatedTags = [...tags];
-    newTagsList.forEach(newTag => {
-      if (!updatedTags.includes(newTag)) {
-        updatedTags.push(newTag);
-      }
-    });
-
-    setTags(updatedTags);
+    setTags(mergeTagInput(tags, tagInput));
     setTagInput('');
   };
 
@@ -94,9 +82,16 @@ export const CreateBlog: React.FC = () => {
     setError(null);
     setErrorSnackbarOpen(false);
 
+    // Adopt a still unconfirmed tag input as regular tag(s) before saving
+    const effectiveTags = mergeTagInput(tags, tagInput);
+    if (effectiveTags !== tags) {
+      setTags(effectiveTags);
+      setTagInput('');
+    }
+
     const validationErrors = status === 'draft'
-      ? validateBlogDraft(title, summary, content, tags)
-      : validateBlogContent(title, summary, content, tags);
+      ? validateBlogDraft(title, summary, content, effectiveTags)
+      : validateBlogContent(title, summary, content, effectiveTags);
     if (validationErrors.length > 0) {
       showError(validationErrors[0]);
       return;
@@ -114,7 +109,7 @@ export const CreateBlog: React.FC = () => {
         title: title.trim(),
         summary: summary.trim(),
         content: content.trim(),
-        tags,
+        tags: effectiveTags,
         authorName: `${userProfile.firstName} ${userProfile.lastName}`,
         authorUsername: userProfile.username,
         status
