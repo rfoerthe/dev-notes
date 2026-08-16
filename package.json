@@ -20,6 +20,7 @@
     "clean:emulator-data": "rimraf .firebase/emulator-data",
     "lint": "eslint .",
     "test": "vitest run",
+    "audit:mermaid": "node scripts/audit-mermaid-contrast.mjs",
     "preview": "vite preview",
     "deploy": "npm run build && node scripts/firebase-cli-project.mjs deploy",
     "preview:deploy": "VITE_APP_CHANNEL=preview npm run build && node scripts/deploy-preview.mjs",

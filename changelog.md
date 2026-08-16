@@ -14,6 +14,21 @@
 
 Both of these are shape and line colours rather than text colours, which is why the contrast audit over the article's 758 text runs had not caught them.
 
+### Added
+
+- `npm run audit:mermaid` renders one diagram of every supported Mermaid type in both colour modes and measures what a reader actually sees: every painted shape and line against the backdrop it sits on, and every label against its own backdrop. Contrast can only be measured where there is a layout engine, so the audit runs in the headless Chrome that `scripts/generate-pwa-icons.mjs` already relies on, with Vite serving the page so it imports the very same `src/components/mermaidTheme.ts` as the app. `--strict` adds the full WCAG 1.4.11 list, `--json` the raw data.
+- The blocking rule is deliberately not an absolute ratio. A shape fails when it drops below the visibility floor of 1.5:1 in one colour mode while staying above it in the other. Mermaid paints a lot that is faint on purpose — diagram background rects, row fills that match their box, the hairline polygons roughjs draws for dividers — and an absolute 3:1 reports 300 of those, which would bury the real findings. Only the asymmetry between the two modes is a theme bug.
+- Findings that already existed are recorded in `scripts/mermaid-contrast-audit/known-findings.json` so the audit fails on anything new. They are all the same thing: the shared `cScale` section palette is weaker in light mode than in dark. Removing them needs a decision about that palette rather than a bug fix.
+
+### Fixed
+
+- Pie charts were unreadable in dark mode, xy charts in light mode, both found by the new audit. The pie derives its slices from `primaryColor`, a dark navy here, so every slice sat at about 1.1:1 on the dark surface; the xy chart ships a fixed list of pastels that vanish on a light one. Both now use an explicit twelve-hue palette per colour mode. Mermaid offers a single colour for all pie slice labels, so the palette's lightness is chosen such that one ink clears 4.5:1 on every hue in it, and `pieOpacity` is pinned to 1 because the default of 0.7 drags every slice towards the surface and makes that unpredictable.
+- The radar graticule defaulted to a fixed light grey that disappeared on a light surface.
+- Nested theme objects such as `xyChart` and `radar` *replace* the derived defaults instead of merging into them, because mermaid re-applies an overridden variable after deriving the rest. Setting only `plotColorPalette` therefore left `backgroundColor` undefined and turned the plot area white. Both objects are now supplied in full.
+- `cScalePeer` is pinned alongside `cScale`. Kanban and treemap paint their sections with the peer colours, and the derived offset pushes the brighter hues out of the range where a label can still be read on them. The pinned values match what was previously derived, so nothing changes visually.
+
+Not covered by this: headless Chrome reports `mix-blend-mode: normal` for SVG geometry that the diagram's stylesheet sets to `multiply`, and the declaration is not reachable through the CSSOM of the SVG's own `<style>` either. A sankey flow is therefore measured as its own colour instead of the near black `multiply` turns it into on a dark surface, so a regression of that one kind would slip past the audit. The same reading works in a headed browser.
+
 ## [1.3.0] - 2026-08-16
 
 ### Added

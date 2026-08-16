@@ -17,14 +17,27 @@ const mermaidInkColors: Record<MermaidColorMode, string> = {
 const MERMAID_SCALE_HUES = [220, 265, 190, 145, 45, 15, 330, 100, 285, 205, 30, 170];
 
 /**
- * Section colors for scale based diagrams (timeline, journey). Without them the base theme
- * derives the scale from `primaryColor` and darkens it by 75 in dark mode, which turns every
- * section into plain black on the already dark diagram surface.
+ * Section colors for scale based diagrams (timeline, journey, mindmap, kanban, treemap). Without
+ * them the base theme derives the scale from `primaryColor` and darkens it by 75 in dark mode,
+ * which turns every section into plain black on the already dark diagram surface.
+ *
+ * `cScalePeer` is derived from `cScale` by the base theme and is what kanban and treemap actually
+ * paint their sections with, so it is pinned here too — otherwise the derived offset pushes the
+ * brighter hues out of the range where a label can still be read on them.
+ *
+ * Both bands are chosen so that a section is visible against its own surface *and* can carry one
+ * of the two inks: a fill has to stay dark enough for the light ink in dark mode, and light enough
+ * for the dark ink in light mode. The lightness between those two bands works with neither.
  */
-const createMermaidScaleVariables = (saturation: number, lightness: number) => Object.fromEntries(
-  MERMAID_SCALE_HUES.map((hue, index) => (
-    [`cScale${index}`, `hsl(${hue}, ${saturation}%, ${lightness}%)`]
-  )),
+const createMermaidScaleVariables = (
+  saturation: number,
+  lightness: number,
+  peerLightness: number,
+) => Object.fromEntries(
+  MERMAID_SCALE_HUES.flatMap((hue, index) => [
+    [`cScale${index}`, hslToHex(hue, saturation, lightness)],
+    [`cScalePeer${index}`, hslToHex(hue, saturation, peerLightness)],
+  ]),
 );
 
 const HEX_COLOR_REGEX = /^#(?:[0-9a-f]{3,4}|[0-9a-f]{6}|[0-9a-f]{8})$/i;
@@ -189,6 +202,50 @@ const createMermaidGitVariables = (
 );
 
 /**
+ * Slice colors for the pie chart and plot colors for the xy chart. Both default to a palette that
+ * only works on a light surface: the pie derives its slices from `primaryColor`, which is a dark
+ * navy here, and the xy chart ships a fixed list of pastels. Either way the chart disappears into
+ * the diagram surface in one of the two color modes.
+ */
+const createMermaidChartVariables = (
+  saturation: number,
+  lightness: number,
+  mode: MermaidColorMode,
+) => {
+  const colors = MERMAID_SCALE_HUES.map((hue) => hslToHex(hue, saturation, lightness));
+
+  return {
+    ...Object.fromEntries(colors.map((color, index) => [`pie${index + 1}`, color])),
+    // Separates neighbouring slices; the ring around the chart has to read on the surface instead.
+    pieStrokeColor: mermaidSurfaceColors[mode],
+    pieOuterStrokeColor: mode === 'dark' ? '#7c8ba3' : '#94a3b8',
+    // Slices are painted at 70% by default, which drags every color towards the surface and makes
+    // the ink below unpredictable.
+    pieOpacity: '1',
+    // The percentage on a slice is the only pie label that does not sit on the diagram surface,
+    // and mermaid offers a single color for all of them. The lightness of the palette is therefore
+    // chosen so that one ink clears 4.5:1 on every hue in it.
+    pieSectionTextColor: getReadableMermaidInk(colors[0], mode),
+    // Mermaid re-applies an overridden theme variable after deriving the defaults, so a nested
+    // object replaces the derived one instead of merging into it. Anything left out here is
+    // `undefined` for the renderer — dropping `backgroundColor` alone turns the plot area white.
+    xyChart: {
+      backgroundColor: mermaidSurfaceColors[mode],
+      titleColor: mermaidInkColors[mode],
+      xAxisLabelColor: mermaidInkColors[mode],
+      xAxisTitleColor: mermaidInkColors[mode],
+      xAxisTickColor: mermaidInkColors[mode],
+      xAxisLineColor: mode === 'dark' ? '#9aa8bd' : '#475569',
+      yAxisLabelColor: mermaidInkColors[mode],
+      yAxisTitleColor: mermaidInkColors[mode],
+      yAxisTickColor: mermaidInkColors[mode],
+      yAxisLineColor: mode === 'dark' ? '#9aa8bd' : '#475569',
+      plotColorPalette: colors.slice(0, 10).join(','),
+    },
+  };
+};
+
+/**
  * The packet renderer paints the bit numbers and the title straight onto the diagram
  * surface and defaults all of them to black, which is invisible in dark mode.
  */
@@ -211,15 +268,30 @@ const mermaidPacketVariables: Record<MermaidColorMode, Record<string, string>> =
   },
 };
 
-type MermaidThemeVariables = Record<string, string | Record<string, string>>;
+type MermaidThemeVariables = Record<string, string | Record<string, string | number>>;
 
 const mermaidThemeVariables: Record<MermaidColorMode, MermaidThemeVariables> = {
   dark: {
     // Kanban and friends brighten the scale by roughly ten lightness points for their section
     // background, so the base has to stay dark enough for the light section titles.
-    ...createMermaidScaleVariables(42, 22),
+    ...createMermaidScaleVariables(42, 22, 32),
     ...createMermaidGitVariables(55, 66, 'dark'),
+    ...createMermaidChartVariables(55, 66, 'dark'),
     packet: mermaidPacketVariables.dark,
+    // Same replacement rule as `xyChart` above: every key the renderer reads has to be present.
+    // Its graticule otherwise defaults to a fixed light grey that vanishes on a light surface.
+    radar: {
+      axisColor: '#9aa8bd',
+      axisStrokeWidth: 2,
+      axisLabelFontSize: 12,
+      curveOpacity: 0.5,
+      curveStrokeWidth: 2,
+      graticuleColor: '#475569',
+      graticuleStrokeWidth: 1,
+      graticuleOpacity: 0.6,
+      legendBoxSize: 12,
+      legendFontSize: 12,
+    },
     background: mermaidSurfaceColors.dark,
     primaryColor: '#1f2a3d',
     primaryTextColor: mermaidInkColors.dark,
@@ -282,9 +354,22 @@ const mermaidThemeVariables: Record<MermaidColorMode, MermaidThemeVariables> = {
     fontSize: '15px',
   },
   light: {
-    ...createMermaidScaleVariables(62, 84),
+    ...createMermaidScaleVariables(62, 84, 94),
     ...createMermaidGitVariables(55, 42, 'light'),
+    ...createMermaidChartVariables(55, 32, 'light'),
     packet: mermaidPacketVariables.light,
+    radar: {
+      axisColor: '#475569',
+      axisStrokeWidth: 2,
+      axisLabelFontSize: 12,
+      curveOpacity: 0.5,
+      curveStrokeWidth: 2,
+      graticuleColor: '#94a3b8',
+      graticuleStrokeWidth: 1,
+      graticuleOpacity: 0.6,
+      legendBoxSize: 12,
+      legendFontSize: 12,
+    },
     background: mermaidSurfaceColors.light,
     primaryColor: '#ffffff',
     primaryTextColor: mermaidInkColors.light,
