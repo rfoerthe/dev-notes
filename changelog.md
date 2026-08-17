@@ -1,5 +1,14 @@
 # Changelog
 
+## [1.4.0] - 2026-08-17
+
+### Added
+
+- Math formulas in Markdown. `remark-math` recognises `$…$` for inline math and `$$…$$` for display math, and `rehype-katex` renders both to KaTeX markup at parse time, so no client-side typesetting runs after the article has loaded. This applies to article bodies as well as to the inline Markdown used for titles and teasers. Invalid LaTeX is shown as its source text instead of breaking the page.
+- Display math accepts the notation GitHub, Obsidian and Pandoc use, not only the strict one. `remark-math` only recognises a display block when the opening and closing `$$` each stand alone on a line: `$$E = mc^2$$` on one line renders *inline*, and `$$\frac{a}{b}` followed by more lines and a trailing `…$$` swallows the rest of the document, because the remainder of the opening line is fence meta and no bare `$$` line ever closes the block. `src/components/markdownMath.ts` rewrites both shapes into fenced form before parsing, skipping fenced code blocks and carrying blockquote and list prefixes onto every emitted line. Heading ids are keyed by line number, so they are derived from the normalised text as well.
+- Sanitising still runs before KaTeX. The default `rehype-sanitize` schema only lets `language-*` classes through on `<code>`, which would have stripped the `math-inline`/`math-display` markers `remark-math` relies on, so the schema is extended for exactly those three classes. Running the sanitiser *after* KaTeX is not an option: its output depends on class and style attributes and on inline MathML that the schema would remove.
+- KaTeX is now imported eagerly and gets its own `vendor-katex` chunk. It was already part of the bundle as a Mermaid dependency behind Mermaid's async boundary; the top-level `katex` version is pinned to the `0.16` line that `rehype-katex` and Mermaid both depend on, so there is a single copy and the shipped stylesheet matches the renderer that produced the markup.
+
 ## [1.3.1] - 2026-08-16
 
 ### Fixed
