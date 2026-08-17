@@ -1066,4 +1066,78 @@ describe('Markdown renderer', () => {
     });
     expect(screen.getByRole('button', { name: 'Code kopiert' })).toBeTruthy();
   });
+
+  it('renders inline math with KaTeX', () => {
+    const { container } = render(<>{renderMarkdown('Einsteins Gleichung lautet $E = mc^2$.')}</>);
+
+    const katex = container.querySelector('.katex');
+    expect(katex).not.toBeNull();
+    expect(katex?.closest('.katex-display')).toBeNull();
+    expect(container.querySelector('annotation[encoding="application/x-tex"]')?.textContent).toBe('E = mc^2');
+    expect(container.querySelector('code')).toBeNull();
+    expect(container.textContent).not.toContain('$');
+  });
+
+  it('renders block math as display math', () => {
+    const markdown = '$$\n\\sum_{i=1}^{n} i = \\frac{n(n+1)}{2}\n$$';
+    const { container } = render(<>{renderMarkdown(markdown)}</>);
+
+    expect(container.querySelector('.katex-display .katex')).not.toBeNull();
+    expect(container.querySelector('annotation[encoding="application/x-tex"]')?.textContent).toContain('\\sum_{i=1}^{n}');
+    expect(container.querySelector('pre')).toBeNull();
+    expect(container.querySelector('code')).toBeNull();
+  });
+
+  it('keeps rendering fenced code blocks and inline code next to math', () => {
+    const markdown = 'Nutze `x` in $x^2$.\n\n```typescript\nconst x = 1;\n```';
+    const { container } = render(<>{renderMarkdown(markdown)}</>);
+
+    expect(container.querySelector('.katex')).not.toBeNull();
+    expect(container.querySelector('code')?.textContent).toBe('x');
+    expect(screen.getByRole('button', { name: 'Code kopieren' })).toBeTruthy();
+  });
+
+  it('shows invalid math as readable source instead of failing', () => {
+    const { container } = render(<>{renderMarkdown('Kaputt: $\\frac{1}$')}</>);
+
+    expect(container.textContent).toContain('\\frac{1}');
+  });
+
+  it('renders single-line $$…$$ paragraphs as display math', () => {
+    const { container } = render(<>{renderMarkdown('Vorher\n\n$$E = mc^2$$\n\nNachher')}</>);
+
+    expect(container.querySelector('.katex-display .katex')).not.toBeNull();
+    expect(container.querySelector('.katex-error')).toBeNull();
+  });
+
+  it('renders GitHub-style multi-line display math without swallowing the rest of the document', () => {
+    const markdown = [
+      '### Brüche',
+      '',
+      '$$\\frac{a}{b}',
+      '\\qquad',
+      '\\sqrt[3]{x}$$',
+      '',
+      '### Griechisch',
+      '',
+      '$$\\alpha,\\ \\beta$$',
+      '',
+      'Schluss mit $x$.',
+    ].join('\n');
+    const { container } = render(<>{renderMarkdown(markdown)}</>);
+
+    expect(container.querySelector('.katex-error')).toBeNull();
+    expect(container.querySelectorAll('.katex-display')).toHaveLength(2);
+    expect(container.querySelector('#brüche')).not.toBeNull();
+    expect(container.querySelector('#griechisch')).not.toBeNull();
+    expect(container.textContent).toContain('Schluss mit');
+    expect(container.textContent).not.toContain('$$');
+  });
+
+  it('renders inline math in compact inline markdown', () => {
+    const { container } = render(<>{renderInlineMarkdown('Teaser mit $a^2 + b^2 = c^2$')}</>);
+
+    expect(container.querySelector('.katex')).not.toBeNull();
+    expect(container.querySelector('p')).toBeNull();
+  });
 });

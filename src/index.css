@@ -252,6 +252,25 @@ body {
   border: none;
 }
 
+/* KaTeX math (remark-math + rehype-katex). Colours are inherited from the
+   surrounding text, so light/dark mode need no extra rules. Wide display
+   formulas scroll horizontally instead of stretching the article on phones. */
+.markdown-body .katex-display {
+  margin: 1.5rem 0;
+  padding: 0.25rem 0;
+  overflow-x: auto;
+  overflow-y: hidden;
+}
+
+.markdown-body .katex {
+  font-size: 1.1em;
+}
+
+.markdown-body .katex-error {
+  font-family: 'Fira Code', monospace;
+  font-size: 0.9em;
+}
+
 .markdown-body blockquote {
   border-left: 4px solid var(--theme-primary-main);
   background-color: rgba(var(--theme-primary-main-rgb), 0.05);

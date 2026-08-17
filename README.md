@@ -1,6 +1,6 @@
 # DevNotes
 
-DevNotes is a developer-focused blog application built with React, TypeScript, Vite, Material UI, Firebase, React Router, and a production Markdown rendering pipeline. It provides an article feed, GitHub-flavored Markdown article pages with syntax-highlighted code blocks, rendered Mermaid diagrams and automatic table-of-contents navigation, user registration with email verification and approval workflows, protected authoring tools, bookmarks, profile and theme settings, optional analytics consent, and an admin dashboard for managing developer accounts and application settings.
+DevNotes is a developer-focused blog application built with React, TypeScript, Vite, Material UI, Firebase, React Router, and a production Markdown rendering pipeline. It provides an article feed, GitHub-flavored Markdown article pages with syntax-highlighted code blocks, rendered Mermaid diagrams, KaTeX math formulas and automatic table-of-contents navigation, user registration with email verification and approval workflows, protected authoring tools, bookmarks, profile and theme settings, optional analytics consent, and an admin dashboard for managing developer accounts and application settings.
 
 The app can run in two modes:
 
@@ -16,6 +16,7 @@ The app can run in two modes:
 - GitHub-flavored Markdown rendering with `react-markdown`, `remark-gfm`, and `rehype-sanitize`, including stable linkable heading IDs, blockquotes, lists, tables, task lists, inline formatting, inline code, and renderer tests.
 - Shiki-powered syntax highlighting for fenced code blocks, rendered as compact editor-style code windows with a title bar, language label, horizontal scrolling, and a copy-to-clipboard button.
 - Mermaid diagrams from ```mermaid fenced code blocks, with theme-aware colors, a zoom popup supporting wheel/pinch zoom and drag-to-pan, and SVG downloads. Mermaid is loaded on demand, one chunk per diagram type.
+- Math formulas in LaTeX syntax, rendered with KaTeX: `$E = mc^2$` inline and `$$…$$` as display math — on one line, across several lines, or with the fences on their own lines, as on GitHub. Wide formulas scroll horizontally on narrow screens.
 - Markdown in blog titles and teaser summaries, rendered consistently in editor previews, article headers, lists, "Meine Beiträge", and bookmarks.
 - Context-aware back links: the reading and editing views return to the page the post was opened from ("Zurück zur Merkliste", "Zurück zu meinen Beiträgen", "Zurück zur Übersicht") and keep that origin across editing, publishing, and deletion.
 - User registration with username reservation, input validation, strong password rules, Firebase email verification, and pending approval status.
@@ -47,7 +48,7 @@ The app can run in two modes:
 - React Router 7
 - Material UI 9 with Emotion
 - Lucide React icons
-- React Markdown, Remark GFM, Rehype Sanitize
+- React Markdown, Remark GFM, Remark Math, Rehype Sanitize, Rehype KaTeX
 - Shiki syntax highlighting
 - Mermaid diagrams
 - Firebase Authentication and Cloud Firestore (`firebase/firestore/lite`)

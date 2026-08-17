@@ -1,7 +1,10 @@
 import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
-import ReactMarkdown, { type Components } from 'react-markdown';
-import rehypeSanitize from 'rehype-sanitize';
+import ReactMarkdown, { type Components, type Options as ReactMarkdownOptions } from 'react-markdown';
+import rehypeKatex from 'rehype-katex';
+import rehypeSanitize, { defaultSchema } from 'rehype-sanitize';
 import remarkGfm from 'remark-gfm';
+import remarkMath from 'remark-math';
+import 'katex/dist/katex.min.css';
 import { Box, Dialog, DialogContent, IconButton, Link as MuiLink, Tooltip, Typography, useTheme } from '@mui/material';
 import { Check, Copy, Download, Maximize, Minimize2, RotateCcw, X, ZoomIn, ZoomOut } from 'lucide-react';
 import type mermaid from 'mermaid';
@@ -19,7 +22,30 @@ import {
   withMermaidStyleOverrides,
 } from './mermaidTheme';
 import { createHeadingIdsByLine, slugifyHeadingText } from './markdownHeadings';
+import { normalizeMathBlocks } from './markdownMath';
 import { scrollHeadingIntoView } from './headingScroll';
+
+// `remark-math` emits `<code class="language-math math-inline|math-display">`
+// nodes; `rehype-katex` turns them into KaTeX markup. Sanitising has to happen
+// *before* KaTeX runs (its output relies on class/style attributes and MathML
+// that the default schema would strip), and the schema must let the math
+// classes through, otherwise KaTeX no longer recognises the nodes.
+const MATH_SANITIZE_SCHEMA = {
+  ...defaultSchema,
+  attributes: {
+    ...defaultSchema.attributes,
+    code: [
+      ...(defaultSchema.attributes?.code ?? []),
+      ['className', 'language-math', 'math-inline', 'math-display'],
+    ],
+  },
+} satisfies typeof defaultSchema;
+
+const MARKDOWN_REMARK_PLUGINS: NonNullable<ReactMarkdownOptions['remarkPlugins']> = [remarkGfm, remarkMath];
+const MARKDOWN_REHYPE_PLUGINS: NonNullable<ReactMarkdownOptions['rehypePlugins']> = [
+  [rehypeSanitize, MATH_SANITIZE_SCHEMA],
+  rehypeKatex,
+];
 
 const LANGUAGE_CLASS_REGEX = /language-([^\s]+)/;
 const DEFAULT_LANGUAGE = 'text';
@@ -1987,13 +2013,16 @@ export const InlineMarkdownRenderer = ({ markdown, disableLinks = false }: Inlin
   };
 
   return (
-    <ReactMarkdown remarkPlugins={[remarkGfm]} rehypePlugins={[rehypeSanitize]} components={components}>
+    <ReactMarkdown remarkPlugins={MARKDOWN_REMARK_PLUGINS} rehypePlugins={MARKDOWN_REHYPE_PLUGINS} components={components}>
       {markdown}
     </ReactMarkdown>
   );
 };
 
-const MarkdownRendererComponent = ({ markdown }: MarkdownRendererProps) => {
+const MarkdownRendererComponent = ({ markdown: rawMarkdown }: MarkdownRendererProps) => {
+  // Display math is normalised before parsing; heading ids are keyed by line
+  // number, so they have to be derived from the very same text.
+  const markdown = useMemo(() => normalizeMathBlocks(rawMarkdown), [rawMarkdown]);
   const headingIdsByLine = useMemo(() => createHeadingIdsByLine(markdown), [markdown]);
   const getHeadingId = (children: React.ReactNode, node?: MarkdownHeadingNode) => {
     const line = node?.position?.start?.line;
@@ -2318,7 +2347,7 @@ const MarkdownRendererComponent = ({ markdown }: MarkdownRendererProps) => {
     };
 
   return (
-    <ReactMarkdown remarkPlugins={[remarkGfm]} rehypePlugins={[rehypeSanitize]} components={components}>
+    <ReactMarkdown remarkPlugins={MARKDOWN_REMARK_PLUGINS} rehypePlugins={MARKDOWN_REHYPE_PLUGINS} components={components}>
       {markdown}
     </ReactMarkdown>
   );

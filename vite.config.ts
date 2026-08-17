@@ -159,12 +159,20 @@ export default defineConfig({
               priority: 10,
             },
             {
+              // KaTeX is imported eagerly by MarkdownRenderer (via
+              // rehype-katex) and shared with Mermaid, so it gets its own
+              // long-lived chunk instead of riding along with either graph.
+              name: 'vendor-katex',
+              test: /node_modules[\\/]katex[\\/]/,
+              priority: 8,
+            },
+            {
               // Everything else from node_modules, except the two graphs that
               // must keep their own async boundaries:
               //
               // - @shikijs/langs: one chunk per language, loaded on demand.
               // - mermaid and the packages it exclusively pulls in (d3,
-              //   cytoscape, katex, roughjs, …). Mermaid is only reached
+              //   cytoscape, roughjs, …). Mermaid is only reached
               //   through the dynamic import in MarkdownRenderer and lazy-loads
               //   its diagram types internally; grouping it here would drag the
               //   whole graph into the eagerly loaded chunk and flatten
@@ -188,7 +196,6 @@ export default defineConfig({
                   'cose-base[\\\\/]',
                   'layout-base[\\\\/]',
                   'dagre-d3-es[\\\\/]',
-                  'katex[\\\\/]',
                   'roughjs[\\\\/]',
                   'points-on-curve[\\\\/]',
                   'points-on-path[\\\\/]',
