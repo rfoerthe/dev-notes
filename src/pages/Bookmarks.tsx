@@ -20,7 +20,7 @@ import {
 import { ArrowUpRight, Bookmark, Calendar, Clock, Search, Trash2 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { getBookmarks, removeBookmark, type BlogBookmark } from '../services/bookmarkService';
-import { renderInlineMarkdown } from '../components/markdownParser';
+import { renderInlineMarkdown } from '../components/inlineMarkdownParser';
 import { buildBackState } from '../navigation/backNavigation';
 
 export const Bookmarks: React.FC = () => {

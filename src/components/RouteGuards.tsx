@@ -5,7 +5,7 @@ import { Box, CircularProgress } from '@mui/material';
 import { canAccessApprovedFeatures } from '../services/authService';
 import { useAppSettings } from '../context/AppSettingsContext';
 
-const RouteLoadingIndicator: React.FC = () => (
+export const RouteLoadingIndicator: React.FC = () => (
   <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '80vh' }}>
     <CircularProgress color="primary" />
   </Box>

@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { Suspense, lazy, useEffect } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { CssBaseline, Box, Typography, Link, Container } from '@mui/material';
 import { CustomThemeProvider, useCustomTheme } from './context/CustomThemeContext';
@@ -12,20 +12,27 @@ import { RouteFeedbackSnackbar } from './components/RouteFeedbackSnackbar';
 import { PwaUpdatePrompt } from './components/PwaUpdatePrompt';
 import { Home } from './pages/Home';
 import { Login } from './pages/Login';
-import { Register } from './pages/Register';
-import { PendingApproval } from './pages/PendingApproval';
-import { AdminDashboard } from './pages/AdminDashboard';
-import { CreateBlog } from './pages/CreateBlog';
-import { BlogDetails } from './pages/BlogDetails';
-import { EditBlog } from './pages/EditBlog';
-import { MyPosts } from './pages/MyPosts';
-import { Bookmarks } from './pages/Bookmarks';
-import { Profile } from './pages/Profile';
-import { Impressum } from './pages/Impressum';
-import { Datenschutz } from './pages/Datenschutz';
-import { Nutzungsbedingungen } from './pages/Nutzungsbedingungen';
-import { ProtectedRoute, AdminRoute, PublicContentRoute } from './components/RouteGuards';
+import { ProtectedRoute, AdminRoute, PublicContentRoute, RouteLoadingIndicator } from './components/RouteGuards';
 import { Link as RouterLink } from 'react-router-dom';
+
+// Only the start page and the login page are part of the eagerly loaded
+// bundle. Every other page is its own chunk, fetched on first navigation, so
+// the article renderer (Shiki, Mermaid glue), the editor and the admin
+// dashboard stay out of the start path. The chunk names are fixed to
+// `route-<Page>` in vite.config.ts and precached by the service worker, so
+// a stale shell after a deploy still finds its own chunks.
+const BlogDetails = lazy(() => import('./pages/BlogDetails').then((m) => ({ default: m.BlogDetails })));
+const Register = lazy(() => import('./pages/Register').then((m) => ({ default: m.Register })));
+const PendingApproval = lazy(() => import('./pages/PendingApproval').then((m) => ({ default: m.PendingApproval })));
+const AdminDashboard = lazy(() => import('./pages/AdminDashboard').then((m) => ({ default: m.AdminDashboard })));
+const CreateBlog = lazy(() => import('./pages/CreateBlog').then((m) => ({ default: m.CreateBlog })));
+const EditBlog = lazy(() => import('./pages/EditBlog').then((m) => ({ default: m.EditBlog })));
+const MyPosts = lazy(() => import('./pages/MyPosts').then((m) => ({ default: m.MyPosts })));
+const Bookmarks = lazy(() => import('./pages/Bookmarks').then((m) => ({ default: m.Bookmarks })));
+const Profile = lazy(() => import('./pages/Profile').then((m) => ({ default: m.Profile })));
+const Impressum = lazy(() => import('./pages/Impressum').then((m) => ({ default: m.Impressum })));
+const Datenschutz = lazy(() => import('./pages/Datenschutz').then((m) => ({ default: m.Datenschutz })));
+const Nutzungsbedingungen = lazy(() => import('./pages/Nutzungsbedingungen').then((m) => ({ default: m.Nutzungsbedingungen })));
 
 const ProfileThemeSync: React.FC = () => {
   const { loading, userProfile } = useAuth();
@@ -64,36 +71,38 @@ const App: React.FC = () => {
               <NavBar />
               
               <Box component="main" sx={{ flexGrow: 1, display: 'flex', flexDirection: 'column' }}>
-                <Routes>
-                  {/* Public routes */}
-                  <Route element={<PublicContentRoute />}>
-                    <Route path="/" element={<Home />} />
-                    <Route path="/blog/:id" element={<BlogDetails />} />
-                  </Route>
-                  <Route path="/login" element={<Login />} />
-                  <Route path="/register" element={<Register />} />
-                  <Route path="/pending-approval" element={<PendingApproval />} />
-                  <Route path="/impressum" element={<Impressum />} />
-                  <Route path="/datenschutz" element={<Datenschutz />} />
-                  <Route path="/nutzungsbedingungen" element={<Nutzungsbedingungen />} />
+                <Suspense fallback={<RouteLoadingIndicator />}>
+                  <Routes>
+                    {/* Public routes */}
+                    <Route element={<PublicContentRoute />}>
+                      <Route path="/" element={<Home />} />
+                      <Route path="/blog/:id" element={<BlogDetails />} />
+                    </Route>
+                    <Route path="/login" element={<Login />} />
+                    <Route path="/register" element={<Register />} />
+                    <Route path="/pending-approval" element={<PendingApproval />} />
+                    <Route path="/impressum" element={<Impressum />} />
+                    <Route path="/datenschutz" element={<Datenschutz />} />
+                    <Route path="/nutzungsbedingungen" element={<Nutzungsbedingungen />} />
 
-                  {/* Approved developer routes */}
-                  <Route element={<ProtectedRoute />}>
-                    <Route path="/write" element={<CreateBlog />} />
-                    <Route path="/my-posts" element={<MyPosts />} />
-                    <Route path="/bookmarks" element={<Bookmarks />} />
-                    <Route path="/edit/:id" element={<EditBlog />} />
-                    <Route path="/profile" element={<Profile />} />
-                  </Route>
+                    {/* Approved developer routes */}
+                    <Route element={<ProtectedRoute />}>
+                      <Route path="/write" element={<CreateBlog />} />
+                      <Route path="/my-posts" element={<MyPosts />} />
+                      <Route path="/bookmarks" element={<Bookmarks />} />
+                      <Route path="/edit/:id" element={<EditBlog />} />
+                      <Route path="/profile" element={<Profile />} />
+                    </Route>
 
-                  {/* Admin routes */}
-                  <Route element={<AdminRoute />}>
-                    <Route path="/admin" element={<AdminDashboard />} />
-                  </Route>
+                    {/* Admin routes */}
+                    <Route element={<AdminRoute />}>
+                      <Route path="/admin" element={<AdminDashboard />} />
+                    </Route>
 
-                  {/* Fallback redirect */}
-                  <Route path="*" element={<Navigate to="/" replace />} />
-                </Routes>
+                    {/* Fallback redirect */}
+                    <Route path="*" element={<Navigate to="/" replace />} />
+                  </Routes>
+                </Suspense>
               </Box>
 
               <AnalyticsConsentBanner />

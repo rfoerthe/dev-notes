@@ -1,5 +1,5 @@
 import { defineConfig } from 'vitest/config'
-import { loadEnv, type Plugin } from 'vite'
+import { loadEnv, type Plugin, type Rolldown } from 'vite'
 import react from '@vitejs/plugin-react'
 import { VitePWA } from 'vite-plugin-pwa'
 import pkg from './package.json' with { type: 'json' }
@@ -52,6 +52,40 @@ function recaptchaBootstrap(env: Record<string, string>): Plugin {
 // production; naming it "DevNotes (Preview)" is what keeps the two apart in
 // chrome://apps and in the installed window's title bar.
 const appName = resolveAppName(process.env.VITE_APP_CHANNEL === PREVIEW_CHANNEL)
+
+// Pages that src/App.tsx loads with React.lazy get chunk files with a fixed
+// `route-*` prefix so the service worker has a stable glob to precache them by
+// (see `globPatterns` below); without that, a shell served from the precache
+// after a deploy would request chunk hashes that no longer exist on Hosting
+// the first time a page is opened. This only renames the files Rolldown
+// produces anyway — it is deliberately not a `codeSplitting` group: a group
+// takes the matched modules together with every dependency no higher-priority
+// group claims, so it would re-home the modules the pages share with the
+// entry (contexts, services, MUI) into the page chunks and thereby turn them
+// back into eager imports. Home and Login are imported statically and stay in
+// the entry chunk.
+const ROUTE_CHUNK_FACADES = /[\\/]src[\\/]pages[\\/](?!Home\.tsx|Login\.tsx)[A-Za-z]+\.tsx$/
+const chunkFileNames = (chunk: Rolldown.PreRenderedChunk) => {
+  if (chunk.facadeModuleId) {
+    return ROUTE_CHUNK_FACADES.test(chunk.facadeModuleId)
+      ? 'assets/route-[name]-[hash].js'
+      : 'assets/[name]-[hash].js'
+  }
+  // A chunk without a facade is either a `codeSplitting` group (named
+  // `vendor-*` below) or one Rolldown carved out itself for modules that
+  // several other chunks share. Of the latter, only chunks made of the app's
+  // own modules — the auth service used by the entry and by several pages,
+  // the article renderer (MarkdownRenderer.tsx) shared by the article, editor
+  // and revision pages, small helpers two pages have in common — are named
+  // `shared-*` and thereby precached; the shared pieces Rolldown splits out
+  // of the Mermaid and Shiki graphs are node_modules code and stay on the
+  // runtime cache.
+  const isAppCode =
+    chunk.name !== 'rolldown-runtime' &&
+    chunk.moduleIds.length > 0 &&
+    chunk.moduleIds.every((id) => !id.includes('node_modules'))
+  return isAppCode ? 'assets/shared-[name]-[hash].js' : 'assets/[name]-[hash].js'
+}
 
 // https://vite.dev/config/
 export default defineConfig(({ mode }) => ({
@@ -110,17 +144,21 @@ export default defineConfig(({ mode }) => ({
       workbox: {
         // The build emits >450 chunks (one per Shiki language, one per Mermaid
         // diagram type), so precaching `**/*.js` would push ~13 MB at install
-        // time. Only the app shell — the entry, the CSS and the eagerly
-        // preloaded `vendor-*` chunks listed in dist/index.html — is
-        // precached; everything else is picked up by the runtime cache below
-        // the first time it is actually requested.
+        // time. Only the app shell — the entry, the CSS, the eagerly
+        // preloaded `vendor-*` chunks listed in dist/index.html and the
+        // lazily routed pages and Rolldown's shared chunks (`route-*` and
+        // `shared-*`, named by `chunkFileNames` above) —
+        // is precached; everything else is picked up by the runtime cache
+        // below the first time it is actually requested.
         globPatterns: [
           'index.html',
           'favicon.svg',
           '*.png',
           'assets/index-*.{js,css}',
           'assets/rolldown-runtime-*.js',
-          'assets/vendor-*.js',
+          'assets/vendor-*.{js,css}',
+          'assets/route-*.{js,css}',
+          'assets/shared-*.{js,css}',
         ],
         navigateFallback: '/index.html',
         navigateFallbackDenylist: [
@@ -168,6 +206,7 @@ export default defineConfig(({ mode }) => ({
     chunkSizeWarningLimit: 900,
     rolldownOptions: {
       output: {
+        chunkFileNames,
         codeSplitting: {
           groups: [
             {
@@ -196,6 +235,20 @@ export default defineConfig(({ mode }) => ({
               priority: 15,
             },
             {
+              // react-markdown and the unified/remark/rehype/hast toolchain.
+              // The inline renderer for titles and teasers needs it on the
+              // start page, so it is an eager chunk. It has to rank *above*
+              // vendor-shiki-core: a Rolldown group takes the matched
+              // modules together with every dependency no higher-priority
+              // group claims, and Shiki's `hast-util-to-html` shares
+              // `property-information` & co. with react-markdown — left to
+              // the Shiki group, those utilities would make the entry import
+              // the Shiki chunk and drag it back into the start path.
+              name: 'vendor-markdown',
+              test: /node_modules[\\/](?:react-markdown|remark-[a-z-]+|rehype-[a-z-]+|unified|micromark(?:-[a-z-]+)?|mdast-util-[a-z-]+|hast-util-[a-z-]+|hastscript|unist-util-[a-z-]+|vfile(?:-message)?|property-information|space-separated-tokens|comma-separated-tokens|character-entities(?:-[a-z0-9-]+)?|character-reference-invalid|decode-named-character-reference|stringify-entities|ccount|zwitch|html-void-elements|html-url-attributes|bail|trough|devlop|extend|is-plain-obj|longest-streak|markdown-table|trim-lines|web-namespaces|style-to-js|style-to-object|inline-style-parser|estree-util-is-identifier-name|@ungap[\\/]structured-clone)[\\/]/,
+              priority: 13,
+            },
+            {
               name: 'vendor-shiki-core',
               test: /node_modules[\\/]@shikijs[\\/](?:core|engine-javascript|primitive|themes|types|vscode-textmate)[\\/]/,
               priority: 12,
@@ -206,12 +259,14 @@ export default defineConfig(({ mode }) => ({
               priority: 10,
             },
             {
-              // KaTeX is imported eagerly by MarkdownRenderer (via
+              // KaTeX is imported eagerly by the inline renderer (via
               // rehype-katex) and shared with Mermaid, so it gets its own
               // long-lived chunk instead of riding along with either graph.
+              // Ranked above vendor-markdown, whose rehype-katex would
+              // otherwise pull it in (see the note on that group).
               name: 'vendor-katex',
               test: /node_modules[\\/]katex[\\/]/,
-              priority: 8,
+              priority: 14,
             },
             {
               // Everything else from node_modules, except the two graphs that
