@@ -1,8 +1,51 @@
 import { defineConfig } from 'vitest/config'
+import { loadEnv, type Plugin } from 'vite'
 import react from '@vitejs/plugin-react'
 import { VitePWA } from 'vite-plugin-pwa'
 import pkg from './package.json' with { type: 'json' }
 import { PREVIEW_CHANNEL, resolveAppName } from './src/services/appIdentity.ts'
+
+// Same URL the App Check SDK would inject itself (`?render=explicit` is what
+// its `loadReCAPTCHAEnterpriseScript` appends).
+const RECAPTCHA_ENTERPRISE_SCRIPT_URL = 'https://www.google.com/recaptcha/enterprise.js?render=explicit'
+
+// App Check is enforced for Firestore, so no data request can leave the
+// browser before Firebase App Check has exchanged a reCAPTCHA Enterprise token
+// — and Auth waits for that token as well. Left to itself the App Check SDK
+// only starts loading reCAPTCHA once the app bundle has been downloaded *and*
+// executed, which put the whole reCAPTCHA chain (loader → 340 KB release
+// script → widget iframe → token exchange) strictly behind the bundle on the
+// critical path.
+//
+// This plugin moves the start of that chain to the top of <head>: the loader
+// is a `defer` script, so it downloads in parallel with the bundle and is
+// guaranteed to execute before the module entry (defer and module scripts
+// share one in-order queue). The loader synchronously defines
+// `grecaptcha.enterprise`, which is exactly what the App Check SDK checks
+// before injecting its own script tag, so the SDK reuses it instead of
+// loading a second copy. The tags are only emitted when App Check is actually
+// configured, so emulator and site-key-less builds do not talk to Google.
+function recaptchaBootstrap(env: Record<string, string>): Plugin {
+  const enabled =
+    Boolean(env.VITE_FIREBASE_APPCHECK_SITE_KEY) &&
+    env.VITE_USE_FIREBASE_EMULATOR !== 'true'
+
+  return {
+    name: 'devnotes:recaptcha-bootstrap',
+    transformIndexHtml() {
+      if (!enabled) {
+        return []
+      }
+      return [
+        { tag: 'link', attrs: { rel: 'preconnect', href: 'https://www.google.com' }, injectTo: 'head-prepend' },
+        // The release script is fetched with crossorigin="anonymous", so the
+        // preconnect has to be a CORS connection to be reused.
+        { tag: 'link', attrs: { rel: 'preconnect', href: 'https://www.gstatic.com', crossorigin: '' }, injectTo: 'head-prepend' },
+        { tag: 'script', attrs: { defer: '', src: RECAPTCHA_ENTERPRISE_SCRIPT_URL }, injectTo: 'head-prepend' },
+      ]
+    },
+  }
+}
 
 // `npm run preview:deploy` sets VITE_APP_CHANNEL=preview. A preview channel has
 // its own Hosting domain, so Chrome installs it as a second app next to
@@ -11,9 +54,13 @@ import { PREVIEW_CHANNEL, resolveAppName } from './src/services/appIdentity.ts'
 const appName = resolveAppName(process.env.VITE_APP_CHANNEL === PREVIEW_CHANNEL)
 
 // https://vite.dev/config/
-export default defineConfig({
+export default defineConfig(({ mode }) => ({
   plugins: [
     react(),
+    // `loadEnv` reads the same .env files Vite exposes as import.meta.env, so
+    // the bootstrap tags follow the same switch as `initializeAppCheck` in
+    // src/services/firebase.ts.
+    recaptchaBootstrap(loadEnv(mode, process.cwd(), 'VITE_')),
     VitePWA({
       // The update toast is rendered by <PwaUpdatePrompt />, which registers
       // the worker itself through `virtual:pwa-register/react`.
@@ -239,4 +286,4 @@ export default defineConfig({
       VITE_USE_FIREBASE_EMULATOR: 'false',
     },
   },
-})
+}))

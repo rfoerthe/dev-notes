@@ -38,12 +38,20 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setCurrentUser(user);
       if (user) {
         try {
-          await reload(user);
-          await user.getIdToken(true);
           const profile = await getUserProfile(user.uid);
-          const syncedProfile = profile
-            ? await syncEmailVerificationStatus(user.uid, user.emailVerified, profile)
-            : null;
+          let syncedProfile = profile;
+          if (profile && profile.emailVerified !== true) {
+            // The Firestore rules only accept the `emailVerified` write when
+            // the ID token carries `email_verified`, and the persisted user
+            // still reflects the state from before the verification link was
+            // clicked. So only for a profile that is not flagged yet do we
+            // refresh the auth state (accounts:lookup) and force a new token
+            // (securetoken) — two extra sequential round trips that every
+            // already-verified user used to pay on every app start.
+            await reload(user);
+            await user.getIdToken(true);
+            syncedProfile = await syncEmailVerificationStatus(user.uid, user.emailVerified, profile);
+          }
           setUserProfile(syncedProfile);
         } catch (err) {
           console.error("Failed to load user profile:", err);
