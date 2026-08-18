@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.4.3] - 2026-08-18
+
+### Changed
+
+- The start page's blog query no longer waits for the app-settings read. The route guard has to know whether the closed user group is on before it mounts the start page, and the page only started its own Firestore query once mounted — two independent reads, strictly one after the other. `src/main.tsx` now starts the query before React renders (`src/services/homeBlogsPreload.ts`) and the start page picks up that promise on its first mount; both requests leave the browser at the same time.
+- Only the start page and the login page are part of the eagerly loaded bundle any more. Every other page is a `React.lazy` route with its own `route-*` chunk, and the article renderer with Shiki and the Mermaid glue is a chunk of its own that the article, editor and revision pages share. The inline renderer for titles and teasers — all the start page needs — was split out of `MarkdownRenderer.tsx` into `InlineMarkdownRenderer.tsx` (with the shared remark/rehype set-up in `markdownPlugins.ts`); the start page imports it through `inlineMarkdownParser.tsx`, so `vendor-shiki-core` (190 KB) and the page code for the other routes (about 190 KB) have left the start path. The `route-*` chunks and Rolldown's shared app-code chunks (`shared-*`, named in `chunkFileNames`) are precached by the service worker, so a shell served from the precache after a deploy still finds its own page chunks. Along the way `vendor-katex` had to rank above the new `vendor-markdown` group and that group above `vendor-shiki-core`: a Rolldown group takes its matched modules together with every dependency no higher-priority group claims, which had quietly moved the hast utilities react-markdown shares with Shiki into the Shiki chunk and thereby kept it eager.
+- The Google Fonts stylesheet is no longer render-blocking. `index.html` preloads it and `src/main.tsx` turns the preload into a stylesheet before React renders (`src/services/googleFonts.ts`); an inline `onload` attribute would do the same but is ruled out by the CSP. A `<noscript>` link keeps the fonts for script-less user agents, and `display=swap` behaves as before.
+
 ## [1.4.2] - 2026-08-18
 
 ### Fixed

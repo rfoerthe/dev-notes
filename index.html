@@ -24,10 +24,16 @@
     <meta property="og:description" content="DevNotes ist ein moderner, interaktiver Blog für Softwareentwickler. Teile dein Wissen, lies tiefgehende Artikel zu React, Vite, TS." />
     <meta property="og:type" content="website" />
     
-    <!-- Google Fonts: Inter (reading body) and Outfit (headings/UI) -->
+    <!-- Google Fonts: Inter (reading body) and Outfit (headings/UI).
+         Preloaded rather than linked as a stylesheet so the first paint does
+         not wait for fonts.googleapis.com; src/main.tsx turns the link into a
+         stylesheet before React renders (the CSP has no 'unsafe-inline' for
+         scripts, so this cannot be an onload attribute). The <noscript>
+         fallback keeps the fonts for script-less user agents. -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500;600;700&family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link id="google-fonts" rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500;600;700&family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;500;600;700;800&display=swap">
+    <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500;600;700&family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;500;600;700;800&display=swap"></noscript>
   </head>
   <body>
     <div id="root"></div>

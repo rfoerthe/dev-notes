@@ -341,7 +341,7 @@ On article detail pages with at least two headings, DevNotes automatically build
 
 Fenced code blocks are highlighted with Shiki. The renderer:
 
-- Supports all Shiki language exports through lazy-loaded language chunks and gracefully falls back to plain text for unknown language labels.
+- Supports all Shiki language exports through lazy-loaded language chunks and gracefully falls back to plain text for unknown language labels. Shiki itself is only loaded with the article renderer, i.e. on the article, editor and revision pages — the start page renders titles and teasers with the separate inline renderer (`InlineMarkdownRenderer.tsx`) and does not ship it.
 - Uses Shiki's JavaScript regex engine in the browser to remain compatible with the Firebase Hosting Content Security Policy.
 - Renders each code block as an editor-style window with a language title bar and scrollable body.
 - Includes a copy button that copies the raw fenced code to the clipboard.
@@ -538,6 +538,17 @@ When `VITE_FIREBASE_APPCHECK_SITE_KEY` is present, DevNotes initializes Firebase
 
 App Check sits on the critical path of the first page load: with enforcement on, no Firestore request (and no Auth request either) leaves the browser before a valid App Check token exists, and obtaining one means loading reCAPTCHA Enterprise from Google, running its widget and exchanging the result. To keep that off the critical path as far as possible, the build injects the reCAPTCHA loader as a `defer` script at the top of `index.html` (see `recaptchaBootstrap` in `vite.config.ts`), so it downloads alongside the app bundle and the App Check SDK reuses it instead of loading it after the bundle has run. The token is cached in IndexedDB for the TTL configured in the Firebase Console (App Check → Apps → *Token time to live*); the default of 1 hour means every visit after an hour's pause pays the full reCAPTCHA round trip again, so set the TTL to the maximum of 7 days unless there is a reason not to.
 
+### Start path
+
+What the browser has to load and run before the start page shows content, and what the build does to keep that short:
+
+- Only the start page and the login page are in the eagerly loaded bundle; every other page is a `React.lazy` route (`route-*` chunks). The article renderer — Shiki, the Mermaid glue, tables, the table of contents — is a chunk shared by the article, editor and revision pages. The start page uses the inline renderer only.
+- The start page's blog query is started in `src/main.tsx` before React renders (`src/services/homeBlogsPreload.ts`) so that it runs in parallel with the app-settings read the route guard waits for, instead of after it.
+- The Google Fonts stylesheet is preloaded and switched to a stylesheet from `src/main.tsx` (`src/services/googleFonts.ts`), so the first paint does not wait for `fonts.googleapis.com`; the CSP rules out an inline `onload` handler for that.
+- The reCAPTCHA loader for App Check is injected as a `defer` script at the top of `index.html` (see above).
+
+`vite.config.ts` groups node_modules into `vendor-*` chunks. When adding a group, mind that a Rolldown group takes its matched modules *together with every dependency that no higher-priority group claims* — `vendor-katex` ranks above `vendor-markdown`, and that above `vendor-shiki-core`, for exactly that reason.
+
 ### Firestore Transport
 
 The browser app uses the REST-based `firebase/firestore/lite` entry point everywhere. The full `firebase/firestore` SDK tunnels even one-time `getDoc`/`getDocs` calls through a long-lived WebChannel `Listen` session; when that session silently died (background tab, network change, sleep, proxy), reads stalled for 10–20 seconds or failed as "client is offline". With the lite SDK every read and write is an independent HTTPS request with no session, no backchannel, and no offline state machine.
@@ -692,7 +703,7 @@ iOS does not read the manifest's icons or display mode, so `index.html` addition
 
 ### What is cached
 
-Only the app shell is precached: `index.html`, the stylesheet, the icons, and the eagerly preloaded `index-*`, `rolldown-runtime-*`, and `vendor-*` chunks — 19 entries, roughly 1.5 MB. This is deliberate. The build emits more than 450 chunks because Shiki ships one per language and Mermaid one per diagram type, so a `**/*.js` precache would push about 13 MB at install time. Those lazy chunks are cached at runtime with `StaleWhileRevalidate` when they are first requested; the Google Fonts stylesheet and font files get their own runtime caches.
+Only the app shell is precached: `index.html`, the stylesheet, the icons, the eagerly preloaded `index-*`, `rolldown-runtime-*`, and `vendor-*` chunks, the lazily routed pages (`route-*`) and Rolldown's shared app-code chunks (`shared-*`, both named in `chunkFileNames` in `vite.config.ts`) — 38 entries, roughly 1.8 MB. Precaching the page chunks keeps a shell that the service worker still serves after a deploy consistent with the pages it links to; without it, opening a page for the first time would request a chunk hash that no longer exists on Hosting. This is deliberate. The build emits more than 450 chunks because Shiki ships one per language and Mermaid one per diagram type, so a `**/*.js` precache would push about 13 MB at install time. Those lazy chunks are cached at runtime with `StaleWhileRevalidate` when they are first requested; the Google Fonts stylesheet and font files get their own runtime caches.
 
 Navigation requests fall back to the precached shell, with two exceptions: `/__/*`, which Firebase Auth uses for its redirect handler, and the static `translation-edit-prototype.html`.
 

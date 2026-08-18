@@ -1,10 +1,5 @@
 import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
-import ReactMarkdown, { type Components, type Options as ReactMarkdownOptions } from 'react-markdown';
-import rehypeKatex from 'rehype-katex';
-import rehypeSanitize, { defaultSchema } from 'rehype-sanitize';
-import remarkGfm from 'remark-gfm';
-import remarkMath from 'remark-math';
-import 'katex/dist/katex.min.css';
+import ReactMarkdown, { type Components } from 'react-markdown';
 import { Box, Dialog, DialogContent, IconButton, Link as MuiLink, Tooltip, Typography, useTheme } from '@mui/material';
 import { Check, Copy, Download, Maximize, Minimize2, RotateCcw, X, ZoomIn, ZoomOut } from 'lucide-react';
 import type mermaid from 'mermaid';
@@ -24,28 +19,7 @@ import {
 import { createHeadingIdsByLine, slugifyHeadingText } from './markdownHeadings';
 import { normalizeMathBlocks } from './markdownMath';
 import { scrollHeadingIntoView } from './headingScroll';
-
-// `remark-math` emits `<code class="language-math math-inline|math-display">`
-// nodes; `rehype-katex` turns them into KaTeX markup. Sanitising has to happen
-// *before* KaTeX runs (its output relies on class/style attributes and MathML
-// that the default schema would strip), and the schema must let the math
-// classes through, otherwise KaTeX no longer recognises the nodes.
-const MATH_SANITIZE_SCHEMA = {
-  ...defaultSchema,
-  attributes: {
-    ...defaultSchema.attributes,
-    code: [
-      ...(defaultSchema.attributes?.code ?? []),
-      ['className', 'language-math', 'math-inline', 'math-display'],
-    ],
-  },
-} satisfies typeof defaultSchema;
-
-const MARKDOWN_REMARK_PLUGINS: NonNullable<ReactMarkdownOptions['remarkPlugins']> = [remarkGfm, remarkMath];
-const MARKDOWN_REHYPE_PLUGINS: NonNullable<ReactMarkdownOptions['rehypePlugins']> = [
-  [rehypeSanitize, MATH_SANITIZE_SCHEMA],
-  rehypeKatex,
-];
+import { MARKDOWN_REHYPE_PLUGINS, MARKDOWN_REMARK_PLUGINS } from './markdownPlugins';
 
 const LANGUAGE_CLASS_REGEX = /language-([^\s]+)/;
 const DEFAULT_LANGUAGE = 'text';
@@ -1954,70 +1928,6 @@ const MermaidDiagram = ({ children, sourceKey }: MermaidDiagramProps) => {
 interface MarkdownRendererProps {
   markdown: string;
 }
-
-interface InlineMarkdownRendererProps {
-  markdown: string;
-  disableLinks?: boolean;
-}
-
-export const InlineMarkdownRenderer = ({ markdown, disableLinks = false }: InlineMarkdownRendererProps) => {
-  const components: Components = {
-    p: ({ children }) => <>{children}</>,
-    h1: ({ children }) => <>{children}</>,
-    h2: ({ children }) => <>{children}</>,
-    h3: ({ children }) => <>{children}</>,
-    h4: ({ children }) => <>{children}</>,
-    h5: ({ children }) => <>{children}</>,
-    h6: ({ children }) => <>{children}</>,
-    a: ({ children, href }) => disableLinks ? (
-      <Box component="span" sx={{ color: 'inherit', textDecoration: 'underline', textDecorationThickness: '0.08em' }}>
-        {children}
-      </Box>
-    ) : (
-      <MuiLink
-        href={href}
-        target={href?.startsWith('http') ? '_blank' : undefined}
-        rel={href?.startsWith('http') ? 'noreferrer' : undefined}
-      >
-        {children}
-      </MuiLink>
-    ),
-    code: ({ children }) => (
-      <Box
-        component="code"
-        sx={{
-          color: (theme) => theme.palette.mode === 'dark' ? '#f472b6' : '#db2777',
-          bgcolor: (theme) => theme.palette.mode === 'dark' ? 'rgba(255, 255, 255, 0.08)' : 'rgba(15, 23, 42, 0.04)',
-          px: 0.45,
-          py: 0.1,
-          borderRadius: 1,
-          fontSize: '0.9em',
-          fontFamily: 'Fira Code, monospace',
-        }}
-      >
-        {children}
-      </Box>
-    ),
-    pre: ({ children }) => <>{children}</>,
-    blockquote: ({ children }) => <>{children}</>,
-    ul: ({ children }) => <>{children}</>,
-    ol: ({ children }) => <>{children}</>,
-    li: ({ children }) => <>{children}</>,
-    img: ({ alt }) => <>{alt ?? ''}</>,
-    table: ({ children }) => <>{children}</>,
-    thead: ({ children }) => <>{children}</>,
-    tbody: ({ children }) => <>{children}</>,
-    tr: ({ children }) => <>{children}</>,
-    th: ({ children }) => <>{children}</>,
-    td: ({ children }) => <>{children}</>,
-  };
-
-  return (
-    <ReactMarkdown remarkPlugins={MARKDOWN_REMARK_PLUGINS} rehypePlugins={MARKDOWN_REHYPE_PLUGINS} components={components}>
-      {markdown}
-    </ReactMarkdown>
-  );
-};
 
 const MarkdownRendererComponent = ({ markdown: rawMarkdown }: MarkdownRendererProps) => {
   // Display math is normalised before parsing; heading ids are keyed by line

@@ -27,19 +27,21 @@ import {
   Tooltip
 } from '@mui/material';
 import { Search, Calendar, Clock, ArrowUpRight, Code, ChevronDown, Bookmark, BookmarkCheck } from 'lucide-react';
-import { getBlogs, getRecentBlogs, sortBlogPostsNewestFirst } from '../services/blogService';
+import { getBlogs, sortBlogPostsNewestFirst } from '../services/blogService';
+import {
+  FEATURED_POST_LIMIT,
+  INITIAL_BLOG_LOAD_LIMIT,
+  takeRecentBlogs
+} from '../services/homeBlogsPreload';
 import type { BlogPost } from '../services/blogService';
 import { blogMatchesSearch } from '../services/blogSearch';
 import { blogMatchesFilterTag, getBlogFilterTags } from '../services/blogTagFilters';
 import { useAuth } from '../context/AuthContext';
 import { getBookmarkedBlogIds, toggleBookmark } from '../services/bookmarkService';
 import { canAccessApprovedFeatures } from '../services/authService';
-import { renderInlineMarkdown } from '../components/markdownParser';
+import { renderInlineMarkdown } from '../components/inlineMarkdownParser';
 import { buildBackState } from '../navigation/backNavigation';
 
-const FEATURED_POST_LIMIT = 6;
-const INITIAL_OLDER_POST_LIMIT = 20;
-const INITIAL_BLOG_LOAD_LIMIT = FEATURED_POST_LIMIT + INITIAL_OLDER_POST_LIMIT;
 const OLDER_PAGE_SIZE_OPTIONS = [10, 20, 50, 100];
 
 export const Home: React.FC = () => {
@@ -104,7 +106,9 @@ export const Home: React.FC = () => {
 
     const fetchBlogs = async () => {
       try {
-        const initialBlogs = await getRecentBlogs(INITIAL_BLOG_LOAD_LIMIT);
+        // Started at boot in parallel with the app settings (see
+        // src/services/homeBlogsPreload.ts); falls back to a fresh query.
+        const initialBlogs = await takeRecentBlogs(INITIAL_BLOG_LOAD_LIMIT);
         if (!isMounted) {
           return;
         }

@@ -24,7 +24,7 @@ import { ArrowUpRight, Calendar, Clock, Edit3, FileText, PenTool, Plus, Trash2 }
 import { useAuth } from '../context/AuthContext';
 import { deleteBlogs, getBlogsByAuthorUsername } from '../services/blogService';
 import type { BlogPost } from '../services/blogService';
-import { renderInlineMarkdown } from '../components/markdownParser';
+import { renderInlineMarkdown } from '../components/inlineMarkdownParser';
 import { buildBackState } from '../navigation/backNavigation';
 
 export const MyPosts: React.FC = () => {
