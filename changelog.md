@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.4.2] - 2026-08-18
+
+### Fixed
+
+- The first page load no longer waits for the app bundle before it starts loading reCAPTCHA. App Check is enforced for Firestore, so nothing can be read before a token has been exchanged, and Firebase Auth waits for the same token — but the App Check SDK only injects the reCAPTCHA Enterprise loader once the bundle has been downloaded and executed. On a throttled connection that put the whole chain (loader → 340 KB release script → widget iframe → token exchange) strictly behind the bundle and the first Firestore request only left the browser after about 11 seconds; the LCP was 14 seconds. The build now injects the loader as a `defer` script at the top of `index.html`, together with preconnects to `www.google.com` and `www.gstatic.com`, so it downloads in parallel with the bundle and is guaranteed to have run before the module entry. The SDK sees `grecaptcha.enterprise` and reuses it instead of loading a second copy. The tags are only emitted when a site key is configured and the emulator is off (`recaptchaBootstrap` in `vite.config.ts`).
+- On app start the auth bootstrap only refreshes the auth user and forces a new ID token when the stored profile is not flagged `emailVerified` yet — that refresh exists so the `emailVerified` write carries the fresh `email_verified` claim the Firestore rules require. Every already-verified user used to pay both round trips (`accounts:lookup`, `securetoken`) sequentially on every start, before the profile read, before anything else could load.
+- The README documents why App Check sits on the critical path and that the App Check token TTL in the Firebase Console (default 1 hour) decides how often visitors go through the full reCAPTCHA round trip; 7 days is the recommended setting.
+
 ## [1.4.1] - 2026-08-18
 
 ### Fixed
