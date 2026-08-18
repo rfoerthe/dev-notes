@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.4.1] - 2026-08-18
+
+### Fixed
+
+- The automatic table of contents no longer lists LaTeX fragments as headings. Heading extraction skipped fenced code blocks but not display math, and a matrix product written as `\end{pmatrix}` / `=` / `\begin{pmatrix}` on consecutive lines gave the `=` line the shape of a setext underline — so the `\end{pmatrix}` above it became an `<h1>` in the table of contents. `src/components/markdownHeadings.ts` now tracks `$$` blocks the way `src/components/markdownMath.ts` does, including the lenient `$$…$$` and `$$…` forms, and ignores every line inside one. Inline `$…$` is untouched, because it cannot span lines.
+
 ## [1.4.0] - 2026-08-17
 
 ### Added

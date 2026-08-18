@@ -256,6 +256,50 @@ describe('Markdown renderer', () => {
     ]);
   });
 
+  it('ignores display math when extracting table-of-contents entries', () => {
+    const markdown = [
+      '## 7. Die Probe',
+      '',
+      '$$',
+      '\\begin{pmatrix}',
+      '1 & 2 & 3',
+      '\\end{pmatrix}',
+      '=',
+      '\\begin{pmatrix}',
+      '1 & 0 & 0',
+      '\\end{pmatrix}',
+      '$$',
+      '',
+      '## 8. Sonderfälle',
+    ].join('\n');
+
+    expect(extractMarkdownHeadings(markdown).map((heading) => heading.text)).toEqual([
+      '7. Die Probe',
+      '8. Sonderfälle',
+    ]);
+  });
+
+  it('ignores display math that opens and closes on content lines', () => {
+    const markdown = [
+      '## Formeln',
+      '',
+      '$$\\begin{aligned}',
+      'a &= b',
+      '\\end{aligned}',
+      '=',
+      'c\\end{aligned}$$',
+      '',
+      'Inline $a = b$ bleibt unangetastet.',
+      '',
+      '## Danach',
+    ].join('\n');
+
+    expect(extractMarkdownHeadings(markdown).map((heading) => heading.text)).toEqual([
+      'Formeln',
+      'Danach',
+    ]);
+  });
+
   it('supports setext headings in rendered ids and table-of-contents extraction', () => {
     const markdown = [
       'Überblick',
