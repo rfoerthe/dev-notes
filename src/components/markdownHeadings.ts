@@ -61,11 +61,19 @@ const getSetextHeadingLevel = (line: string): 1 | 2 | null => {
 
 const isBlankLine = (line?: string): boolean => line === undefined || line.trim() === '';
 
+// Display math is skipped like a code fence: LaTeX lines such as a lone `=`
+// between two matrices would otherwise read as a setext underline and turn the
+// line above it into a heading. Both the bare `$$` fence and the lenient forms
+// `$$…$$` / `$$…` that `normalizeMathBlocks` accepts are recognised here.
+const MATH_OPENING_REGEX = /^[ \t>]*(?:(?:[-*+]|\d+[.)])[ \t]+)?\$\$(.*)$/;
+const MATH_CLOSING_REGEX = /\$\$[ \t]*$/;
+
 export const extractMarkdownHeadings = (markdown: string): MarkdownHeading[] => {
   const headings: MarkdownHeading[] = [];
   const slugCounts = new Map<string, number>();
   const lines = markdown.split(/\r?\n/);
   let fenceMarker: string | null = null;
+  let inMathBlock = false;
 
   const addHeading = (level: MarkdownHeadingLevel, text: string, line: number) => {
     const slug = slugifyHeadingText(text);
@@ -98,6 +106,25 @@ export const extractMarkdownHeadings = (markdown: string): MarkdownHeading[] => 
     }
 
     if (fenceMarker) {
+      return;
+    }
+
+    if (inMathBlock) {
+      if (MATH_CLOSING_REGEX.test(line)) {
+        inMathBlock = false;
+      }
+      return;
+    }
+
+    const mathOpening = line.match(MATH_OPENING_REGEX);
+
+    if (mathOpening) {
+      const rest = mathOpening[1];
+
+      // `$$$…` is not a fence we understand, and `$$…$$` closes on its own line.
+      if (!rest.startsWith('$') && !(rest.trim() !== '' && MATH_CLOSING_REGEX.test(rest))) {
+        inMathBlock = true;
+      }
       return;
     }
 
