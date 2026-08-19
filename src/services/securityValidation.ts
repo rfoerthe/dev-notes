@@ -7,7 +7,7 @@ export const TAG_PATTERN = /^[^<>]{1,40}$/;
 export const BLOG_LIMITS = {
   titleMaxLength: 150,
   summaryMaxLength: 600,
-  contentMaxLength: 50000,
+  contentMaxLength: 200000,
   maxTags: 10,
   tagMaxLength: 40
 } as const;

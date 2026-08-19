@@ -202,7 +202,7 @@ service cloud.firestore {
       ]) &&
         request.resource.data.title is string && request.resource.data.title.size() <= 150 &&
         request.resource.data.summary is string && request.resource.data.summary.size() <= 600 &&
-        request.resource.data.content is string && request.resource.data.content.size() <= 50000 &&
+        request.resource.data.content is string && request.resource.data.content.size() <= 200000 &&
         request.resource.data.status in ['draft', 'published'] &&
         validTags(request.resource.data.status == 'published') &&
         (
@@ -246,7 +246,7 @@ service cloud.firestore {
       ]) &&
         request.resource.data.title is string && request.resource.data.title.size() <= 150 &&
         request.resource.data.summary is string && request.resource.data.summary.size() <= 600 &&
-        request.resource.data.content is string && request.resource.data.content.size() <= 50000 &&
+        request.resource.data.content is string && request.resource.data.content.size() <= 200000 &&
         request.resource.data.status in ['draft', 'published'] &&
         request.resource.data.tags is list &&
         request.resource.data.tags.size() <= 10 &&
