@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.4.4] - 2026-08-19
+
+### Changed
+
+- The article body may now be up to 200,000 characters long instead of 50,000. The limit is enforced in two places and both were raised together: `BLOG_LIMITS.contentMaxLength` in `src/services/securityValidation.ts` (client-side validation and the error message in the editor) and the `content.size()` checks for blog posts and revisions in `firestore.rules`. Firestore itself only caps a document at 1 MiB, so the new limit still leaves ample headroom; the rules have to be deployed for the server side to accept the longer bodies.
+
 ## [1.4.3] - 2026-08-18
 
 ### Changed
