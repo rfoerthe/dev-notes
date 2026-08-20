@@ -4,30 +4,85 @@ export type MermaidColorMode = 'dark' | 'light';
 
 const MERMAID_FONT_FAMILY = 'Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
 
+/**
+ * Both color modes paint the diagram with the same light palette, and dark mode only tones the
+ * surface down so the panel does not glare on a dark page.
+ *
+ * A second, dark palette means every color of every diagram type has to be derived a second time,
+ * and whatever nobody re-derived quietly lost its contrast — that is where the black packet bits,
+ * the black gantt bars, the black git branches and the vanishing sankey flows all came from.
+ *
+ * How far the surface can be toned down is bounded by the palette it carries: the faintest fills
+ * of that palette are only about 1.1:1 against the light surface to begin with, so a surface much
+ * darker than this either meets one of them — which makes that shape disappear — or washes out the
+ * node outlines, which are what separates a white node from the surface. This value keeps every
+ * one of those ratios within a tenth of what light mode has.
+ */
 export const mermaidSurfaceColors: Record<MermaidColorMode, string> = {
-  dark: '#060913',
+  dark: '#eaeef6',
   light: '#f8fafc',
 };
 
-const mermaidInkColors: Record<MermaidColorMode, string> = {
-  dark: '#f1f5f9',
-  light: '#0f172a',
+/**
+ * The chrome of the diagram panel: the toolbar strip above the diagram, the borders around both,
+ * and the ink of the controls on them. It follows the diagram surface rather than the app's color
+ * mode, because that is what it sits on — the app's own dark chrome colors would be invisible on
+ * the light panel.
+ */
+export const mermaidPanelColors: Record<MermaidColorMode, {
+  border: string;
+  controlBackground: string;
+  controlHoverBackground: string;
+  ink: string;
+  toolbar: string;
+}> = {
+  dark: {
+    border: 'rgba(15,23,42,0.14)',
+    controlBackground: 'rgba(15,23,42,0.04)',
+    controlHoverBackground: 'rgba(15,23,42,0.09)',
+    ink: '#475569',
+    toolbar: '#dbe1ec',
+  },
+  light: {
+    border: 'rgba(15,23,42,0.1)',
+    controlBackground: 'rgba(15,23,42,0.035)',
+    controlHoverBackground: 'rgba(15,23,42,0.08)',
+    ink: '#475569',
+    toolbar: '#e2e8f0',
+  },
 };
+
+/**
+ * The two inks a label can be painted with. Which of them is used is a contrast decision against
+ * whatever the label sits on — see {@link getReadableMermaidInk} — never a color mode decision.
+ * `onLightFill` is what the diagram surface itself carries in both modes.
+ */
+const mermaidInkColors = {
+  onDarkFill: '#f1f5f9',
+  onLightFill: '#0f172a',
+};
+
+/**
+ * The ink of everything that sits on the diagram surface itself rather than on a fill of its own,
+ * and what `currentColor` has to resolve to inside a diagram: parts mermaid leaves to the document
+ * paint themselves with it — the gantt grid ticks are drawn by d3 that way — and would otherwise
+ * pick up the app's text color, which is a light one in dark mode.
+ */
+export const mermaidDiagramInk = mermaidInkColors.onLightFill;
 
 const MERMAID_SCALE_HUES = [220, 265, 190, 145, 45, 15, 330, 100, 285, 205, 30, 170];
 
 /**
  * Section colors for scale based diagrams (timeline, journey, mindmap, kanban, treemap). Without
- * them the base theme derives the scale from `primaryColor` and darkens it by 75 in dark mode,
- * which turns every section into plain black on the already dark diagram surface.
+ * them the base theme derives the scale from `primaryColor`, which is plain white here, and every
+ * section ends up the same white as the nodes on it.
  *
  * `cScalePeer` is derived from `cScale` by the base theme and is what kanban and treemap actually
  * paint their sections with, so it is pinned here too — otherwise the derived offset pushes the
  * brighter hues out of the range where a label can still be read on them.
  *
- * Both bands are chosen so that a section is visible against its own surface *and* can carry one
- * of the two inks: a fill has to stay dark enough for the light ink in dark mode, and light enough
- * for the dark ink in light mode. The lightness between those two bands works with neither.
+ * Both bands stay light enough to carry the dark ink, which is the only one the section titles
+ * get: mermaid colors them from a single variable, not per section.
  */
 const createMermaidScaleVariables = (
   saturation: number,
@@ -148,16 +203,16 @@ export const getReadableMermaidInk = (
   const surface = parseCssColor(mermaidSurfaceColors[mode]) ?? { alpha: 1, blue: 0, green: 0, red: 0 };
   const parsedFill = parseCssColor(fill);
   const background = parsedFill ? blendOverSurface(parsedFill, surface) : surface;
-  const darkInk = parseCssColor(mermaidInkColors.light);
-  const lightInk = parseCssColor(mermaidInkColors.dark);
+  const darkInk = parseCssColor(mermaidInkColors.onLightFill);
+  const lightInk = parseCssColor(mermaidInkColors.onDarkFill);
 
   if (!darkInk || !lightInk) {
-    return mermaidInkColors[mode];
+    return mermaidDiagramInk;
   }
 
   return getContrastRatio(darkInk, background) >= getContrastRatio(lightInk, background)
-    ? mermaidInkColors.light
-    : mermaidInkColors.dark;
+    ? mermaidInkColors.onLightFill
+    : mermaidInkColors.onDarkFill;
 };
 
 const MERMAID_GIT_HUES = [220, 265, 190, 145, 45, 15, 330, 100];
@@ -177,9 +232,8 @@ const hslToHex = (hue: number, saturation: number, lightness: number) => {
 };
 
 /**
- * Branch colors for `gitGraph`. The base theme lightens them in dark mode and darkens them
- * otherwise — but it reads `darkMode` from the theme variables, which mermaid never fills in from
- * the config, so in dark mode every commit and every arrow ends up darkened to plain black.
+ * Branch colors for `gitGraph`. The base theme derives them from a fixed list and darkens every
+ * one of them, which drags the darker hues of that list towards black.
  *
  * `gitBranchLabel*` colors the branch name, which sits on a background of the branch color, and
  * a palette that spans all hues needs a different ink per branch. `gitInv*` is the ring of a
@@ -196,16 +250,16 @@ const createMermaidGitVariables = (
     return [
       [`git${index}`, color],
       [`gitBranchLabel${index}`, getReadableMermaidInk(color, mode)],
-      [`gitInv${index}`, mermaidInkColors[mode]],
+      [`gitInv${index}`, mermaidDiagramInk],
     ];
   }),
 );
 
 /**
- * Slice colors for the pie chart and plot colors for the xy chart. Both default to a palette that
- * only works on a light surface: the pie derives its slices from `primaryColor`, which is a dark
- * navy here, and the xy chart ships a fixed list of pastels. Either way the chart disappears into
- * the diagram surface in one of the two color modes.
+ * Slice colors for the pie chart and plot colors for the xy chart. Both default to a palette the
+ * diagram surface cannot carry: the pie derives its slices from `primaryColor`, which is plain
+ * white here, and the xy chart ships a fixed list of pastels that is barely darker than the
+ * surface it is plotted on.
  */
 const createMermaidChartVariables = (
   saturation: number,
@@ -218,7 +272,7 @@ const createMermaidChartVariables = (
     ...Object.fromEntries(colors.map((color, index) => [`pie${index + 1}`, color])),
     // Separates neighbouring slices; the ring around the chart has to read on the surface instead.
     pieStrokeColor: mermaidSurfaceColors[mode],
-    pieOuterStrokeColor: mode === 'dark' ? '#7c8ba3' : '#94a3b8',
+    pieOuterStrokeColor: '#94a3b8',
     // Slices are painted at 70% by default, which drags every color towards the surface and makes
     // the ink below unpredictable.
     pieOpacity: '1',
@@ -231,222 +285,140 @@ const createMermaidChartVariables = (
     // `undefined` for the renderer — dropping `backgroundColor` alone turns the plot area white.
     xyChart: {
       backgroundColor: mermaidSurfaceColors[mode],
-      titleColor: mermaidInkColors[mode],
-      xAxisLabelColor: mermaidInkColors[mode],
-      xAxisTitleColor: mermaidInkColors[mode],
-      xAxisTickColor: mermaidInkColors[mode],
-      xAxisLineColor: mode === 'dark' ? '#9aa8bd' : '#475569',
-      yAxisLabelColor: mermaidInkColors[mode],
-      yAxisTitleColor: mermaidInkColors[mode],
-      yAxisTickColor: mermaidInkColors[mode],
-      yAxisLineColor: mode === 'dark' ? '#9aa8bd' : '#475569',
+      titleColor: mermaidDiagramInk,
+      xAxisLabelColor: mermaidDiagramInk,
+      xAxisTitleColor: mermaidDiagramInk,
+      xAxisTickColor: mermaidDiagramInk,
+      xAxisLineColor: '#475569',
+      yAxisLabelColor: mermaidDiagramInk,
+      yAxisTitleColor: mermaidDiagramInk,
+      yAxisTickColor: mermaidDiagramInk,
+      yAxisLineColor: '#475569',
       plotColorPalette: colors.slice(0, 10).join(','),
     },
   };
 };
 
 /**
- * The packet renderer paints the bit numbers and the title straight onto the diagram
- * surface and defaults all of them to black, which is invisible in dark mode.
+ * The packet renderer reads none of the theme variables above — it has a theme block of its own,
+ * defaulting to black text on a grey block. These values put it on the same white blocks and the
+ * same inks as every other diagram type.
  */
-const mermaidPacketVariables: Record<MermaidColorMode, Record<string, string>> = {
-  dark: {
-    blockFillColor: '#1f2a3d',
-    blockStrokeColor: '#64748b',
-    endByteColor: '#cbd5e1',
-    labelColor: mermaidInkColors.dark,
-    startByteColor: '#cbd5e1',
-    titleColor: mermaidInkColors.dark,
-  },
-  light: {
-    blockFillColor: '#ffffff',
-    blockStrokeColor: '#94a3b8',
-    endByteColor: '#334155',
-    labelColor: mermaidInkColors.light,
-    startByteColor: '#334155',
-    titleColor: mermaidInkColors.light,
-  },
+const mermaidPacketVariables: Record<string, string> = {
+  blockFillColor: '#ffffff',
+  blockStrokeColor: '#94a3b8',
+  endByteColor: '#334155',
+  labelColor: mermaidDiagramInk,
+  startByteColor: '#334155',
+  titleColor: mermaidDiagramInk,
 };
 
 type MermaidThemeVariables = Record<string, string | Record<string, string | number>>;
 
+/**
+ * One palette for both color modes; only the surface it is painted on differs. Everything the
+ * base theme would otherwise derive for itself is pinned here, because those derivations assume
+ * their own palette and reach a different shade of it per diagram type.
+ */
+const createMermaidThemeVariables = (mode: MermaidColorMode): MermaidThemeVariables => ({
+  ...createMermaidScaleVariables(62, 84, 94),
+  ...createMermaidGitVariables(55, 42, mode),
+  ...createMermaidChartVariables(55, 32, mode),
+  packet: mermaidPacketVariables,
+  // Same replacement rule as `xyChart` above: every key the renderer reads has to be present.
+  // Its graticule otherwise defaults to a fixed light grey that vanishes on a light surface.
+  radar: {
+    axisColor: '#475569',
+    axisStrokeWidth: 2,
+    axisLabelFontSize: 12,
+    curveOpacity: 0.5,
+    curveStrokeWidth: 2,
+    graticuleColor: '#94a3b8',
+    graticuleStrokeWidth: 1,
+    graticuleOpacity: 0.6,
+    legendBoxSize: 12,
+    legendFontSize: 12,
+  },
+  background: mermaidSurfaceColors[mode],
+  primaryColor: '#ffffff',
+  primaryTextColor: mermaidDiagramInk,
+  primaryBorderColor: '#94a3b8',
+  secondaryColor: '#e2e8f0',
+  secondaryTextColor: mermaidDiagramInk,
+  secondaryBorderColor: '#94a3b8',
+  tertiaryColor: '#eef2f7',
+  tertiaryTextColor: mermaidDiagramInk,
+  tertiaryBorderColor: '#cbd5e1',
+  lineColor: '#475569',
+  textColor: mermaidDiagramInk,
+  mainBkg: '#ffffff',
+  nodeBorder: '#94a3b8',
+  nodeTextColor: mermaidDiagramInk,
+  clusterBkg: '#eef2f7',
+  clusterBorder: '#cbd5e1',
+  titleColor: mermaidDiagramInk,
+  // Both sit behind a label that is placed on top of an edge, so they have to match the surface
+  // the edge is drawn on rather than be a color of their own.
+  edgeLabelBackground: mermaidSurfaceColors[mode],
+  labelBackground: mermaidSurfaceColors[mode],
+  labelBoxBkgColor: '#ffffff',
+  labelTextColor: mermaidDiagramInk,
+  noteBkgColor: '#fef9c3',
+  noteTextColor: mermaidDiagramInk,
+  noteBorderColor: '#ca8a04',
+  errorBkgColor: '#fee2e2',
+  errorTextColor: '#991b1b',
+  // ER attribute rows. The base theme derives them from `mainBkg`, which is the same white as the
+  // entity box, so without these the rows and their box become one surface.
+  rowOdd: '#ffffff',
+  rowEven: '#eef2f7',
+  // The sequence number sits inside a circle filled with `lineColor`.
+  sequenceNumberColor: mermaidSurfaceColors[mode],
+  // A quadrant chart centers each data point label on its own point, so the point color has to
+  // work with the label ink as well.
+  quadrantPointFill: '#94a3b8',
+  quadrantPointTextFill: mermaidDiagramInk,
+  // Gantt bars keep their own palette. Every bar has to stay light, because the label of a
+  // bar and the label next to a bar share `taskTextDarkColor`.
+  sectionBkgColor: '#c7d5e8',
+  sectionBkgColor2: '#d5cdf0',
+  altSectionBkgColor: '#e8edf4',
+  excludeBkgColor: '#eef2f7',
+  gridColor: '#94a3b8',
+  taskBkgColor: '#dbe6f4',
+  taskBorderColor: '#7d93b3',
+  activeTaskBkgColor: '#bcd2ee',
+  activeTaskBorderColor: '#5b7ba6',
+  doneTaskBkgColor: '#e6ebf2',
+  doneTaskBorderColor: '#94a3b8',
+  critBkgColor: '#fecdd3',
+  critBorderColor: '#be123c',
+  todayLineColor: '#dc2626',
+  taskTextColor: mermaidDiagramInk,
+  taskTextDarkColor: mermaidDiagramInk,
+  taskTextLightColor: mermaidDiagramInk,
+  taskTextOutsideColor: mermaidDiagramInk,
+  fontFamily: MERMAID_FONT_FAMILY,
+  fontSize: '15px',
+});
+
 const mermaidThemeVariables: Record<MermaidColorMode, MermaidThemeVariables> = {
-  dark: {
-    // Kanban and friends brighten the scale by roughly ten lightness points for their section
-    // background, so the base has to stay dark enough for the light section titles.
-    ...createMermaidScaleVariables(42, 22, 32),
-    ...createMermaidGitVariables(55, 66, 'dark'),
-    ...createMermaidChartVariables(55, 66, 'dark'),
-    packet: mermaidPacketVariables.dark,
-    // Same replacement rule as `xyChart` above: every key the renderer reads has to be present.
-    // Its graticule otherwise defaults to a fixed light grey that vanishes on a light surface.
-    radar: {
-      axisColor: '#9aa8bd',
-      axisStrokeWidth: 2,
-      axisLabelFontSize: 12,
-      curveOpacity: 0.5,
-      curveStrokeWidth: 2,
-      graticuleColor: '#475569',
-      graticuleStrokeWidth: 1,
-      graticuleOpacity: 0.6,
-      legendBoxSize: 12,
-      legendFontSize: 12,
-    },
-    background: mermaidSurfaceColors.dark,
-    primaryColor: '#1f2a3d',
-    primaryTextColor: mermaidInkColors.dark,
-    primaryBorderColor: '#64748b',
-    secondaryColor: '#2c2450',
-    secondaryTextColor: mermaidInkColors.dark,
-    secondaryBorderColor: '#6d5aa8',
-    tertiaryColor: '#101a2c',
-    tertiaryTextColor: mermaidInkColors.dark,
-    tertiaryBorderColor: '#3a4a66',
-    lineColor: '#9aa8bd',
-    textColor: '#e2e8f0',
-    mainBkg: '#1f2a3d',
-    nodeBorder: '#7c8ba3',
-    nodeTextColor: mermaidInkColors.dark,
-    clusterBkg: '#0d1626',
-    clusterBorder: '#3a4a66',
-    titleColor: mermaidInkColors.dark,
-    edgeLabelBackground: '#101a2c',
-    labelBackground: '#101a2c',
-    labelBoxBkgColor: '#1f2a3d',
-    labelTextColor: mermaidInkColors.dark,
-    noteBkgColor: '#2a3550',
-    noteTextColor: mermaidInkColors.dark,
-    noteBorderColor: '#5a6b8c',
-    errorBkgColor: '#4c1d24',
-    errorTextColor: '#fecaca',
-    // ER attribute rows. The base theme derives them from `mainBkg` and picks the branch by the
-    // `darkMode` theme variable, which mermaid does not fill in from the config, so without these
-    // the rows turn near white and swallow the light attribute text.
-    rowOdd: '#1b2536',
-    rowEven: '#141d2e',
-    // The sequence number sits inside a circle filled with `lineColor`.
-    sequenceNumberColor: '#0b1220',
-    // A quadrant chart centers each data point label on its own point, so the point color has to
-    // work with the label ink as well.
-    quadrantPointFill: '#44639a',
-    quadrantPointTextFill: mermaidInkColors.dark,
-    // Gantt bars keep their own palette. Every bar has to stay dark, because the label of a
-    // bar and the label next to a bar share `taskTextDarkColor`.
-    sectionBkgColor: '#5c7599',
-    sectionBkgColor2: '#7a6bb0',
-    altSectionBkgColor: '#8b96a8',
-    excludeBkgColor: '#0d1626',
-    gridColor: '#4a5a76',
-    taskBkgColor: '#243247',
-    taskBorderColor: '#6b7c96',
-    activeTaskBkgColor: '#2f4463',
-    activeTaskBorderColor: '#8aa4c8',
-    doneTaskBkgColor: '#1a2333',
-    doneTaskBorderColor: '#55647d',
-    critBkgColor: '#5c2029',
-    critBorderColor: '#f87171',
-    todayLineColor: '#f87171',
-    taskTextColor: mermaidInkColors.dark,
-    taskTextDarkColor: mermaidInkColors.dark,
-    taskTextLightColor: mermaidInkColors.dark,
-    taskTextOutsideColor: mermaidInkColors.dark,
-    fontFamily: MERMAID_FONT_FAMILY,
-    fontSize: '15px',
-  },
-  light: {
-    ...createMermaidScaleVariables(62, 84, 94),
-    ...createMermaidGitVariables(55, 42, 'light'),
-    ...createMermaidChartVariables(55, 32, 'light'),
-    packet: mermaidPacketVariables.light,
-    radar: {
-      axisColor: '#475569',
-      axisStrokeWidth: 2,
-      axisLabelFontSize: 12,
-      curveOpacity: 0.5,
-      curveStrokeWidth: 2,
-      graticuleColor: '#94a3b8',
-      graticuleStrokeWidth: 1,
-      graticuleOpacity: 0.6,
-      legendBoxSize: 12,
-      legendFontSize: 12,
-    },
-    background: mermaidSurfaceColors.light,
-    primaryColor: '#ffffff',
-    primaryTextColor: mermaidInkColors.light,
-    primaryBorderColor: '#94a3b8',
-    secondaryColor: '#e2e8f0',
-    secondaryTextColor: mermaidInkColors.light,
-    secondaryBorderColor: '#94a3b8',
-    tertiaryColor: '#eef2f7',
-    tertiaryTextColor: mermaidInkColors.light,
-    tertiaryBorderColor: '#cbd5e1',
-    lineColor: '#475569',
-    textColor: mermaidInkColors.light,
-    mainBkg: '#ffffff',
-    nodeBorder: '#94a3b8',
-    nodeTextColor: mermaidInkColors.light,
-    clusterBkg: '#eef2f7',
-    clusterBorder: '#cbd5e1',
-    titleColor: mermaidInkColors.light,
-    edgeLabelBackground: mermaidSurfaceColors.light,
-    labelBackground: mermaidSurfaceColors.light,
-    labelBoxBkgColor: '#ffffff',
-    labelTextColor: mermaidInkColors.light,
-    noteBkgColor: '#fef9c3',
-    noteTextColor: mermaidInkColors.light,
-    noteBorderColor: '#ca8a04',
-    errorBkgColor: '#fee2e2',
-    errorTextColor: '#991b1b',
-    rowOdd: '#ffffff',
-    rowEven: '#eef2f7',
-    sequenceNumberColor: '#f8fafc',
-    quadrantPointFill: '#94a3b8',
-    quadrantPointTextFill: mermaidInkColors.light,
-    sectionBkgColor: '#c7d5e8',
-    sectionBkgColor2: '#d5cdf0',
-    altSectionBkgColor: '#e8edf4',
-    excludeBkgColor: '#eef2f7',
-    gridColor: '#94a3b8',
-    taskBkgColor: '#dbe6f4',
-    taskBorderColor: '#7d93b3',
-    activeTaskBkgColor: '#bcd2ee',
-    activeTaskBorderColor: '#5b7ba6',
-    doneTaskBkgColor: '#e6ebf2',
-    doneTaskBorderColor: '#94a3b8',
-    critBkgColor: '#fecdd3',
-    critBorderColor: '#be123c',
-    todayLineColor: '#dc2626',
-    taskTextColor: mermaidInkColors.light,
-    taskTextDarkColor: mermaidInkColors.light,
-    taskTextLightColor: mermaidInkColors.light,
-    taskTextOutsideColor: mermaidInkColors.light,
-    fontFamily: MERMAID_FONT_FAMILY,
-    fontSize: '15px',
-  },
+  dark: createMermaidThemeVariables('dark'),
+  light: createMermaidThemeVariables('light'),
 };
 
-const mermaidC4InkColors: Record<MermaidColorMode, { line: string; text: string }> = {
-  dark: { line: '#94a3b8', text: '#e2e8f0' },
-  light: { line: '#475569', text: '#334155' },
-};
+const mermaidC4InkColors = { line: '#475569', text: '#334155' };
 
 /** Background of the quadrant panes, so a label halo blends into the chart. */
-const mermaidQuadrantColors: Record<MermaidColorMode, string> = {
-  dark: '#1f2a3d',
-  light: '#ffffff',
-};
+const MERMAID_QUADRANT_COLOR = '#ffffff';
 
 /**
  * Sankey draws its flows with `mix-blend-mode: multiply`, so that crossing flows darken each
- * other. Multiplied against a near black diagram surface every flow becomes black and the diagram
- * collapses to its bare node bars. `screen` is the same idea the other way round and keeps
- * crossings visible on a dark surface — but it also brightens the flows the node labels sit on,
- * which is why those labels get a halo as well.
+ * other. That only works on a light surface — multiplied against a dark one every flow turns
+ * black and the diagram collapses to its bare node bars, which is one of the reasons both color
+ * modes keep the surface light.
  */
-const mermaidSankeyBlendModes: Record<MermaidColorMode, string> = {
-  dark: 'screen',
-  light: 'multiply',
-};
+const MERMAID_SANKEY_BLEND_MODE = 'multiply';
 
 const C4_HARDCODED_COLOR = '#444444';
 
@@ -474,13 +446,13 @@ export const withMermaidStyleOverrides = (
   id: string,
   mode: MermaidColorMode,
 ): string => {
-  const { line, text } = mermaidC4InkColors[mode];
+  const { line, text } = mermaidC4InkColors;
   const css = [
     `#${id} text[fill="${C4_HARDCODED_COLOR}"]{fill:${text};${haloDeclarations(mermaidSurfaceColors[mode])}}`,
     `#${id} line[stroke="${C4_HARDCODED_COLOR}"]{stroke:${line};}`,
     `#${id} rect[stroke="${C4_HARDCODED_COLOR}"]{stroke:${line};}`,
-    `#${id} g.data-point text{${haloDeclarations(mermaidQuadrantColors[mode])}}`,
-    `#${id} .link{mix-blend-mode:${mermaidSankeyBlendModes[mode]};}`,
+    `#${id} g.data-point text{${haloDeclarations(MERMAID_QUADRANT_COLOR)}}`,
+    `#${id} .link{mix-blend-mode:${MERMAID_SANKEY_BLEND_MODE};}`,
     `#${id} .node-labels text{${haloDeclarations(mermaidSurfaceColors[mode])}}`,
   ].join('');
   const closingTagIndex = svg.lastIndexOf('</svg>');
@@ -491,7 +463,9 @@ export const withMermaidStyleOverrides = (
 };
 
 export const getMermaidConfig = (mode: MermaidColorMode): MermaidConfig => ({
-  darkMode: mode === 'dark',
+  // The base theme derives a good part of its colors twice, once per branch of this flag, and the
+  // dark branch assumes a dark surface. Both color modes render on a light one here.
+  darkMode: false,
   flowchart: {
     htmlLabels: true,
   },
@@ -585,9 +559,9 @@ const applyInkToLabels = (container: Element, ink: string) => {
 
 /**
  * Mermaid keeps the label color of a node at the theme default even when the diagram
- * author overrides the fill (`style A fill:#eef`, `classDef`), which produces unreadable
- * labels — most notably light fills in dark mode. This re-colors every label after
- * rendering based on the contrast against its own shape fill.
+ * author overrides the fill (`style A fill:#0f172a`, `classDef`), which produces unreadable
+ * labels — most notably the dark ink of this theme on a dark fill. This re-colors every label
+ * after rendering based on the contrast against its own shape fill.
  */
 export const applyMermaidLabelContrast = (
   root: Element | null | undefined,

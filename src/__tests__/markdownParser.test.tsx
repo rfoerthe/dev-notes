@@ -4,7 +4,7 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { createTheme, ThemeProvider } from '@mui/material/styles';
 
 const mermaidMock = vi.hoisted(() => ({
-  currentDarkMode: false,
+  currentSurface: 'none',
   currentTheme: 'neutral',
   initialize: vi.fn(),
   render: vi.fn(),
@@ -15,21 +15,27 @@ vi.mock('mermaid', () => ({
 }));
 
 import { renderInlineMarkdown, renderMarkdown } from '../components/markdownParser';
+import { mermaidSurfaceColors } from '../components/mermaidTheme';
 import { extractMarkdownHeadings } from '../components/markdownHeadings';
 import { TableOfContents } from '../components/TableOfContents';
 
 describe('Markdown renderer', () => {
   beforeEach(() => {
-    mermaidMock.currentDarkMode = false;
+    mermaidMock.currentSurface = 'none';
     mermaidMock.currentTheme = 'neutral';
     mermaidMock.initialize.mockClear();
-    mermaidMock.initialize.mockImplementation((config?: { darkMode?: boolean; theme?: string }) => {
-      mermaidMock.currentDarkMode = Boolean(config?.darkMode);
+    // Both color modes share one palette and differ only in the diagram surface, so the surface
+    // is what tells the two configurations apart.
+    mermaidMock.initialize.mockImplementation((config?: {
+      theme?: string;
+      themeVariables?: { background?: string };
+    }) => {
+      mermaidMock.currentSurface = config?.themeVariables?.background ?? 'none';
       mermaidMock.currentTheme = config?.theme ?? 'neutral';
     });
     mermaidMock.render.mockReset();
     mermaidMock.render.mockImplementation((id: string) => Promise.resolve({
-      svg: `<svg data-dark-mode="${mermaidMock.currentDarkMode}" data-render-id="${id}" data-testid="rendered-mermaid-svg" data-theme="${mermaidMock.currentTheme}" viewBox="0 0 100 40"><text>A</text></svg>`,
+      svg: `<svg data-render-id="${id}" data-surface="${mermaidMock.currentSurface}" data-testid="rendered-mermaid-svg" data-theme="${mermaidMock.currentTheme}" viewBox="0 0 100 40"><text>A</text></svg>`,
     }));
   });
 
@@ -1043,7 +1049,8 @@ describe('Markdown renderer', () => {
         expect(screen.getByRole('button', { name: 'Mermaid-Diagramm als SVG herunterladen' })).toBeTruthy();
       });
       expect(container.querySelector('svg[data-testid="rendered-mermaid-svg"]')?.getAttribute('data-theme')).toBe('base');
-      expect(container.querySelector('svg[data-testid="rendered-mermaid-svg"]')?.getAttribute('data-dark-mode')).toBe('true');
+      expect(container.querySelector('svg[data-testid="rendered-mermaid-svg"]')?.getAttribute('data-surface'))
+        .toBe(mermaidSurfaceColors.dark);
 
       fireEvent.click(screen.getByRole('button', { name: 'Mermaid-Diagramm als SVG herunterladen' }));
 
@@ -1055,7 +1062,7 @@ describe('Markdown renderer', () => {
       expect(svgBlob.type).toBe('image/svg+xml;charset=utf-8');
       await expect(svgBlob.text()).resolves.toContain('<svg');
       await expect(svgBlob.text()).resolves.toContain('data-theme="base"');
-      await expect(svgBlob.text()).resolves.toContain('data-dark-mode="false"');
+      await expect(svgBlob.text()).resolves.toContain(`data-surface="${mermaidSurfaceColors.light}"`);
       await expect(svgBlob.text()).resolves.toContain('-export-light');
     } finally {
       click.mockRestore();

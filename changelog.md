@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.4.5] - 2026-08-20
+
+### Changed
+
+- Mermaid diagrams are rendered with the same light palette in both theme modes; in dark mode only the diagram surface is toned down, from `#f8fafc` to `#eaeef6`, so the panel does not glare on a dark page. The dark palette in `src/components/mermaidTheme.ts` is gone, together with the per-mode packet colors, C4 inks, quadrant halo and sankey blend mode, and `darkMode` is now `false` in both configurations — the base theme derives a good part of its colors twice, and the dark branch of that derivation assumes a dark surface. Keeping two palettes meant deriving every color of every diagram type a second time, and whatever went un-derived is where the contrast bugs came from: black bit numbers, black gantt bars, black git branches, sankey flows multiplied into the background. How far the surface can be toned down is bounded by the palette it carries — the faintest fills of that palette are only about 1.1:1 against the light surface to begin with — and `#eaeef6` keeps every one of those ratios within a tenth of the light mode's.
+- The diagram panel follows the diagram surface instead of the app's color mode: the toolbar strip, the borders, the zoom controls and the scrollbars are the light ones in both modes, and the panel sets the ink that `currentColor` resolves to inside the SVG. The gantt grid ticks are drawn by d3 in `currentColor` and would otherwise have picked up the app's light text color on the now light surface. `mermaidSurfaceColors` and the new `mermaidPanelColors`/`mermaidDiagramInk` replace the copies of those colors in `MarkdownRenderer.tsx`.
+- `npm run audit:mermaid` takes the diagram surface and the diagram ink from `mermaidTheme.ts` instead of its own stylesheet, so it measures what the app paints; the copy in the audit page is what let the ticks pass. Its baseline in `known-findings.json` shrank from 30 entries to 15: 21 findings disappeared with the shared palette, and 6 came back in dark mode — pale timeline sections and sankey flows that are faint against both surfaces (1.36:1 to 1.54:1) and straddle the audit's visibility floor because the dark mode surface is the darker of the two.
+
 ## [1.4.4] - 2026-08-19
 
 ### Changed

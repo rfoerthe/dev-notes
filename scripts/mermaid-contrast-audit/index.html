@@ -7,9 +7,8 @@
       body { margin: 0; font-family: Inter, sans-serif; }
       figure { margin: 0 0 24px; padding: 12px; }
       body[data-mode='dark'] { background: #0b1220; color: #e2e8f0; }
-      body[data-mode='dark'] figure { background: #060913; }
       body[data-mode='light'] { background: #ffffff; color: #0f172a; }
-      body[data-mode='light'] figure { background: #f8fafc; }
+      /* The diagram surface is the app's, not this page's — audit.ts paints it per color mode. */
     </style>
   </head>
   <body data-mode="dark">

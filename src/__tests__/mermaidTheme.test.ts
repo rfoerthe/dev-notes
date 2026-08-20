@@ -4,11 +4,14 @@ import {
   applyMermaidLabelContrastToMarkup,
   getMermaidConfig,
   getReadableMermaidInk,
+  mermaidSurfaceColors,
   withMermaidStyleOverrides,
 } from '../components/mermaidTheme';
 
 const DARK_INK = '#0f172a';
 const LIGHT_INK = '#f1f5f9';
+const DARK_MODE_SURFACE = mermaidSurfaceColors.dark;
+const LIGHT_MODE_SURFACE = mermaidSurfaceColors.light;
 const DARK_INK_RGB = 'rgb(15, 23, 42)';
 const LIGHT_INK_RGB = 'rgb(241, 245, 249)';
 
@@ -71,32 +74,40 @@ describe('getMermaidConfig', () => {
       expect(scaleKeys(variables, 'cScalePeer')).toHaveLength(12);
     });
 
-    expect(darkVariables.cScale0).not.toBe(lightVariables.cScale0);
+    // One palette for both modes: a second one has to re-derive every color for a dark surface,
+    // and every diagram type nobody re-derived is where the contrast bugs came from.
+    expect(darkVariables.cScale0).toBe(lightVariables.cScale0);
     expect(darkVariables.cScale0).not.toBe(darkVariables.cScalePeer0);
   });
 
-  it('uses explicit theme variables per color mode', () => {
+  it('paints both color modes with one palette on two surfaces', () => {
     const darkConfig = getMermaidConfig('dark');
     const lightConfig = getMermaidConfig('light');
 
     expect(darkConfig.theme).toBe('base');
-    expect(darkConfig.darkMode).toBe(true);
-    expect(darkConfig.themeVariables?.background).toBe('#060913');
     expect(lightConfig.theme).toBe('base');
+    // The base theme derives a good part of its colors twice, and the dark branch of that
+    // derivation assumes a dark surface. Neither mode has one.
+    expect(darkConfig.darkMode).toBe(false);
     expect(lightConfig.darkMode).toBe(false);
-    expect(lightConfig.themeVariables?.background).toBe('#f8fafc');
-    expect(darkConfig.themeVariables?.primaryColor).not.toBe(lightConfig.themeVariables?.primaryColor);
+    expect(darkConfig.themeVariables?.background).toBe(DARK_MODE_SURFACE);
+    expect(lightConfig.themeVariables?.background).toBe(LIGHT_MODE_SURFACE);
+    // Only the surface differs, and only by enough to take the glare off a dark page.
+    expect(DARK_MODE_SURFACE).not.toBe(LIGHT_MODE_SURFACE);
+    expect(getReadableMermaidInk(null, 'dark')).toBe(DARK_INK);
+    expect(darkConfig.themeVariables?.primaryColor).toBe(lightConfig.themeVariables?.primaryColor);
   });
 
-  it('overrides the colors mermaid derives for the wrong color mode', () => {
+  it('pins the fills mermaid would otherwise derive from a single base color', () => {
     const darkVariables = getMermaidConfig('dark').themeVariables ?? {};
     const lightVariables = getMermaidConfig('light').themeVariables ?? {};
 
-    // Mermaid only reads `darkMode` from the theme variables, so without these the ER attribute
-    // rows and the gantt bars stay on their light defaults in dark mode.
+    // The ER attribute rows and the gantt bars are derived from `mainBkg`, which is the same white
+    // as the box around them, so each of them is pinned to a fill of its own that carries the ink.
     (['rowOdd', 'rowEven', 'taskBkgColor', 'doneTaskBkgColor', 'sectionBkgColor'] as const)
       .forEach((key) => {
-        expect(getReadableMermaidInk(darkVariables[key] as string, 'dark')).toBe(LIGHT_INK);
+        expect(darkVariables[key]).toBe(lightVariables[key]);
+        expect(getReadableMermaidInk(darkVariables[key] as string, 'dark')).toBe(DARK_INK);
         expect(getReadableMermaidInk(lightVariables[key] as string, 'light')).toBe(DARK_INK);
       });
   });
@@ -104,17 +115,16 @@ describe('getMermaidConfig', () => {
   it('gives every git branch a visible color and a matching label ink', () => {
     (['dark', 'light'] as const).forEach((mode) => {
       const variables = getMermaidConfig(mode).themeVariables ?? {};
-      const surfaceInk = mode === 'dark' ? LIGHT_INK : DARK_INK;
 
       Array.from({ length: 8 }, (_, index) => index).forEach((index) => {
         const color = variables[`git${index}`] as string;
 
-        // Not the near black the base theme derives for dark mode, and the branch name on top of
-        // the branch color needs whichever ink reads on that color, not a fixed one.
+        // Not the near black the base theme derives from its own list, and the branch name on top
+        // of the branch color needs whichever ink reads on that color, not a fixed one.
         expect(color).toMatch(/^#[0-9a-f]{6}$/);
-        expect(getReadableMermaidInk(null, mode)).toBe(surfaceInk);
+        expect(getReadableMermaidInk(null, mode)).toBe(DARK_INK);
         expect(variables[`gitBranchLabel${index}`]).toBe(getReadableMermaidInk(color, mode));
-        expect(variables[`gitInv${index}`]).toBe(surfaceInk);
+        expect(variables[`gitInv${index}`]).toBe(DARK_INK);
       });
     });
   });
@@ -132,20 +142,18 @@ describe('getMermaidConfig', () => {
       // Nested theme objects replace the derived ones instead of merging, so a missing key is
       // `undefined` for the renderer rather than a sensible default.
       const xyChart = variables.xyChart as Record<string, string>;
-      expect(xyChart.backgroundColor).toBe(mode === 'dark' ? '#060913' : '#f8fafc');
+      expect(xyChart.backgroundColor).toBe(mermaidSurfaceColors[mode]);
       expect(xyChart.plotColorPalette.split(',')).toHaveLength(10);
       expect((variables.radar as Record<string, unknown>).axisColor).toBeDefined();
     });
   });
 
-  it('gives the packet diagram readable bit numbers instead of the black default', () => {
-    expect(getMermaidConfig('dark').themeVariables?.packet).toMatchObject({
-      startByteColor: '#cbd5e1',
-      titleColor: LIGHT_INK,
-    });
-    expect(getMermaidConfig('light').themeVariables?.packet).toMatchObject({
-      startByteColor: '#334155',
-      titleColor: DARK_INK,
+  it('gives the packet diagram bit numbers that read on the diagram surface', () => {
+    (['dark', 'light'] as const).forEach((mode) => {
+      expect(getMermaidConfig(mode).themeVariables?.packet).toMatchObject({
+        startByteColor: '#334155',
+        titleColor: DARK_INK,
+      });
     });
   });
 });
@@ -158,20 +166,23 @@ describe('withMermaidStyleOverrides', () => {
   );
 
   it('recolors the label colors c4 hard-codes and scopes the rules to the diagram', () => {
-    expect(render('dark')).toContain('#mermaid-1 text[fill="#444444"]{fill:#e2e8f0;');
+    expect(render('dark')).toContain('#mermaid-1 text[fill="#444444"]{fill:#334155;');
     expect(render('light')).toContain('#mermaid-1 text[fill="#444444"]{fill:#334155;');
     expect(render('dark')).not.toContain('<style>text[');
   });
 
   it('haloes the labels that are placed without regard for what is underneath them', () => {
-    expect(render('dark')).toContain('#mermaid-1 g.data-point text{stroke:#1f2a3d;');
+    expect(render('dark')).toContain('#mermaid-1 g.data-point text{stroke:#ffffff;');
     expect(render('light')).toContain('#mermaid-1 g.data-point text{stroke:#ffffff;');
     expect(render('dark')).toContain('paint-order:stroke;');
-    expect(render('dark')).toContain('#mermaid-1 .node-labels text{stroke:#060913;');
+    // The halo of a label on the surface has to be that surface, which is the one thing the two
+    // color modes do not share.
+    expect(render('dark')).toContain(`#mermaid-1 .node-labels text{stroke:${DARK_MODE_SURFACE};`);
+    expect(render('light')).toContain(`#mermaid-1 .node-labels text{stroke:${LIGHT_MODE_SURFACE};`);
   });
 
-  it('blends the sankey flows away from the diagram surface instead of into it', () => {
-    expect(render('dark')).toContain('#mermaid-1 .link{mix-blend-mode:screen;}');
+  it('multiplies the sankey flows onto the light diagram surface in both color modes', () => {
+    expect(render('dark')).toContain('#mermaid-1 .link{mix-blend-mode:multiply;}');
     expect(render('light')).toContain('#mermaid-1 .link{mix-blend-mode:multiply;}');
   });
 
@@ -189,12 +200,13 @@ describe('getReadableMermaidInk', () => {
   });
 
   it('falls back to the diagram surface when no fill is set', () => {
-    expect(getReadableMermaidInk(null, 'dark')).toBe(LIGHT_INK);
+    expect(getReadableMermaidInk(null, 'dark')).toBe(DARK_INK);
     expect(getReadableMermaidInk('none', 'light')).toBe(DARK_INK);
   });
 
   it('resolves translucent fills against the diagram surface', () => {
-    expect(getReadableMermaidInk('rgba(255, 255, 255, 0.05)', 'dark')).toBe(LIGHT_INK);
+    expect(getReadableMermaidInk('rgba(15, 23, 42, 0.05)', 'dark')).toBe(DARK_INK);
+    expect(getReadableMermaidInk('rgba(15, 23, 42, 0.95)', 'dark')).toBe(LIGHT_INK);
   });
 });
 

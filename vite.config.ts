@@ -5,6 +5,12 @@ import { VitePWA } from 'vite-plugin-pwa'
 import pkg from './package.json' with { type: 'json' }
 import { PREVIEW_CHANNEL, resolveAppName } from './src/services/appIdentity.ts'
 
+// The dev server keeps 5173 by default, so the documented URL stays the one it is started on.
+// `PORT` overrides it for a second checkout of this repo — two worktrees cannot both have 5173,
+// and `strictPort` turns that into a hard failure rather than a silent move to another port.
+// Firebase authorises `localhost` as a domain, without a port, so nothing depends on this number.
+const DEV_SERVER_PORT = Number(process.env.PORT) || 5173
+
 // Same URL the App Check SDK would inject itself (`?render=explicit` is what
 // its `loadReCAPTCHAEnterpriseScript` appends).
 const RECAPTCHA_ENTERPRISE_SCRIPT_URL = 'https://www.google.com/recaptcha/enterprise.js?render=explicit'
@@ -325,12 +331,12 @@ export default defineConfig(({ mode }) => ({
   },
   server: {
     host: 'localhost',
-    port: 5173,
+    port: DEV_SERVER_PORT,
     strictPort: true,
     hmr: {
       host: 'localhost',
       protocol: 'ws',
-      clientPort: 5173,
+      clientPort: DEV_SERVER_PORT,
     },
   },
   test: {
