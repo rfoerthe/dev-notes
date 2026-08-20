@@ -2,7 +2,9 @@ import mermaid from 'mermaid';
 import {
   applyMermaidLabelContrast,
   getMermaidConfig,
+  mermaidDiagramInk,
   type MermaidColorMode,
+  mermaidSurfaceColors,
   withMermaidStyleOverrides,
 } from '../../src/components/mermaidTheme';
 import { MERMAID_FIXTURES } from './fixtures';
@@ -393,6 +395,12 @@ const renderMode = async (mode: MermaidColorMode) => {
 
   for (const { kind, code } of MERMAID_FIXTURES) {
     const figure = document.createElement('figure');
+
+    // Every ratio below is measured against this, so it has to be the surface the app paints
+    // behind a diagram rather than a copy of it in the audit page's stylesheet. The ink goes with
+    // it: whatever a diagram draws in `currentColor` picks it up.
+    figure.style.backgroundColor = mermaidSurfaceColors[mode];
+    figure.style.color = mermaidDiagramInk;
     host.appendChild(figure);
 
     try {

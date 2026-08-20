@@ -13,7 +13,10 @@ import {
   applyMermaidLabelContrast,
   applyMermaidLabelContrastToMarkup,
   getMermaidConfig,
+  mermaidDiagramInk,
   type MermaidColorMode,
+  mermaidPanelColors,
+  mermaidSurfaceColors,
   withMermaidStyleOverrides,
 } from './mermaidTheme';
 import { createHeadingIdsByLine, slugifyHeadingText } from './markdownHeadings';
@@ -24,6 +27,8 @@ import { MARKDOWN_REHYPE_PLUGINS, MARKDOWN_REMARK_PLUGINS } from './markdownPlug
 const LANGUAGE_CLASS_REGEX = /language-([^\s]+)/;
 const DEFAULT_LANGUAGE = 'text';
 const MERMAID_LANGUAGE = 'mermaid';
+/** The controls float over the enlarged diagram, so they carry its surface rather than the page. */
+const MERMAID_CONTROL_BACKGROUND = 'rgba(255, 255, 255, 0.86)';
 const MERMAID_ZOOM_DEFAULT = 1;
 const MERMAID_ZOOM_MIN = 0.1;
 const MERMAID_ZOOM_MAX = 8;
@@ -195,10 +200,11 @@ const hashString = (value: string): string => {
   return (hash >>> 0).toString(36);
 };
 
-const getMermaidScrollbarStyles = (mode: MermaidColorMode) => {
-  const trackColor = mode === 'dark' ? 'rgba(15, 23, 42, 0.76)' : 'rgba(226, 232, 240, 0.96)';
-  const thumbColor = mode === 'dark' ? 'rgba(148, 163, 184, 0.58)' : 'rgba(71, 85, 105, 0.62)';
-  const thumbHoverColor = mode === 'dark' ? 'rgba(203, 213, 225, 0.76)' : 'rgba(51, 65, 85, 0.82)';
+/** The scrollbars sit on the diagram surface, which is light in both color modes. */
+const getMermaidScrollbarStyles = () => {
+  const trackColor = 'rgba(226, 232, 240, 0.96)';
+  const thumbColor = 'rgba(71, 85, 105, 0.62)';
+  const thumbHoverColor = 'rgba(51, 65, 85, 0.82)';
 
   return {
     scrollbarColor: `${thumbColor} ${trackColor}`,
@@ -732,6 +738,8 @@ const MermaidDiagram = ({ children, sourceKey }: MermaidDiagramProps) => {
     svg: cachedSvg,
   });
   const borderColor = mode === 'dark' ? 'rgba(255,255,255,0.08)' : 'rgba(15,23,42,0.1)';
+  // Everything below sits on the diagram surface, which stays light in both color modes.
+  const panelColors = mermaidPanelColors[mode];
   const activeRenderState = renderState.key === renderKey
     ? renderState
     : { error: null, key: renderKey, svg: cachedSvg };
@@ -1597,9 +1605,10 @@ const MermaidDiagram = ({ children, sourceKey }: MermaidDiagramProps) => {
       component="figure"
       data-testid="mermaid-diagram"
       sx={{
-        bgcolor: mode === 'dark' ? '#060913' : '#f8fafc',
-        border: `1px solid ${borderColor}`,
+        bgcolor: mermaidSurfaceColors[mode],
+        border: `1px solid ${panelColors.border}`,
         borderRadius: 1,
+        color: mermaidDiagramInk,
         my: 3,
         mx: 0,
         overflow: 'hidden',
@@ -1607,8 +1616,8 @@ const MermaidDiagram = ({ children, sourceKey }: MermaidDiagramProps) => {
     >
       <Box
         sx={{
-          borderBottom: `1px solid ${borderColor}`,
-          bgcolor: mode === 'dark' ? '#111827' : '#e2e8f0',
+          borderBottom: `1px solid ${panelColors.border}`,
+          bgcolor: panelColors.toolbar,
           display: 'flex',
           justifyContent: 'flex-end',
           minHeight: 34,
@@ -1626,12 +1635,12 @@ const MermaidDiagram = ({ children, sourceKey }: MermaidDiagramProps) => {
               sx={{
                 width: 24,
                 height: 24,
-                color: 'text.secondary',
-                bgcolor: mode === 'dark' ? 'rgba(255, 255, 255, 0.04)' : 'rgba(15, 23, 42, 0.035)',
-                border: `1px solid ${borderColor}`,
+                color: panelColors.ink,
+                bgcolor: panelColors.controlBackground,
+                border: `1px solid ${panelColors.border}`,
                 p: 0,
                 '&:hover': {
-                  bgcolor: mode === 'dark' ? 'rgba(255, 255, 255, 0.1)' : 'rgba(15, 23, 42, 0.08)',
+                  bgcolor: panelColors.controlHoverBackground,
                 },
               }}
             >
@@ -1673,7 +1682,7 @@ const MermaidDiagram = ({ children, sourceKey }: MermaidDiagramProps) => {
           <Typography
             component="p"
             sx={{
-              color: 'text.secondary',
+              color: panelColors.ink,
               fontSize: 14,
               m: 0,
             }}
@@ -1692,9 +1701,10 @@ const MermaidDiagram = ({ children, sourceKey }: MermaidDiagramProps) => {
           paper: {
             'aria-label': 'Mermaid-Diagramm vergrößert',
             sx: {
-              bgcolor: mode === 'dark' ? '#060913' : '#f8fafc',
-              border: isZoomMaximized ? 0 : `1px solid ${borderColor}`,
+              bgcolor: mermaidSurfaceColors[mode],
+              border: isZoomMaximized ? 0 : `1px solid ${panelColors.border}`,
               borderRadius: isZoomMaximized ? 0 : 1,
+              color: mermaidDiagramInk,
               height: isZoomMaximized ? '100%' : 'auto',
               maxHeight: isZoomMaximized ? '100%' : '92vh',
               maxWidth: isZoomMaximized ? '100vw' : undefined,
@@ -1712,7 +1722,7 @@ const MermaidDiagram = ({ children, sourceKey }: MermaidDiagramProps) => {
             overflow: isZoomMaximized ? 'hidden' : 'auto',
             p: { xs: 2, md: 4 },
             position: 'relative',
-            ...getMermaidScrollbarStyles(mode),
+            ...getMermaidScrollbarStyles(),
           }}
         >
           <Box
@@ -1733,10 +1743,10 @@ const MermaidDiagram = ({ children, sourceKey }: MermaidDiagramProps) => {
                 component="span"
                 sx={{
                   alignItems: 'center',
-                  bgcolor: mode === 'dark' ? 'rgba(15, 23, 42, 0.86)' : 'rgba(255, 255, 255, 0.86)',
-                  border: `1px solid ${borderColor}`,
+                  bgcolor: MERMAID_CONTROL_BACKGROUND,
+                  border: `1px solid ${panelColors.border}`,
                   borderRadius: 1,
-                  color: 'text.secondary',
+                  color: panelColors.ink,
                   display: 'inline-flex',
                   fontSize: 12,
                   fontVariantNumeric: 'tabular-nums',
@@ -1759,8 +1769,9 @@ const MermaidDiagram = ({ children, sourceKey }: MermaidDiagramProps) => {
                   onClick={handleZoomOut}
                   size="small"
                   sx={{
-                    bgcolor: mode === 'dark' ? 'rgba(15, 23, 42, 0.86)' : 'rgba(255, 255, 255, 0.86)',
-                    border: `1px solid ${borderColor}`,
+                    bgcolor: MERMAID_CONTROL_BACKGROUND,
+                    border: `1px solid ${panelColors.border}`,
+                    color: panelColors.ink,
                   }}
                 >
                   <ZoomOut size={16} />
@@ -1775,8 +1786,9 @@ const MermaidDiagram = ({ children, sourceKey }: MermaidDiagramProps) => {
                   onClick={handleZoomIn}
                   size="small"
                   sx={{
-                    bgcolor: mode === 'dark' ? 'rgba(15, 23, 42, 0.86)' : 'rgba(255, 255, 255, 0.86)',
-                    border: `1px solid ${borderColor}`,
+                    bgcolor: MERMAID_CONTROL_BACKGROUND,
+                    border: `1px solid ${panelColors.border}`,
+                    color: panelColors.ink,
                   }}
                 >
                   <ZoomIn size={16} />
@@ -1789,8 +1801,9 @@ const MermaidDiagram = ({ children, sourceKey }: MermaidDiagramProps) => {
                 onClick={resetZoom}
                 size="small"
                 sx={{
-                  bgcolor: mode === 'dark' ? 'rgba(15, 23, 42, 0.86)' : 'rgba(255, 255, 255, 0.86)',
-                  border: `1px solid ${borderColor}`,
+                  bgcolor: MERMAID_CONTROL_BACKGROUND,
+                  border: `1px solid ${panelColors.border}`,
+                  color: panelColors.ink,
                 }}
               >
                 <RotateCcw size={16} />
@@ -1805,8 +1818,9 @@ const MermaidDiagram = ({ children, sourceKey }: MermaidDiagramProps) => {
                 onClick={toggleZoomMaximized}
                 size="small"
                 sx={{
-                  bgcolor: mode === 'dark' ? 'rgba(15, 23, 42, 0.86)' : 'rgba(255, 255, 255, 0.86)',
-                  border: `1px solid ${borderColor}`,
+                  bgcolor: MERMAID_CONTROL_BACKGROUND,
+                  border: `1px solid ${panelColors.border}`,
+                  color: panelColors.ink,
                 }}
               >
                 {isZoomMaximized ? <Minimize2 size={16} /> : <Maximize size={16} />}
@@ -1818,8 +1832,9 @@ const MermaidDiagram = ({ children, sourceKey }: MermaidDiagramProps) => {
                 onClick={handleDownloadSvg}
                 size="small"
                 sx={{
-                  bgcolor: mode === 'dark' ? 'rgba(15, 23, 42, 0.86)' : 'rgba(255, 255, 255, 0.86)',
-                  border: `1px solid ${borderColor}`,
+                  bgcolor: MERMAID_CONTROL_BACKGROUND,
+                  border: `1px solid ${panelColors.border}`,
+                  color: panelColors.ink,
                   ml: 1,
                 }}
               >
@@ -1832,8 +1847,9 @@ const MermaidDiagram = ({ children, sourceKey }: MermaidDiagramProps) => {
                 onClick={handleCloseZoom}
                 size="small"
                 sx={{
-                  bgcolor: mode === 'dark' ? 'rgba(15, 23, 42, 0.86)' : 'rgba(255, 255, 255, 0.86)',
-                  border: `1px solid ${borderColor}`,
+                  bgcolor: MERMAID_CONTROL_BACKGROUND,
+                  border: `1px solid ${panelColors.border}`,
+                  color: panelColors.ink,
                 }}
               >
                 <X size={16} />
@@ -1865,7 +1881,7 @@ const MermaidDiagram = ({ children, sourceKey }: MermaidDiagramProps) => {
               '& *': {
                 cursor: isPanning ? MERMAID_PAN_CURSOR : MERMAID_SCROLL_ZOOM_CURSOR,
               },
-              ...getMermaidScrollbarStyles(mode),
+              ...getMermaidScrollbarStyles(),
             }}
           >
             <Box

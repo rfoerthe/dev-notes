@@ -15,7 +15,7 @@ The app can run in two modes:
 - Optional closed user group mode that requires visitors to sign in before opening the home feed or article detail pages.
 - GitHub-flavored Markdown rendering with `react-markdown`, `remark-gfm`, and `rehype-sanitize`, including stable linkable heading IDs, blockquotes, lists, tables, task lists, inline formatting, inline code, and renderer tests.
 - Shiki-powered syntax highlighting for fenced code blocks, rendered as compact editor-style code windows with a title bar, language label, horizontal scrolling, and a copy-to-clipboard button.
-- Mermaid diagrams from ```mermaid fenced code blocks, with theme-aware colors, a zoom popup supporting wheel/pinch zoom and drag-to-pan, and SVG downloads. Mermaid is loaded on demand, one chunk per diagram type.
+- Mermaid diagrams from ```mermaid fenced code blocks, with one light diagram palette in both theme modes, a zoom popup supporting wheel/pinch zoom and drag-to-pan, and SVG downloads. Mermaid is loaded on demand, one chunk per diagram type.
 - Math formulas in LaTeX syntax, rendered with KaTeX: `$E = mc^2$` inline and `$$…$$` as display math — on one line, across several lines, or with the fences on their own lines, as on GitHub. Wide formulas scroll horizontally on narrow screens.
 - Markdown in blog titles and teaser summaries, rendered consistently in editor previews, article headers, lists, "Meine Beiträge", and bookmarks.
 - Context-aware back links: the reading and editing views return to the page the post was opened from ("Zurück zur Merkliste", "Zurück zu meinen Beiträgen", "Zurück zur Übersicht") and keep that origin across editing, publishing, and deletion.
@@ -361,7 +361,8 @@ flowchart LR
 
 The diagram support includes:
 
-- A dedicated color palette per theme mode for nodes, subgraphs, edges, and labels, instead of the low-contrast Mermaid defaults.
+- One dedicated color palette for nodes, subgraphs, edges, and labels, instead of the low-contrast Mermaid defaults. Both theme modes render a diagram the same way; in dark mode only the diagram surface is toned down, from `#f8fafc` to `#eaeef6`, so the panel does not glare on a dark page. A second, dark palette would have to re-derive every color of every diagram type for a dark surface, and whatever went un-derived lost its contrast — black bit numbers in packet diagrams, black gantt bars, black git branches, sankey flows multiplied into the background. How far the surface can be toned down is bounded by the palette it carries: `npm run audit:mermaid` measures it, and this value keeps every ratio within a tenth of the light mode's.
+- The panel around a diagram follows the diagram surface rather than the app's color mode — toolbar, borders, zoom controls, scrollbars, and the ink that `currentColor` resolves to inside the SVG, which is what the gantt grid ticks are drawn with.
 - Inline HTML in labels, so `<b>` and `<i>` render as bold and italic text.
 - A zoom popup with mouse-wheel and trackpad zooming up to 800%, two-finger pinch zoom on touch devices, drag-to-pan navigation, a zoom percentage display, fit-to-view reset, and a maximize/restore toggle.
 - SVG downloads from the diagram toolbar or the zoom popup. Downloads always use the light Mermaid theme, regardless of the active application theme.
