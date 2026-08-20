@@ -193,7 +193,7 @@ export async function getBlogById(id: string): Promise<BlogPost | null> {
     }
     return null;
   } catch (err) {
-    console.error(`Failed to fetch blog details for ID ${id}:`, err);
+    console.error('Failed to fetch blog details for ID %s:', id, err);
     return null;
   }
 }
