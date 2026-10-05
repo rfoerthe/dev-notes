@@ -4,11 +4,11 @@ import { fileURLToPath } from 'node:url';
 
 const scriptDir = dirname(fileURLToPath(import.meta.url));
 
-// A single fixed channel keeps the preview URL stable across deploys, so the
-// domain only has to be registered once in the reCAPTCHA Enterprise key that
-// App Check uses. A per-branch channel would mint a new domain every time and
-// break App Check until that domain is allow-listed too.
+// Reuse one channel to preserve its URL while it exists. Firebase deletes
+// expired channels; recreating the same name produces a new domain that must
+// also be registered in the reCAPTCHA Enterprise key used by App Check.
 const DEFAULT_CHANNEL = 'preview';
+const DEFAULT_EXPIRATION = '30d';
 
 const printHelp = () => {
   console.log('');
@@ -25,13 +25,14 @@ const printHelp = () => {
   console.log('');
   console.log('Every channel gets its own preview domain, which has to be registered in');
   console.log('the reCAPTCHA Enterprise key, otherwise App Check blocks all Firestore');
-  console.log('reads there. Sticking to the default channel avoids that upkeep; pass a');
+  console.log('reads there. The URL changes if the channel expires and is recreated.');
+  console.log('Redeploy before expiration to preserve its URL; pass a');
   console.log('branch name (e.g. `git branch --show-current`) only when you need a second');
   console.log('preview in parallel.');
   console.log('');
   console.log('Any further options are passed through to');
   console.log('`firebase hosting:channel:deploy`, e.g. --expires <duration> (max 30d,');
-  console.log('defaults to 7d) or --only <target>.');
+  console.log(`defaults here to ${DEFAULT_EXPIRATION}) or --only <target>.`);
   console.log('');
   console.log('The project id is resolved by scripts/firebase-cli-project.mjs from');
   console.log('FIREBASE_PROJECT_ID or VITE_FIREBASE_PROJECT_ID (also read from .env).');
@@ -50,11 +51,16 @@ const main = () => {
   const passthrough = hasExplicitChannel ? argv.slice(1) : argv;
   const channel =
     (hasExplicitChannel ? argv[0] : process.env.PREVIEW_CHANNEL)?.trim() || DEFAULT_CHANNEL;
+  const hasExpiration = passthrough.some((arg) =>
+    arg === '--expires' || arg.startsWith('--expires=') ||
+    arg === '-e' || arg.startsWith('-e=')
+  );
 
   const args = [
     resolve(scriptDir, 'firebase-cli-project.mjs'),
     'hosting:channel:deploy',
     channel,
+    ...(hasExpiration ? [] : ['--expires', DEFAULT_EXPIRATION]),
     ...passthrough
   ];
 

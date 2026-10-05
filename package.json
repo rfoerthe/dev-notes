@@ -49,7 +49,7 @@
     "@shikijs/langs": "^4.4.3",
     "@shikijs/themes": "^4.4.3",
     "@shikijs/types": "^4.4.3",
-    "firebase": "^12.17.1",
+    "firebase": "^12.19.0",
     "katex": "^0.18.4",
     "lucide-react": "^1.33.0",
     "mermaid": "^11.17.0",
@@ -73,7 +73,7 @@
     "eslint": "^10.8.1",
     "eslint-plugin-react-hooks": "^7.1.1",
     "eslint-plugin-react-refresh": "^0.5.4",
-    "firebase-tools": "^15.28.1",
+    "firebase-tools": "^15.32.1",
     "firebase-admin": "^14.3.0",
     "globals": "^17.11.0",
     "jsdom": "^30.0.1",
@@ -89,10 +89,15 @@
     "@opentelemetry/core": "^2.8.0",
     "glob": "^13.0.6",
     "re2": "^1.26.1",
-    "node-domexception": "file:./patches/node-domexception"
+    "node-domexception": "file:./patches/node-domexception",
+    "@grpc/grpc-js": "^1.14.5",
+    "basic-ftp": "^6.2.2",
+    "firebase-tools": {
+      "chokidar": "^4.0.3"
+    }
   },
   "allowScripts": {
-    "@firebase/util@1.15.2": true,
+    "@firebase/util@1.15.3": true,
     "fsevents@2.3.3": true,
     "protobufjs@7.6.5": true,
     "re2@1.26.1": true
