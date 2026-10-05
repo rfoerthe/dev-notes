@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.4.6] - 2026-10-05
+
+### Fixed
+
+- Footnote links now work in both directions, including separate return links for multiple references to the same footnote. The Markdown renderer preserves target IDs and accessible labels, and generated fragment URLs are aligned with the IDs produced by HTML sanitization.
+- Adjacent footnote numbers are separated by a comma and a space (`1, 2, 3`) instead of appearing as a single number (`123`). Each number remains independently clickable; single references and existing punctuation keep their formatting.
+
 ## [1.4.5] - 2026-08-20
 
 ### Changed
