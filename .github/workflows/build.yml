@@ -29,7 +29,7 @@ jobs:
       run: |
         npm ci
         npm run lint
-        npm audit --omit=dev
+        npm audit
         npm run build
         npm run test
         

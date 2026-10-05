@@ -1,5 +1,18 @@
 # Changelog
 
+## [Unreleased]
+
+### Fixed
+
+- Preview deployments now renew the channel for 30 days by default instead of Firebase CLI's seven-day default, while preserving explicit expiration options. Corrected the documentation: a preview URL remains stable only until its channel is deleted or expires; recreating the same channel requires registering its new domain with the App Check reCAPTCHA Enterprise key.
+
+### Security
+
+- Updated Firebase to 12.19.0 and Firebase CLI to 15.32.1, and refreshed transitive dependencies to patched releases for all 27 open Dependabot alerts as of 2026-10-05. This includes DOMPurify, gRPC, Hono, Undici, brace-expansion, ip-address, js-yaml, morgan, csv-parse and stream-json.
+- Added overrides for `@grpc/grpc-js` 1.14.5 and `basic-ftp` 6.2.2 because their parents still request vulnerable versions.
+- Scoped a Chokidar 4.0.3 override to Firebase CLI, removing its vulnerable `braces` dependency (GHSA-vfj7-8cjw-p6xm). Chokidar 4 supports Firebase's CommonJS imports and the literal rule paths used by this project's Auth/Firestore emulators; integration tests verify rule-file change events, including paths containing braces. Chokidar 4 treats watch/ignore strings as literal paths, so revisit this override before adding Functions emulator glob-based ignore rules.
+- CI now audits development dependencies as well as production dependencies; the full `npm audit` reports zero vulnerabilities.
+
 ## [1.4.6] - 2026-10-05
 
 ### Fixed

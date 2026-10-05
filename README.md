@@ -750,9 +750,11 @@ npm run preview:deploy -- my-channel
 npm run preview:deploy -- my-channel --expires 3d
 ```
 
-The default channel is the fixed name `preview` (overridable with `PREVIEW_CHANNEL`), which keeps the preview URL stable across deploys. Every channel gets its own preview domain, and that domain has to be registered in the reCAPTCHA Enterprise key used by App Check — otherwise App Check blocks all Firestore reads there. Staying on the default channel avoids that upkeep; pass an explicit channel name only when several previews are needed side by side.
+The default channel is the fixed name `preview` (overridable with `PREVIEW_CHANNEL`). Its URL remains stable only while the channel exists. The script sets a 30-day expiration on each deploy, so redeploy before that deadline to keep the channel alive. Firebase deletes expired channels; recreating even the same channel name generates a new random URL suffix. The old URL cannot be selected again through the CLI.
 
-Further options are passed through to `firebase hosting:channel:deploy`, for example `--expires <duration>` (max 30d, default 7d). Run `npm run preview:deploy -- --help` for the full usage.
+Every channel domain must be registered in the reCAPTCHA Enterprise key used by App Check. After a channel is recreated, add its new hostname to that key's allowed domains; the previous hostname does not cover it. Otherwise App Check rejects Firestore reads, including the public app settings and article list, even though Hosting deployed successfully. Keep domain validation and App Check enforcement enabled. Pass an explicit channel name only when several previews are needed side by side.
+
+Further options are passed through to `firebase hosting:channel:deploy`, for example `--expires <duration>` (max 30d, this script defaults to 30d; the bare Firebase CLI defaults to 7d). Run `npm run preview:deploy -- --help` for the full usage.
 
 ## Current Notes
 
