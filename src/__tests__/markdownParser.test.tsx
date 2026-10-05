@@ -123,6 +123,78 @@ describe('Markdown renderer', () => {
     expect((checkboxes[1] as HTMLInputElement).checked).toBe(false);
   });
 
+  it('links footnotes and each repeated reference to existing targets', () => {
+    const markdown = 'Erster Verweis[^quelle], zweiter Verweis[^quelle].\n\n[^quelle]: Eine Quelle.';
+    const { container } = render(<>{renderMarkdown(markdown)}</>);
+    const references = container.querySelectorAll<HTMLAnchorElement>('sup > a');
+    const backlinks = container.querySelectorAll<HTMLAnchorElement>('section li a');
+
+    expect(references.length).toBe(2);
+    expect(backlinks.length).toBe(2);
+    references.forEach((reference) => {
+      expect(document.getElementById(reference.hash.slice(1))?.textContent).toContain('Eine Quelle.');
+    });
+    backlinks.forEach((backlink, index) => {
+      expect(document.getElementById(backlink.hash.slice(1))).toBe(references[index]);
+    });
+    expect(references[0].id).not.toBe(references[1].id);
+  });
+
+  it('preserves the footnote label and accessible backlink names', () => {
+    const { container } = render(<>{renderMarkdown('Ein Verweis[^quelle].\n\n[^quelle]: Eine Quelle.')}</>);
+    const reference = container.querySelector('sup > a');
+    const labelId = reference?.getAttribute('aria-describedby');
+
+    expect(labelId).toBeTruthy();
+    expect(document.getElementById(labelId!)?.textContent).toBe('Footnotes');
+    expect(screen.getByRole('link', { name: 'Back to reference 1' })).toBeTruthy();
+  });
+
+  it('separates adjacent footnote numbers with a comma and space', () => {
+    const markdown = [
+      'Mehrere Quellen[^a][^b][^c]. Einzelne Quelle[^a]. Bereits getrennt[^a], [^b].',
+      '',
+      '[^a]: Quelle A.',
+      '[^b]: Quelle B.',
+      '[^c]: Quelle C.',
+    ].join('\n');
+    const { container } = render(<>{renderMarkdown(markdown)}</>);
+
+    expect(container.querySelector('p')?.textContent).toBe('Mehrere Quellen1, 2, 3. Einzelne Quelle1. Bereits getrennt1, 2.');
+    const references = container.querySelectorAll<HTMLAnchorElement>('sup > a');
+    expect(references.length).toBe(6);
+    references.forEach((reference) => {
+      expect(reference.textContent).toMatch(/^[123]$/);
+      expect(document.getElementById(reference.hash.slice(1))).toBeTruthy();
+    });
+  });
+
+  it('scrolls between a footnote and its repeated references in both directions', () => {
+    const scrollTo = vi.spyOn(window, 'scrollTo').mockImplementation(() => {});
+    window.history.pushState(null, '', '/');
+
+    try {
+      const { container } = render(<>{renderMarkdown('Erster Verweis[^quelle], zweiter Verweis[^quelle].\n\n[^quelle]: Eine Quelle.')}</>);
+      const references = container.querySelectorAll<HTMLAnchorElement>('sup > a');
+      const backlinks = container.querySelectorAll<HTMLAnchorElement>('section li a');
+
+      references.forEach((reference, index) => {
+        fireEvent.click(reference);
+        expect(window.location.hash).toBe(reference.hash);
+        expect(scrollTo).toHaveBeenLastCalledWith({ top: 0, behavior: 'smooth' });
+        scrollTo.mockClear();
+
+        fireEvent.click(backlinks[index]);
+        expect(window.location.hash).toBe(backlinks[index].hash);
+        expect(scrollTo).toHaveBeenLastCalledWith({ top: 0, behavior: 'smooth' });
+        scrollTo.mockClear();
+      });
+    } finally {
+      scrollTo.mockRestore();
+      window.history.pushState(null, '', '/');
+    }
+  });
+
   it('adds linkable ids to headings for table-of-contents anchors', () => {
     const markdown = [
       '## Inhaltsverzeichnis',
