@@ -2003,9 +2003,10 @@ const MarkdownRendererComponent = ({ markdown: rawMarkdown }: MarkdownRendererPr
         {children}
       </Typography>
     ),
-    h2: ({ children, node }) => (
+    h2: ({ children, node, id, className }) => (
       <Typography
-        id={getHeadingId(children, node)}
+        id={id ?? getHeadingId(children, node)}
+        className={className}
         variant="h4"
         component="h3"
         sx={{
@@ -2114,8 +2115,12 @@ const MarkdownRendererComponent = ({ markdown: rawMarkdown }: MarkdownRendererPr
           {children}
         </Typography>
       ),
-      a: ({ children, href }) => (
+      a: ({ children, href, id, className, 'aria-label': ariaLabel, 'aria-describedby': ariaDescribedBy }) => (
         <MuiLink
+          id={id}
+          className={className}
+          aria-label={ariaLabel}
+          aria-describedby={ariaDescribedBy}
           href={href}
           target={href?.startsWith('http') ? '_blank' : undefined}
           rel={href?.startsWith('http') ? 'noreferrer' : undefined}
@@ -2152,8 +2157,8 @@ const MarkdownRendererComponent = ({ markdown: rawMarkdown }: MarkdownRendererPr
           {children}
         </Box>
       ),
-      li: ({ children }) => (
-        <Box component="li" sx={{ mb: 1, fontSize: 17, lineHeight: 1.8, color: 'text.primary' }}>
+      li: ({ children, id }) => (
+        <Box component="li" id={id} sx={{ mb: 1, fontSize: 17, lineHeight: 1.8, color: 'text.primary' }}>
           {children}
         </Box>
       ),
