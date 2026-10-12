@@ -2,10 +2,18 @@
 
 ## [Unreleased]
 
+## [1.4.7] - 2026-10-12
+
 ### Fixed
 
+- Firebase Hosting's Content Security Policy now allows images from any external host, fixing Markdown images that previously showed only their alternative text. Same-origin, data, and blob images remain supported.
+- Images in Markdown articles now stay within the content width and preserve their aspect ratio, preventing large chapter images from overflowing the page.
 - C4 diagram labels now receive automatic contrast correction with Mermaid's current markup, including its default inline white label color. External-system boxes use readable dark labels on their grey fills in both theme modes and in SVG downloads; custom non-white label colors remain unchanged.
 - Preview deployments now renew the channel for 30 days by default instead of Firebase CLI's seven-day default, while preserving explicit expiration options. Corrected the documentation: a preview URL remains stable only until its channel is deleted or expires; recreating the same channel requires registering its new domain with the App Check reCAPTCHA Enterprise key.
+
+### Changed
+
+- Updated Mermaid to 11.17.0, Lucide React to 1.33.0, Firebase Admin to 14.3.0, and Vitest to 4.1.11.
 
 ### Security
 
