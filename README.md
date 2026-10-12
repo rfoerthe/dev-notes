@@ -2,6 +2,8 @@
 
 DevNotes is a developer-focused blog application built with React, TypeScript, Vite, Material UI, Firebase, React Router, and a production Markdown rendering pipeline. It provides an article feed, GitHub-flavored Markdown article pages with syntax-highlighted code blocks, rendered Mermaid diagrams, KaTeX math formulas and automatic table-of-contents navigation, user registration with email verification and approval workflows, protected authoring tools, bookmarks, profile and theme settings, optional analytics consent, and an admin dashboard for managing developer accounts and application settings.
 
+Current release on `main`: **1.4.7** (2026-10-12). See [changelog.md](changelog.md) for release details.
+
 The app can run in two modes:
 
 - Firebase mode, when the required `VITE_FIREBASE_*` environment variables are configured.
@@ -13,7 +15,8 @@ The app can run in two modes:
 - Article cards and detail pages with reading time, German date formatting, author metadata, share links, raw Markdown downloads, a navigation-aligned desktop reading layout, a scroll progress indicator, and bookmark toggles for approved users.
 - Automatic article table-of-contents navigation generated from Markdown headings, shown as sticky desktop side navigation and as a sticky menu button on narrower viewports.
 - Optional closed user group mode that requires visitors to sign in before opening the home feed or article detail pages.
-- GitHub-flavored Markdown rendering with `react-markdown`, `remark-gfm`, and `rehype-sanitize`, including stable linkable heading IDs, blockquotes, lists, tables, task lists, inline formatting, inline code, and renderer tests.
+- GitHub-flavored Markdown rendering with `react-markdown`, `remark-gfm`, and `rehype-sanitize`, including stable linkable heading IDs, blockquotes, lists, tables, task lists, footnotes with return links, inline formatting, inline code, and renderer tests.
+- External Markdown images supported by the Hosting Content Security Policy, constrained to the article width while preserving their aspect ratio.
 - Shiki-powered syntax highlighting for fenced code blocks, rendered as compact editor-style code windows with a title bar, language label, horizontal scrolling, and a copy-to-clipboard button.
 - Mermaid diagrams from ```mermaid fenced code blocks, with one light diagram palette in both theme modes, a zoom popup supporting wheel/pinch zoom and drag-to-pan, and SVG downloads. Mermaid is loaded on demand, one chunk per diagram type.
 - Math formulas in LaTeX syntax, rendered with KaTeX: `$E = mc^2$` inline and `$$…$$` as display math — on one line, across several lines, or with the fences on their own lines, as on GitHub. Wide formulas scroll horizontally on narrow screens.
@@ -43,18 +46,19 @@ The app can run in two modes:
 ## Tech Stack
 
 - React 19
-- TypeScript 6
+- TypeScript 7 for type checking, with the TypeScript 6 API for ESLint tooling
 - Vite 8
 - React Router 7
 - Material UI 9 with Emotion
 - Lucide React icons
 - React Markdown, Remark GFM, Remark Math, Rehype Sanitize, Rehype KaTeX
-- Shiki syntax highlighting
-- Mermaid diagrams
-- Firebase Authentication and Cloud Firestore (`firebase/firestore/lite`)
+- Shiki 4 syntax highlighting
+- Mermaid 11 diagrams
+- KaTeX 0.18 math rendering, shared across the Markdown and Mermaid dependency trees through an npm override
+- Firebase 12 Authentication and Cloud Firestore (`firebase/firestore/lite`)
 - Vite Plugin PWA with Workbox
-- Vitest and Testing Library
-- ESLint
+- Vitest 4 and Testing Library
+- ESLint 10
 
 Node.js is required in one of the versions declared in `package.json`:
 
@@ -74,19 +78,21 @@ src/
   theme/             Material UI theme configuration
   __tests__/         Service, restore utility, search/filter, analytics, back-navigation, Firestore transport, and Markdown renderer tests
 scripts/             Admin/user repair, backup/restore, user cleanup, post maintenance, deploy, and Firebase CLI helpers
+.github/             CI workflow and daily npm Dependabot updates
 docs/                Design specs and implementation plans
 public/              Favicon and the PWA icon set generated from it
 firestore.rules      Cloud Firestore security rules
+firestore.indexes.json Composite index for published posts ordered by publication date
 firebase.json        Firebase Hosting and Firestore configuration
 vite.config.ts       Vite build configuration including manual vendor chunking and the PWA plugin
 ```
 
 ## Getting Started
 
-Install dependencies:
+Install the dependency versions recorded in `package-lock.json`:
 
 ```bash
-npm install
+npm ci
 ```
 
 For local development, start the Firebase emulators first:
@@ -114,11 +120,13 @@ Email: admin@example.local
 Password: LocalAdmin123!
 ```
 
-The app is served by Vite, usually at:
+The app is served by Vite at:
 
 ```text
 http://localhost:5173/
 ```
+
+Vite uses a strict port: if `5173` is occupied, it exits instead of silently choosing another port. Set `PORT` to run a second checkout, for example `PORT=5174 npm run dev:emulator`.
 
 The Firebase Emulator UI is available at:
 
@@ -215,7 +223,9 @@ Quality and release commands:
 
 ```bash
 npm run lint
+npm audit                # Audit production and development dependencies
 npm run test
+npm run audit:mermaid     # Check rendered diagrams in both theme modes (requires Chrome/Chromium)
 npm run build
 npm run preview           # Serve the local production build
 npm run clean             # Remove build and tool artifacts
@@ -225,6 +235,10 @@ npm run deploy:rules      # Deploy Firestore rules and indexes only
 ```
 
 `npm run deploy`, `npm run preview:deploy`, and `npm run deploy:rules` go through `scripts/firebase-cli-project.mjs`, which resolves the Firebase project id from `FIREBASE_PROJECT_ID` or `VITE_FIREBASE_PROJECT_ID` (also read from `.env`) and passes it to the Firebase CLI as `--project`. This avoids deploying to whatever project the CLI happens to have active.
+
+### Continuous Integration
+
+The [GitHub Actions workflow](.github/workflows/build.yml) runs on pushes and pull requests to `main`, using Node.js 22 and 24 on Ubuntu. Each job runs `npm ci`, linting, a full `npm audit` (including development dependencies), the production build, and the Vitest suite. The browser-based Mermaid contrast audit is a separate local command.
 
 ## Running Against Firebase
 
@@ -311,6 +325,17 @@ The editor supports:
 - Saving incomplete work as a private draft and publishing or withdrawing it explicitly.
 - A revision browser with rendered Markdown previews and restoration; every manual update stores the previously current version first.
 
+The client validation in `src/services/securityValidation.ts` and the Firestore rules enforce these post limits:
+
+| Field | Limit |
+|---|---|
+| Title | 150 characters |
+| Summary | 600 characters |
+| Markdown content | 200,000 characters |
+| Tags | 10 per post, 40 characters per tag |
+
+The editor requires a non-empty title, summary, content, and at least one tag to publish. Drafts may be incomplete but must stay within the same limits. Revision snapshots share the title, summary, content, and tag-count limits. Deploy the current Firestore rules when updating an existing installation so the server accepts the current content limit.
+
 ### Back Navigation
 
 The back link at the top of the reading and editing views returns to the page the post was opened from and names it accordingly: "Zurück zur Merkliste" from `/bookmarks`, "Zurück zu meinen Beiträgen" from `/my-posts`, "Zurück zur Übersicht" from the home feed. "Abbrechen" in the editor and in the "Neuer Beitrag" form follows the same target, and "Beitrag löschen" routes to a list the deleted post is gone from.
@@ -334,6 +359,10 @@ The migration treats existing posts as published and normalizes legacy string ti
 ## Markdown and Code Blocks
 
 Article content is rendered with `react-markdown`, `remark-gfm`, and `rehype-sanitize` instead of a custom Markdown parser. This gives DevNotes CommonMark-compatible parsing plus GitHub-flavored Markdown features such as tables, task lists, strikethrough, and autolinks.
+
+Footnotes use the usual `[^name]` reference and `[^name]: Definition` syntax. References link to their definitions, and each definition has return links to its references, including repeated references to the same footnote. Adjacent reference numbers are separated by a comma and a space so they remain individually readable and clickable.
+
+Markdown images such as `![Description](https://example.com/image.png)` can load from external hosts under the Firebase Hosting CSP. Images stay within the article width and retain their aspect ratio. The CSP also permits same-origin, data, and blob image sources.
 
 Markdown headings receive stable linkable IDs. The same heading extraction is used by the renderer and the article table of contents, so generated links stay aligned with the rendered content, including duplicate headings, German umlauts, Setext headings, and fenced code blocks that contain Markdown-looking text.
 
@@ -364,12 +393,23 @@ The diagram support includes:
 - One dedicated color palette for nodes, subgraphs, edges, and labels, instead of the low-contrast Mermaid defaults. Both theme modes render a diagram the same way; in dark mode only the diagram surface is toned down, from `#f8fafc` to `#eaeef6`, so the panel does not glare on a dark page. A second, dark palette would have to re-derive every color of every diagram type for a dark surface, and whatever went un-derived lost its contrast — black bit numbers in packet diagrams, black gantt bars, black git branches, sankey flows multiplied into the background. How far the surface can be toned down is bounded by the palette it carries: `npm run audit:mermaid` measures it, and this value keeps every ratio within a tenth of the light mode's.
 - The panel around a diagram follows the diagram surface rather than the app's color mode — toolbar, borders, zoom controls, scrollbars, and the ink that `currentColor` resolves to inside the SVG, which is what the gantt grid ticks are drawn with.
 - Inline HTML in labels, so `<b>` and `<i>` render as bold and italic text.
+- Automatic label contrast correction against the shape fill, including Mermaid 11.17 C4 labels and their default inline white color. Custom non-white C4 label colors are preserved; the correction also applies to SVG downloads.
 - A zoom popup with mouse-wheel and trackpad zooming up to 800%, two-finger pinch zoom on touch devices, drag-to-pan navigation, a zoom percentage display, fit-to-view reset, and a maximize/restore toggle.
 - SVG downloads from the diagram toolbar or the zoom popup. Downloads always use the light Mermaid theme, regardless of the active application theme.
 - Rendering results are cached, so unchanged diagrams are not re-rendered while scrolling an article.
 - Invalid Mermaid syntax shows a compact fallback with the original code instead of breaking the page.
 
-Mermaid is loaded dynamically and split into one chunk per diagram type, so it is not part of the initial page load. The manual chunking in `vite.config.ts` keeps Mermaid and its exclusive dependencies (d3, cytoscape, katex, roughjs, dagre) out of the eagerly loaded vendor chunk.
+Mermaid is loaded dynamically and split into one chunk per diagram type, so it is not part of the initial page load. The manual chunking in `vite.config.ts` keeps Mermaid and its exclusive dependencies (d3, cytoscape, roughjs, dagre) out of the eagerly loaded vendor chunk. KaTeX is shared with the Markdown math renderer and loads eagerly in its own `vendor-katex` chunk.
+
+To check diagram contrast after changing the theme or upgrading Mermaid:
+
+```bash
+npm run audit:mermaid
+npm run audit:mermaid -- --strict
+npm run audit:mermaid -- --json
+```
+
+The audit renders fixtures with the application's theme in headless Chrome/Chromium; set `CHROME_BIN` if the browser is not found automatically. The default report fails on rendering errors, unreadable labels, or new shapes that become faint in only one theme mode, excluding recorded shape findings in `scripts/mermaid-contrast-audit/known-findings.json`. `--strict` additionally lists shapes below the 3:1 WCAG contrast ratio for information; it does not change the blocking rule. `--json` emits raw measurements and counts all shape regressions, including those in the baseline.
 
 Blog titles and teaser summaries also support Markdown. They are rendered with the same pipeline in the create/edit forms, previews, article detail headers, article lists, "Meine Beiträge", and bookmarks.
 
@@ -632,10 +672,13 @@ The app currently uses these Firestore collections:
 - `users`: user profile, role, status, and account metadata.
 - `usernames`: username reservations used to prevent duplicate usernames without exposing the full user collection.
 - `blogs`: blog post documents with title, summary, content, tags, read time, author metadata, and timestamps.
+- `blogs/{blogId}/revisions`: protected snapshots of previous title, summary, content, tags, and status, with `savedAt`, `savedBy`, and `savedByName` metadata.
 - `users/{uid}/bookmarks`: private per-user bookmark documents keyed by blog ID.
 - `appSettings/public`: public application settings such as closed user group mode, with admin-only writes.
 
 Firestore rules enforce role and status checks, email verification checks for write access, dynamic article read protection for closed user group mode, immutable ownership fields, profile/email invariants, coupled username reservations, bookmark ownership, field type validation, server-generated blog creation timestamps, tag limits, read-time bounds, and content size limits.
+
+Blog documents use `status: "draft" | "published"`, `createdAt`, `updatedAt`, and `publishedAt`; drafts have `publishedAt: null`. Public queries select published posts and order them by `publishedAt` using the composite index in `firestore.indexes.json`. Revision reads and deletes are restricted to the author and admins. The editor saves the previous version and updates the post in one atomic batch; existing revision snapshots cannot be modified through the browser client.
 
 ## Security Hardening
 
@@ -704,7 +747,7 @@ iOS does not read the manifest's icons or display mode, so `index.html` addition
 
 ### What is cached
 
-Only the app shell is precached: `index.html`, the stylesheet, the icons, the eagerly preloaded `index-*`, `rolldown-runtime-*`, and `vendor-*` chunks, the lazily routed pages (`route-*`) and Rolldown's shared app-code chunks (`shared-*`, both named in `chunkFileNames` in `vite.config.ts`) — 38 entries, roughly 1.8 MB. Precaching the page chunks keeps a shell that the service worker still serves after a deploy consistent with the pages it links to; without it, opening a page for the first time would request a chunk hash that no longer exists on Hosting. This is deliberate. The build emits more than 450 chunks because Shiki ships one per language and Mermaid one per diagram type, so a `**/*.js` precache would push about 13 MB at install time. Those lazy chunks are cached at runtime with `StaleWhileRevalidate` when they are first requested; the Google Fonts stylesheet and font files get their own runtime caches.
+Only the app shell is precached: `index.html`, the stylesheet, the icons, the `index-*`, `rolldown-runtime-*`, and `vendor-*` chunks, the lazily routed pages (`route-*`) and Rolldown's shared app-code chunks (`shared-*`, both named in `chunkFileNames` in `vite.config.ts`). Precaching the page chunks keeps a shell that the service worker still serves after a deploy consistent with the pages it links to; without it, opening a page for the first time would request a chunk hash that no longer exists on Hosting. The exact cache size and chunk count depend on the build. Shiki ships one chunk per language and Mermaid one per diagram type, so these lazy chunks are cached at runtime with `StaleWhileRevalidate` when they are first requested; the Google Fonts stylesheet and font files get their own runtime caches.
 
 Navigation requests fall back to the precached shell, with two exceptions: `/__/*`, which Firebase Auth uses for its redirect handler, and the static `translation-edit-prototype.html`.
 
@@ -742,7 +785,7 @@ This builds the app and runs `firebase deploy` against the project id resolved f
 
 ### Preview Channels
 
-`npm run preview:deploy` builds the app and publishes it to a Firebase Hosting preview channel, so a change can be reviewed under a temporary URL without touching the live site. The build is identical to `npm run deploy`, which means the preview runs against the production database.
+`npm run preview:deploy` builds the app with `VITE_APP_CHANNEL=preview` and publishes it to a Firebase Hosting preview channel, so a change can be reviewed under a temporary URL without touching the live site. This changes the app name and window/tab titles to include `(Preview)`, while keeping the configured Firebase backend. With the production Firebase configuration, preview reads and writes use the production database. Preview channel deployment publishes Hosting only; deploy changed Firestore rules and indexes separately with `npm run deploy:rules`.
 
 ```bash
 npm run preview:deploy
