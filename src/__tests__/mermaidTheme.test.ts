@@ -44,6 +44,22 @@ const renderSvg = (markup: string) => {
   return host;
 };
 
+// Current Mermaid C4 markup includes its default white color as an inline label style.
+const createC4Svg = (fill: string, labelColor = '#FFFFFF') => `
+  <svg xmlns="http://www.w3.org/2000/svg">
+    <g class="node c4-shape c4-external_system c4-external">
+      <rect class="basic label-container" style="fill:${fill} !important"></rect>
+      <g class="label" style="color:${labelColor} !important">
+        <text style="fill:currentColor">
+          <tspan class="c4-name">CDN</tspan>
+          <tspan class="c4-type">[Software System]</tspan>
+          <tspan class="c4-descr">Auslieferung der öffentlichen Seiten</tspan>
+        </text>
+      </g>
+    </g>
+  </svg>
+`;
+
 afterEach(() => {
   document.body.innerHTML = '';
 });
@@ -211,6 +227,32 @@ describe('getReadableMermaidInk', () => {
 });
 
 describe('applyMermaidLabelContrast', () => {
+  it.each([
+    ['light', '#999999', DARK_INK_RGB],
+    ['dark', '#999999', DARK_INK_RGB],
+    ['light', '#08427b', LIGHT_INK_RGB],
+    ['dark', '#08427b', LIGHT_INK_RGB],
+  ] as const)('corrects default C4 labels in %s mode on %s fills', (mode, fill, expectedInk) => {
+    const host = renderSvg(createC4Svg(fill));
+
+    applyMermaidLabelContrast(host, mode);
+
+    host.querySelectorAll<SVGElement>('text, tspan').forEach((label) => {
+      expect(label.style.fill).toBe(expectedInk);
+      expect(label.style.getPropertyPriority('fill')).toBe('important');
+    });
+  });
+
+  it('preserves a custom C4 label color', () => {
+    const host = renderSvg(createC4Svg('#999999', '#112233'));
+
+    applyMermaidLabelContrast(host, 'light');
+
+    expect(host.querySelector('g.c4-shape')?.hasAttribute('data-mermaid-ink')).toBe(false);
+    expect(host.querySelector<SVGElement>('g.label')?.style.color).toBe('rgb(17, 34, 51)');
+    expect(host.querySelector<SVGElement>('tspan')?.style.fill).toBe('');
+  });
+
   it('recolors labels of nodes whose fill was overridden by the diagram author', () => {
     const host = renderSvg(createNodeSvg({ fill: '#eef' }));
 
@@ -283,6 +325,13 @@ describe('applyMermaidLabelContrast', () => {
 });
 
 describe('applyMermaidLabelContrastToMarkup', () => {
+  it('corrects default C4 labels in downloaded SVG markup', () => {
+    const markup = applyMermaidLabelContrastToMarkup(createC4Svg('#999999'), 'light');
+    const host = renderSvg(markup);
+
+    expect(host.querySelector<SVGElement>('tspan.c4-name')?.style.fill).toBe(DARK_INK_RGB);
+  });
+
   it('returns markup with corrected label colors and leaves no helper node behind', () => {
     const markup = applyMermaidLabelContrastToMarkup(createNodeSvg({ fill: '#0f172a' }), 'light');
 

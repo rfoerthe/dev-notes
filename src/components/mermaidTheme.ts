@@ -484,8 +484,9 @@ const LABEL_CONTAINER_SELECTORS = [
   'g.statediagram-cluster',
   'g.classGroup',
   'g.stateGroup',
-  // C4 wraps every shape — person, system, container, component — in this group and always
-  // labels it white, which is unreadable on the lighter shades of the C4 palette.
+  // C4 defaults to white labels, which do not read on its grey external-system boxes.
+  'g.c4-shape',
+  // Older Mermaid versions used this group for C4 shapes.
   'g.person-man',
 ].join(', ');
 
@@ -496,12 +497,22 @@ const readInlineDeclaration = (element: Element | null | undefined, property: st
 
 /**
  * Mermaid writes an explicit `color:` from `style`/`classDef` onto the label group.
- * Those are deliberate author choices and stay untouched.
+ * Those are deliberate author choices and stay untouched. C4 also emits its default white
+ * as an inline color; it is indistinguishable from an explicit white choice and must be
+ * corrected against the shape fill. Other custom C4 label colors stay untouched.
  */
-const getAuthorLabelColor = (container: Element): string | null => (
-  readInlineDeclaration(container.querySelector(':scope > g.label'), 'color')
-  ?? readInlineDeclaration(container.querySelector(':scope > .cluster-label'), 'color')
-);
+const getAuthorLabelColor = (container: Element): string | null => {
+  const color = readInlineDeclaration(container.querySelector(':scope > g.label'), 'color')
+    ?? readInlineDeclaration(container.querySelector(':scope > .cluster-label'), 'color');
+  const parsed = parseCssColor(color);
+
+  if (container.matches('g.c4-shape') && parsed?.alpha === 1
+    && parsed.red === 255 && parsed.green === 255 && parsed.blue === 255) {
+    return null;
+  }
+
+  return color;
+};
 
 // The computed value already covers inline styles, class rules and presentation attributes;
 // the other two are the fallback for environments without a layout engine.
